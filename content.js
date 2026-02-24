@@ -6,7 +6,7 @@
 
 (() => {
   // ── Supported trading pairs ─────────────────────────────────────────────────
-  const SUPPORTED_SYMBOLS = ["ETH", "BTC"];
+  const SUPPORTED_SYMBOLS = ["BTC", "ETH", "SOL", "XRP", "DOGE", "ADA"];
   const UNSUPPORTED_OVERLAY_ID = "hf-unsupported-overlay";
 
   const ACCOUNT = {
