@@ -2,6 +2,10 @@
 
 const LOW_BALANCE_THRESHOLD = 1000;
 
+const TEST_MODE = true;
+const HL_API_URL = TEST_MODE ? "https://api.hyperliquid-testnet.xyz" : "https://api.hyperliquid.xyz";
+const HL_APP_URL = TEST_MODE ? "https://app.hyperliquid-testnet.xyz" : "https://app.hyperliquid.xyz";
+
 // Listen for extension icon clicks
 chrome.action.onClicked.addListener((tab) => {
   showPositionNotification();
@@ -29,12 +33,26 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
+  if (request.action === 'fetchTraderLimits') {
+    fetchTraderLimits(request.address)
+      .then(data => sendResponse({ success: true, data }))
+      .catch(err => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
   if (request.action === 'lowBalanceWarning') {
     showLowBalanceNotification(request.balance);
     sendResponse({ success: true });
     return true;
   }
 });
+
+// Fetch trader limits from validator endpoint
+async function fetchTraderLimits(address) {
+  const res = await fetch(`http://localhost:48888/hl-traders/${address}/limits`);
+  if (!res.ok) throw new Error(`Validator limits API error ${res.status}`);
+  return res.json();
+}
 
 // Fetch trader data from validator endpoint
 async function fetchValidatorData(address) {
@@ -45,7 +63,7 @@ async function fetchValidatorData(address) {
 
 // Fetch account state from Hyperliquid API
 async function fetchHLBalance(address) {
-  const res = await fetch('https://api.hyperliquid.xyz/info', {
+  const res = await fetch(HL_API_URL + '/info', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ type: 'clearinghouseState', user: address })
@@ -130,7 +148,6 @@ function showPositionNotification() {
 // Optional: Handle notification clicks
 chrome.notifications.onClicked.addListener((notificationId) => {
   if (notificationId === 'hyperfunded-position') {
-    // Open Hyperliquid in new tab
-    chrome.tabs.create({ url: 'https://app.hyperliquid.xyz' });
+    chrome.tabs.create({ url: HL_APP_URL });
   }
 });

@@ -61,6 +61,21 @@
   font-weight: 600 !important;
 }
 
+#hf-banner .hf-testnet-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  padding: 2px 7px !important;
+  margin-left: 6px !important;
+  background: rgba(251, 191, 36, 0.15) !important;
+  border: 1px solid rgba(251, 191, 36, 0.35) !important;
+  border-radius: 4px !important;
+  font-size: 9px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.06em !important;
+  color: rgb(251, 191, 36) !important;
+  white-space: nowrap !important;
+}
+
 #hf-banner .hf-divider {
   display: block !important;
   width: 1px !important;
@@ -415,4 +430,32 @@
   background: rgba(239, 68, 68, 0.25) !important;
   border-color: rgba(239, 68, 68, 0.55) !important;
   color: #ffffff !important;
+}
+
+/* Hard-disabled trade buttons (applied directly to HL order button). */
+button.hf-trade-blocked,
+button.hf-trade-blocked:disabled {
+  pointer-events: none !important;
+  cursor: not-allowed !important;
+  opacity: 0.4 !important;
+  filter: grayscale(0.3) !important;
+}
+
+.hf-modal-confirm-hidden,
+.hf-modal-confirm-hidden:disabled {
+  display: none !important;
+}
+
+.hf-modal-limit-warning {
+  margin-top: 16px !important;
+  margin-bottom: 8px !important;
+  padding: 12px 14px !important;
+  border-radius: 8px !important;
+  text-align: center !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  line-height: 1.35 !important;
+  color: #fca5a5 !important;
+  background: rgba(239, 68, 68, 0.14) !important;
+  border: 1px solid rgba(239, 68, 68, 0.35) !important;
 }

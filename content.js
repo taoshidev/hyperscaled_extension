@@ -5,10 +5,16 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 (() => {
+  // ── Environment detection ─────────────────────────────────────────────────
+  const IS_TESTNET = location.hostname === "app.hyperliquid-testnet.xyz";
+  const HL_APP_ORIGIN = IS_TESTNET
+    ? "https://app.hyperliquid-testnet.xyz"
+    : "https://app.hyperliquid.xyz";
+
   // ── Supported trading pairs ─────────────────────────────────────────────────
   const SUPPORTED_SYMBOLS = ["BTC", "ETH", "SOL", "XRP", "DOGE", "ADA"];
   const UNSUPPORTED_OVERLAY_ID = "hf-unsupported-overlay";
-  const LOW_BALANCE_THRESHOLD = 1000;
+  const LOW_BALANCE_THRESHOLD = 1; // TODO change to 1000
   const LOW_BALANCE_OVERLAY_ID = "hf-low-balance-overlay";
   const BALANCE_CHECK_INTERVAL = 30000;
 
@@ -26,16 +32,20 @@
     drawdownMax: 5,
     openSingleUsed: 0,
     openTotalUsed: 0,
+    maxPositionPerPair: 0,
+    maxPortfolio: 0,
+    notionalByPair: {},
   };
 
   let validatorDataLoaded = false;
+  let limitsLoaded = false;
 
   const BANNER_ID = "hf-banner";
   const LAYOUT_STYLE_ID = "hf-layout-fix";
   const BANNER_HEIGHT = 48;
 
-  const MAX_SINGLE = () => ACCOUNT.hlBalance * 0.625;
-  const MAX_TOTAL = () => ACCOUNT.hlBalance * 1.25;
+  const MAX_SINGLE = () => ACCOUNT.maxPositionPerPair || (ACCOUNT.hlBalance * 0.625);
+  const MAX_TOTAL = () => ACCOUNT.maxPortfolio || (ACCOUNT.hlBalance * 1.25);
 
   const fmt = (n) =>
     "$" +
@@ -56,7 +66,7 @@
     return `
       <div class="hf-inner">
         <div class="hf-brand">
-          <span class="hf-logo">Hyper<b>scaled</b></span>
+          <span class="hf-logo">Hyper<b>scaled</b></span>${IS_TESTNET ? '<span class="hf-testnet-badge">TESTNET</span>' : ''}
           <span class="hf-divider"></span>
           <span class="hf-hl-bal">${fmt(ACCOUNT.hlBalance)}</span>
           <span class="hf-low-badge" id="hf-low-badge" style="display:none">LOW BALANCE</span>
@@ -138,6 +148,10 @@
 
   function teardown() {
     if (isLowBalance || !balanceVerified) return;
+    shouldBlockTrade = false;
+    enforceTradeBlock();
+    stopTradeBlockObserver();
+    uninstallTradeGuards();
     stopBindingLoop();
     stopBalanceChecking();
     document.getElementById(BANNER_ID)?.remove();
@@ -275,6 +289,37 @@
     return null;
   }
 
+  async function fetchTraderLimits() {
+    const address = await getUserAddress();
+    if (!address) return;
+
+    try {
+      const result = await new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage(
+          { action: "fetchTraderLimits", address },
+          (response) => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+              return;
+            }
+            if (response?.success) resolve(response.data);
+            else reject(new Error(response?.error || "Unknown error"));
+          }
+        );
+      });
+
+      if (result.max_position_per_pair_usd != null) {
+        ACCOUNT.maxPositionPerPair = parseFloat(result.max_position_per_pair_usd) || 0;
+      }
+      if (result.max_portfolio_usd != null) {
+        ACCOUNT.maxPortfolio = parseFloat(result.max_portfolio_usd) || 0;
+      }
+      limitsLoaded = true;
+    } catch (e) {
+      console.error("[Hyperscaled] Trader limits fetch failed:", e);
+    }
+  }
+
   async function fetchValidatorData() {
     const address = await getUserAddress();
     if (!address) return;
@@ -304,13 +349,21 @@
       let totalNotional = 0;
       let maxSingleNotional = 0;
 
+      // Build per-pair notional map
+      const notionalByPair = {};
       for (const pos of positions) {
         const unrealizedPnl = parseFloat(pos.unrealized_pnl) || 0;
         const notional = Math.abs(parseFloat(pos.position_value || pos.notional || 0));
         totalUnrealizedPnl += unrealizedPnl;
         totalNotional += notional;
         if (notional > maxSingleNotional) maxSingleNotional = notional;
+
+        const coin = (pos.coin || pos.symbol || "").toUpperCase();
+        if (coin) {
+          notionalByPair[coin] = (notionalByPair[coin] || 0) + notional;
+        }
       }
+      ACCOUNT.notionalByPair = notionalByPair;
 
       if (ACCOUNT.fundedSize > 0) {
         ACCOUNT.challengeCurrent = parseFloat(((totalUnrealizedPnl / ACCOUNT.fundedSize) * 100).toFixed(2));
@@ -370,6 +423,11 @@
       });
 
       currentBalance = result.accountValue;
+      currentBalance = result.accountValue;
+      if (IS_TESTNET) {
+        currentBalance = 10;
+      }
+
       ACCOUNT.hlBalance = currentBalance;
       balanceVerified = true;
 
@@ -416,7 +474,7 @@
       title: "Trading Disabled",
       showAmount: true,
       msg: `Your Hyperliquid balance is below <b>$THRESHOLD</b>.<br>New trades are blocked to protect your account.<br>Deposit funds to resume trading.`,
-      btn: { text: "Go to Portfolio →", href: "https://app.hyperliquid.xyz/portfolio" },
+      btn: { text: "Go to Portfolio →", href: HL_APP_ORIGIN + "/portfolio" },
     },
     "error": {
       icon: "⚠️",
@@ -489,10 +547,12 @@
   function startBalanceChecking() {
     checkBalance();
     fetchValidatorData();
+    fetchTraderLimits();
     if (balanceCheckTimer) clearInterval(balanceCheckTimer);
     balanceCheckTimer = setInterval(() => {
       checkBalance();
       fetchValidatorData();
+      fetchTraderLimits();
     }, BALANCE_CHECK_INTERVAL);
   }
 
@@ -507,6 +567,7 @@
     if (namespace === "local" && changes.hlAddress) {
       checkBalance();
       fetchValidatorData();
+      fetchTraderLimits();
     }
   });
 
@@ -637,9 +698,9 @@
       if (overSingle && overTotal) {
         msg = `Exceeds both limits — ${fmt(leftSingle)} single / ${fmt(leftTotal)} total available`;
       } else if (overSingle) {
-        msg = `Over 62.5% single limit — max ${fmt(leftSingle)} available`;
+        msg = `Over per-pair limit (${fmt(maxSingle)}) — max ${fmt(leftSingle)} available`;
       } else if (overTotal) {
-        msg = `Over 125% total limit — max ${fmt(leftTotal)} available`;
+        msg = `Over portfolio limit (${fmt(maxTotal)}) — max ${fmt(leftTotal)} available`;
       } else if (worstPct >= 80) {
         msg = `Approaching limit — ${fmt(Math.min(leftSingle, leftTotal) - p)} remaining after this order`;
       }
@@ -654,6 +715,317 @@
         warnText.textContent = "";
       }
     }
+
+    // Disable/enable trade buttons based on limit check
+    checkAndBlockButtons();
+  }
+
+  // ── React-compatible input value setter ──────────────────────────────────────
+  function setInputValue(input, value) {
+    const nativeSetter = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype, 'value'
+    ).set;
+    nativeSetter.call(input, value > 0 ? value.toFixed(2) : '');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  // ── Input clamping ──────────────────────────────────────────────────────────
+  let isClampingInProgress = false;
+
+  function clampInputIfNeeded(input) {
+    // Clamping works even if API limits aren't loaded yet (uses balance-based fallbacks)
+    // But we need balance to be verified first
+    if (!balanceVerified || ACCOUNT.hlBalance <= 0) return;
+    if (isClampingInProgress) return;
+
+    const v = parseNumber(input.value);
+    if (v <= 0) return;
+
+    const symbol = getCurrentSymbol();
+    const currentPairNotional = (symbol && ACCOUNT.notionalByPair[symbol]) || 0;
+
+    const leftSingle = MAX_SINGLE() - currentPairNotional;
+    const leftTotal = MAX_TOTAL() - ACCOUNT.openTotalUsed;
+    const maxAllowed = Math.max(Math.min(leftSingle, leftTotal), 0);
+
+    if (v > maxAllowed) {
+      isClampingInProgress = true;
+      setInputValue(input, maxAllowed);
+      isClampingInProgress = false;
+
+      // Show warning
+      const warnEl = document.getElementById("hf-warn");
+      const warnText = document.getElementById("hf-warn-text");
+      if (warnEl && warnText) {
+        warnEl.classList.add("hf-warn--on");
+        warnText.textContent = `Clamped to ${fmt(maxAllowed)} — position limit reached`;
+      }
+    }
+  }
+
+  // ── Submit button blocking ──────────────────────────────────────────────────
+  // HL renders "Place Order" as a real <button> with styled-components classes
+  // like "sc-ftTHYK". We disable it by setting the `disabled` attribute and
+  // inline styles. React will try to remove `disabled` on re-render, so we
+  // use a MutationObserver to re-apply it immediately.
+
+  const TRADE_BTN_KEYWORDS = ["place order", "buy", "sell", "long", "short"];
+  const TRADE_BLOCK_CLASS = "hf-trade-blocked";
+  const MODAL_BLOCK_MSG_ID = "hf-modal-limit-msg";
+  let shouldBlockTrade = false;
+  let tradeBlockObserver = null;
+  let tradeBlockEnforceQueued = false;
+  let isEnforcingBlock = false;
+  let tradeGuardsInstalled = false;
+  let tradeGuardAbort = null;
+
+  function normalizeTradeText(text) {
+    return (text || "").replace(/\s+/g, " ").trim().toLowerCase();
+  }
+
+  function isTradeButton(btn) {
+    if (!(btn instanceof HTMLButtonElement)) return false;
+    if (btn.closest("#hf-banner")) return false; // never touch our own UI
+    const text = normalizeTradeText(btn.textContent);
+    if (TRADE_BTN_KEYWORDS.some((kw) => text.includes(kw))) return true;
+    const aria = normalizeTradeText(btn.getAttribute("aria-label"));
+    return TRADE_BTN_KEYWORDS.some((kw) => aria.includes(kw));
+  }
+
+  function findTradeButtons() {
+    const results = [];
+    const buttons = document.querySelectorAll("button");
+    for (const btn of buttons) {
+      if (isTradeButton(btn)) {
+        results.push(btn);
+      }
+    }
+    return results;
+  }
+
+  function applyBlockToButton(btn) {
+    if (btn.classList.contains(TRADE_BLOCK_CLASS) && btn.disabled) return;
+    btn.disabled = true;
+    btn.setAttribute("aria-disabled", "true");
+    btn.classList.add(TRADE_BLOCK_CLASS);
+    btn.style.setProperty("pointer-events", "none", "important");
+    btn.style.setProperty("opacity", "0.4", "important");
+    btn.style.setProperty("filter", "grayscale(0.3)", "important");
+    btn.style.setProperty("cursor", "not-allowed", "important");
+  }
+
+  function removeBlockFromButton(btn) {
+    if (!btn.classList.contains(TRADE_BLOCK_CLASS) && !btn.disabled) return;
+    btn.disabled = false;
+    btn.removeAttribute("aria-disabled");
+    btn.classList.remove(TRADE_BLOCK_CLASS);
+    btn.style.removeProperty("pointer-events");
+    btn.style.removeProperty("opacity");
+    btn.style.removeProperty("filter");
+    btn.style.removeProperty("cursor");
+  }
+
+  function enforceTradeBlock() {
+    if (isEnforcingBlock) return;
+    isEnforcingBlock = true;
+    try {
+      const buttons = findTradeButtons();
+      for (const btn of buttons) {
+        if (shouldBlockTrade) {
+          applyBlockToButton(btn);
+        } else {
+          removeBlockFromButton(btn);
+        }
+      }
+      enforceConfirmModalBlock();
+    } finally {
+      isEnforcingBlock = false;
+    }
+  }
+
+  function findConfirmOrderModal() {
+    const walker = document.createTreeWalker(
+      document.body,
+      NodeFilter.SHOW_ELEMENT,
+      null
+    );
+    let node;
+    while ((node = walker.nextNode())) {
+      if (node.id === BANNER_ID || node.closest(`#${BANNER_ID}`)) continue;
+      if (node.children && node.children.length > 0) continue;
+      const t = (node.textContent || "").trim();
+      if (t !== "Confirm Order") continue;
+
+      let container = node;
+      for (let i = 0; i < 10 && container.parentElement; i++) {
+        container = container.parentElement;
+        if (container === document.body) break;
+        const btns = getModalConfirmButtons(container);
+        if (btns.length > 0) return container;
+      }
+    }
+    return null;
+  }
+
+  const MODAL_CONFIRM_KW = ["buy", "sell", "long", "short"];
+
+  function getModalConfirmButtons(container) {
+    const buttons = [...container.querySelectorAll("button")];
+    return buttons.filter((btn) => {
+      if (btn.closest(`#${BANNER_ID}`)) return false;
+      const txt = normalizeTradeText(btn.textContent);
+      if (!txt) return false;
+      if (txt === "x" || txt === "\u00d7" || txt === "\u2715") return false;
+      return MODAL_CONFIRM_KW.some((kw) => txt.includes(kw));
+    });
+  }
+
+  function applyModalBlock(modal) {
+    const confirmButtons = getModalConfirmButtons(modal);
+    for (const btn of confirmButtons) {
+      btn.classList.add("hf-modal-confirm-hidden");
+      if (!btn.disabled) btn.disabled = true;
+      btn.setAttribute("aria-disabled", "true");
+    }
+
+    if (!document.getElementById(MODAL_BLOCK_MSG_ID)) {
+      const msg = document.createElement("div");
+      msg.id = MODAL_BLOCK_MSG_ID;
+      msg.className = "hf-modal-limit-warning";
+      msg.innerHTML = "&#9888;&#65039; Order blocked — you are over your position limit.";
+      const anchor = confirmButtons[0];
+      if (anchor && anchor.parentElement) {
+        anchor.parentElement.insertBefore(msg, anchor);
+      } else {
+        modal.appendChild(msg);
+      }
+    }
+  }
+
+  function removeModalBlock(modal) {
+    document.getElementById(MODAL_BLOCK_MSG_ID)?.remove();
+    for (const btn of getModalConfirmButtons(modal)) {
+      btn.classList.remove("hf-modal-confirm-hidden");
+      btn.removeAttribute("aria-disabled");
+      if (btn.classList.contains(TRADE_BLOCK_CLASS)) continue;
+      if (btn.disabled) btn.disabled = false;
+    }
+  }
+
+  function enforceConfirmModalBlock() {
+    const modal = findConfirmOrderModal();
+    if (!modal) {
+      document.getElementById(MODAL_BLOCK_MSG_ID)?.remove();
+      return;
+    }
+    if (shouldBlockTrade) applyModalBlock(modal);
+    else removeModalBlock(modal);
+  }
+
+  function queueTradeBlockEnforce() {
+    if (tradeBlockEnforceQueued || isEnforcingBlock) return;
+    tradeBlockEnforceQueued = true;
+    queueMicrotask(() => {
+      tradeBlockEnforceQueued = false;
+      enforceTradeBlock();
+    });
+  }
+
+  // MutationObserver on document.body (not just #root) so we catch React
+  // portals that render the Confirm Order modal as siblings of #root.
+  function startTradeBlockObserver() {
+    if (tradeBlockObserver) return;
+    tradeBlockObserver = new MutationObserver(() => {
+      if (isEnforcingBlock) return;
+      queueTradeBlockEnforce();
+    });
+    tradeBlockObserver.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["disabled", "style", "class", "aria-disabled"],
+    });
+  }
+
+  function stopTradeBlockObserver() {
+    tradeBlockObserver?.disconnect();
+    tradeBlockObserver = null;
+  }
+
+  function closestTradeForm(el) {
+    return el?.closest?.("form") || null;
+  }
+
+  function shouldBlockTradeInteraction(target, submitter) {
+    if (!shouldBlockTrade) return false;
+    const directButton = submitter || target?.closest?.("button");
+    if (directButton && isTradeButton(directButton)) return true;
+
+    const form = closestTradeForm(target);
+    if (!form) return false;
+    return [...form.querySelectorAll("button")].some(isTradeButton);
+  }
+
+  function cancelBlockedTrade(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (typeof e.stopImmediatePropagation === "function") {
+      e.stopImmediatePropagation();
+    }
+    queueTradeBlockEnforce();
+  }
+
+  function installTradeGuards() {
+    if (tradeGuardsInstalled) return;
+    tradeGuardsInstalled = true;
+    tradeGuardAbort = new AbortController();
+
+    const opts = { capture: true, passive: false, signal: tradeGuardAbort.signal };
+    const clickLikeHandler = (e) => {
+      if (shouldBlockTradeInteraction(e.target, null)) cancelBlockedTrade(e);
+    };
+    const submitHandler = (e) => {
+      if (shouldBlockTradeInteraction(e.target, e.submitter || null)) cancelBlockedTrade(e);
+    };
+    const enterHandler = (e) => {
+      if (e.key !== "Enter") return;
+      if (shouldBlockTradeInteraction(e.target, null)) cancelBlockedTrade(e);
+    };
+
+    window.addEventListener("pointerdown", clickLikeHandler, opts);
+    window.addEventListener("mousedown", clickLikeHandler, opts);
+    window.addEventListener("click", clickLikeHandler, opts);
+    window.addEventListener("submit", submitHandler, opts);
+    window.addEventListener("keydown", enterHandler, opts);
+  }
+
+  function uninstallTradeGuards() {
+    if (!tradeGuardsInstalled) return;
+    tradeGuardAbort?.abort();
+    tradeGuardAbort = null;
+    tradeGuardsInstalled = false;
+  }
+
+  function checkAndBlockButtons() {
+    // Blocking works even if API limits aren't loaded yet (uses balance-based fallbacks)
+    // But we need balance to be verified first
+    if (!balanceVerified || ACCOUNT.hlBalance <= 0) return;
+
+    const pending = getPendingNotional();
+    const symbol = getCurrentSymbol();
+    const currentPairNotional = (symbol && ACCOUNT.notionalByPair[symbol]) || 0;
+
+    const leftSingle = MAX_SINGLE() - currentPairNotional;
+    const leftTotal = MAX_TOTAL() - ACCOUNT.openTotalUsed;
+
+    const alreadyAtLimit = leftSingle <= 0 || leftTotal <= 0;
+    const overSingle = pending > 0 && pending > leftSingle;
+    const overTotal = pending > 0 && pending > leftTotal;
+
+    shouldBlockTrade = alreadyAtLimit || overSingle || overTotal;
+    enforceTradeBlock();
+    startTradeBlockObserver();
+    installTradeGuards();
   }
 
   // ── Immediate updates on keystrokes ─────────────────────────────────────────
@@ -682,10 +1054,10 @@
       const opts = { capture: true, passive: true };
 
       input.addEventListener("focus", () => { lastEditedInput = input; scheduleUpdate(); }, opts);
-      input.addEventListener("input", () => { lastEditedInput = input; scheduleUpdate(); }, opts);
+      input.addEventListener("input", () => { lastEditedInput = input; clampInputIfNeeded(input); scheduleUpdate(); }, opts);
       input.addEventListener("keydown", () => { lastEditedInput = input; scheduleUpdate(); }, opts);
       input.addEventListener("keyup", () => { lastEditedInput = input; scheduleUpdate(); }, opts);
-      input.addEventListener("change", () => { lastEditedInput = input; scheduleUpdate(); }, opts);
+      input.addEventListener("change", () => { lastEditedInput = input; clampInputIfNeeded(input); scheduleUpdate(); }, opts);
     }
   }
 
@@ -711,7 +1083,9 @@
 
   // ── SPA mount ──────────────────────────────────────────────────────────────
   function isOnTradeRoute() {
-    return location.hostname === "app.hyperliquid.xyz" && location.pathname.startsWith("/trade");
+    const validHost = location.hostname === "app.hyperliquid.xyz" ||
+                      location.hostname === "app.hyperliquid-testnet.xyz";
+    return validHost && location.pathname.startsWith("/trade");
   }
 
   function mountWhenReady() {

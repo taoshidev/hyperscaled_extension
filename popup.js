@@ -1,5 +1,13 @@
 const LOW_BALANCE_THRESHOLD = 1000;
 let storedAddress = null;
+const TEST_MODE = true;
+let traderLimits = null;
+
+function getHlAppUrl() {
+    return TEST_MODE
+        ? 'https://app.hyperliquid-testnet.xyz'
+        : 'https://app.hyperliquid.xyz';
+}
 
 function fmtUsd(n) {
     return '$' + Number(n).toLocaleString('en-US', {
@@ -132,7 +140,7 @@ async function refreshValidatorData() {
         }
 
         // Capacity
-        const maxTotal = accountSize * 1.25;
+        const maxTotal = (traderLimits && traderLimits.max_portfolio_usd) ? parseFloat(traderLimits.max_portfolio_usd) : accountSize * 1.25;
         const capacityUsedEl = document.getElementById('capacityUsed');
         const capacityMaxEl = document.getElementById('capacityMax');
         const capacityFillEl = document.getElementById('capacityFill');
@@ -151,6 +159,39 @@ async function refreshValidatorData() {
     } catch (e) {
         console.error('Validator data fetch failed:', e);
         setPlaceholders();
+    }
+}
+
+async function refreshTraderLimits() {
+    if (!storedAddress) return;
+    try {
+        const result = await new Promise((resolve, reject) => {
+            chrome.runtime.sendMessage(
+                { action: 'fetchTraderLimits', address: storedAddress },
+                (res) => {
+                    if (chrome.runtime.lastError) {
+                        reject(new Error(chrome.runtime.lastError.message));
+                        return;
+                    }
+                    if (res?.success) resolve(res.data);
+                    else reject(new Error(res?.error || 'Unknown error'));
+                }
+            );
+        });
+
+        traderLimits = result;
+
+        // Update capacity rule label dynamically
+        const ruleEl = document.getElementById('capacityRule');
+        if (ruleEl && traderLimits) {
+            const perPair = traderLimits.max_position_per_pair_usd;
+            const portfolio = traderLimits.max_portfolio_usd;
+            if (perPair != null && portfolio != null) {
+                ruleEl.textContent = `${fmtUsd(perPair)} / ${fmtUsd(portfolio)} limits`;
+            }
+        }
+    } catch (e) {
+        console.error('Trader limits fetch failed:', e);
     }
 }
 
@@ -239,6 +280,7 @@ async function saveAddress(address) {
 function updateData() {
     refreshBalance();
     refreshValidatorData();
+    refreshTraderLimits();
 }
 
 // Function to update status message
@@ -377,7 +419,7 @@ function tryWebNotification(position) {
         updateStatus('✓ Notification sent! (Web API)', 'success');
         
         notification.onclick = () => {
-            chrome.tabs.create({ url: 'https://app.hyperliquid.xyz' });
+            chrome.tabs.create({ url: getHlAppUrl() });
         };
         
         // Auto-close after 8 seconds
@@ -432,6 +474,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
             refreshBalance();
             refreshValidatorData();
+            refreshTraderLimits();
         });
     }
 
@@ -459,13 +502,14 @@ document.addEventListener('DOMContentLoaded', async function() {
     if (viewLink) {
         viewLink.addEventListener('click', function(e) {
             e.preventDefault();
-            chrome.tabs.create({ url: 'https://app.hyperliquid.xyz' });
+            chrome.tabs.create({ url: getHlAppUrl() });
         });
     }
 
     // ── Periodic data refresh ───────────────────────────────
     refreshBalance();
     refreshValidatorData();
+    refreshTraderLimits();
     setInterval(updateData, 10000);
 });
 
@@ -473,7 +517,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 if (chrome.notifications) {
     chrome.notifications.onClicked.addListener((notificationId) => {
         if (notificationId.startsWith('hyperfunded-position')) {
-            chrome.tabs.create({ url: 'https://app.hyperliquid.xyz' });
+            chrome.tabs.create({ url: getHlAppUrl() });
         }
     });
 }

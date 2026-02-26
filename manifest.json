@@ -23,11 +23,13 @@
   "host_permissions": [
     "https://app.hyperliquid.xyz/trade/*",
     "https://api.hyperliquid.xyz/*",
+    "https://app.hyperliquid-testnet.xyz/trade/*",
+    "https://api.hyperliquid-testnet.xyz/*",
     "http://localhost:48888/*"
   ],
   "content_scripts": [
     {
-      "matches": ["https://app.hyperliquid.xyz/*"],
+      "matches": ["https://app.hyperliquid.xyz/*", "https://app.hyperliquid-testnet.xyz/*"],
       "js": ["content.js"],
       "css": ["content.css"],
       "run_at": "document_idle"
