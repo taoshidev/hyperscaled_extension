@@ -8,6 +8,7 @@ const ACTIVE_POLL_ALARM = 'active-order-poll';
 const PERIODIC_POLL_INTERVAL_MINUTES = 5;
 const ACTIVE_POLL_INTERVAL_MINUTES = 0.5; // 30 seconds
 const ACTIVE_MONITORING_DURATION_MS = 5 * 60 * 1000; // 5 minutes
+const VALIDATOR_BASE_URL = 'http://localhost:48888';
 
 // Listen for extension icon clicks
 chrome.action.onClicked.addListener((tab) => {
@@ -46,8 +47,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'configUpdated') {
     console.log('Config updated, reinitializing alarms');
     (async () => {
-      await resolveMinerGatewayUrl();
-      ensurePeriodicAlarm();
+      const url = await resolveMinerGatewayUrl();
+      if (url) ensurePeriodicAlarm();
     })();
     sendResponse({ success: true });
     return true;
@@ -145,18 +146,33 @@ async function resolveMinerGatewayUrl() {
 
   if (minerGatewayUrl) return minerGatewayUrl;
 
-  // TODO: Real validator resolution — fetch the miner gateway URL from a
-  // validator endpoint using the user's hlAddress.
-  //
-  // const res = await fetch(`https://validator.example.com/api/resolve?address=${hlAddress}`);
-  // const data = await res.json();
-  // const url = data.gatewayUrl;
+  if (!hlAddress) {
+    console.log('Cannot resolve miner gateway — no hlAddress configured');
+    return null;
+  }
 
-  const url = 'http://localhost:8000'; // placeholder until validator resolution is implemented
+  try {
+    const res = await fetch(`${VALIDATOR_BASE_URL}/entity/endpoint?hl_address=${hlAddress}`);
+    if (!res.ok) {
+      console.warn(`Validator returned ${res.status} for hlAddress ${hlAddress}`);
+      return null;
+    }
 
-  await chrome.storage.local.set({ minerGatewayUrl: url });
-  console.log('Miner gateway URL resolved:', url);
-  return url;
+    const data = await res.json();
+    const url = data.endpoint_url;
+
+    if (!url) {
+      console.warn('Validator response missing endpoint_url');
+      return null;
+    }
+
+    await chrome.storage.local.set({ minerGatewayUrl: url });
+    console.log('Miner gateway URL resolved:', url);
+    return url;
+  } catch (e) {
+    console.error('Failed to resolve miner gateway URL:', e);
+    return null;
+  }
 }
 
 // ── Fetch Order Events ─────────────────────────────────────────────────────
@@ -297,11 +313,11 @@ chrome.notifications.onClicked.addListener((notificationId) => {
       await chrome.storage.local.get(['hlAddress', 'minerApiKey', 'minerGatewayUrl']);
 
     if (hlAddress && minerApiKey) {
-      if (!minerGatewayUrl) {
-        await resolveMinerGatewayUrl();
+      const url = minerGatewayUrl || await resolveMinerGatewayUrl();
+      if (url) {
+        ensurePeriodicAlarm();
+        console.log('Service worker startup: periodic alarm ensured');
       }
-      ensurePeriodicAlarm();
-      console.log('Service worker startup: periodic alarm ensured');
     }
 
     checkActiveMonitoringExpiry();

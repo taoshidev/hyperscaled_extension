@@ -246,6 +246,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 }
                 return;
             }
+            await chrome.storage.local.remove('minerGatewayUrl');
             await saveAddress(val);
             storedAddress = val;
             if (walletStatus) {
