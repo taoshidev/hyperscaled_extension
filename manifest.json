@@ -18,11 +18,13 @@
   },
   "permissions": [
     "notifications",
-    "storage"
+    "storage",
+    "alarms"
   ],
   "host_permissions": [
     "https://app.hyperliquid.xyz/trade/*",
-    "https://api.hyperliquid.xyz/*"
+    "https://api.hyperliquid.xyz/*",
+    "http://*/*"
   ],
   "content_scripts": [
     {

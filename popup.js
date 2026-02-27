@@ -253,6 +253,40 @@ document.addEventListener('DOMContentLoaded', async function() {
                 walletStatus.className = 'wallet-status wallet-status--ok';
             }
             refreshBalance();
+            chrome.runtime.sendMessage({ action: 'configUpdated' });
+        });
+    }
+
+    // ── API Key config ────────────────────────────────────────
+    const apiKeyInput = document.getElementById('apiKeyInput');
+    const apiKeySaveBtn = document.getElementById('apiKeySave');
+    const apiKeyStatus = document.getElementById('apiKeyStatus');
+
+    const { minerApiKey } = await chrome.storage.local.get(['minerApiKey']);
+    if (minerApiKey && apiKeyInput) {
+        apiKeyInput.value = minerApiKey;
+        if (apiKeyStatus) {
+            apiKeyStatus.textContent = 'Saved';
+            apiKeyStatus.className = 'wallet-status wallet-status--ok';
+        }
+    }
+
+    if (apiKeySaveBtn) {
+        apiKeySaveBtn.addEventListener('click', async () => {
+            const val = (apiKeyInput?.value || '').trim();
+            if (!val) {
+                if (apiKeyStatus) {
+                    apiKeyStatus.textContent = 'Key required';
+                    apiKeyStatus.className = 'wallet-status wallet-status--err';
+                }
+                return;
+            }
+            await chrome.storage.local.set({ minerApiKey: val });
+            if (apiKeyStatus) {
+                apiKeyStatus.textContent = 'Saved';
+                apiKeyStatus.className = 'wallet-status wallet-status--ok';
+            }
+            chrome.runtime.sendMessage({ action: 'configUpdated' });
         });
     }
 

@@ -2,6 +2,13 @@
 
 const LOW_BALANCE_THRESHOLD = 1000;
 
+// ── Order Event Polling Constants ──────────────────────────────────────────
+const PERIODIC_POLL_ALARM = 'periodic-order-poll';
+const ACTIVE_POLL_ALARM = 'active-order-poll';
+const PERIODIC_POLL_INTERVAL_MINUTES = 5;
+const ACTIVE_POLL_INTERVAL_MINUTES = 0.5; // 30 seconds
+const ACTIVE_MONITORING_DURATION_MS = 5 * 60 * 1000; // 5 minutes
+
 // Listen for extension icon clicks
 chrome.action.onClicked.addListener((tab) => {
   showPositionNotification();
@@ -24,6 +31,24 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
   if (request.action === 'lowBalanceWarning') {
     showLowBalanceNotification(request.balance);
+    sendResponse({ success: true });
+    return true;
+  }
+
+  if (request.action === 'orderPlaced') {
+    console.log('Order placed detected, starting active monitoring');
+    startActiveMonitoring();
+    pollAndNotify();
+    sendResponse({ success: true });
+    return true;
+  }
+
+  if (request.action === 'configUpdated') {
+    console.log('Config updated, reinitializing alarms');
+    (async () => {
+      await resolveMinerGatewayUrl();
+      ensurePeriodicAlarm();
+    })();
     sendResponse({ success: true });
     return true;
   }
@@ -73,7 +98,7 @@ function showLowBalanceNotification(balance) {
 // Function to show position notification
 function showPositionNotification() {
   console.log('showPositionNotification called');
-  
+
   // Sample position data (in production, this would come from API)
   const position = {
     symbol: 'BTC-PERP',
@@ -102,9 +127,9 @@ function showPositionNotification() {
       console.error('Error creating notification:', chrome.runtime.lastError);
       return;
     }
-    
+
     console.log('Notification created:', notificationId);
-    
+
     // Auto-clear notification after 8 seconds
     setTimeout(() => {
       chrome.notifications.clear(notificationId);
@@ -113,10 +138,174 @@ function showPositionNotification() {
   });
 }
 
-// Optional: Handle notification clicks
-chrome.notifications.onClicked.addListener((notificationId) => {
-  if (notificationId === 'hyperfunded-position') {
-    // Open Hyperliquid in new tab
-    chrome.tabs.create({ url: 'https://app.hyperliquid.xyz' });
+// ── Miner Gateway Resolution ───────────────────────────────────────────────
+
+async function resolveMinerGatewayUrl() {
+  const { minerGatewayUrl, hlAddress } = await chrome.storage.local.get(['minerGatewayUrl', 'hlAddress']);
+
+  if (minerGatewayUrl) return minerGatewayUrl;
+
+  // TODO: Real validator resolution — fetch the miner gateway URL from a
+  // validator endpoint using the user's hlAddress.
+  //
+  // const res = await fetch(`https://validator.example.com/api/resolve?address=${hlAddress}`);
+  // const data = await res.json();
+  // const url = data.gatewayUrl;
+
+  const url = 'http://localhost:8000'; // placeholder until validator resolution is implemented
+
+  await chrome.storage.local.set({ minerGatewayUrl: url });
+  console.log('Miner gateway URL resolved:', url);
+  return url;
+}
+
+// ── Fetch Order Events ─────────────────────────────────────────────────────
+
+async function fetchOrderEvents(baseUrl, hlAddress, apiKey, sinceMs) {
+  const url = `${baseUrl}/api/hl/${hlAddress}/events?since=${sinceMs}`;
+  const res = await fetch(url, {
+    headers: { 'Authorization': `Bearer ${apiKey}` }
+  });
+
+  if (!res.ok) throw new Error(`Order events API error ${res.status}`);
+
+  return await res.json();
+}
+
+// ── Poll & Notify ──────────────────────────────────────────────────────────
+
+async function pollAndNotify() {
+  try {
+    const { hlAddress, minerApiKey, minerGatewayUrl, lastEventTimestamp } =
+      await chrome.storage.local.get(['hlAddress', 'minerApiKey', 'minerGatewayUrl', 'lastEventTimestamp']);
+
+    if (!hlAddress || !minerApiKey || !minerGatewayUrl) {
+      console.log('Order polling skipped — missing config (hlAddress, minerApiKey, or minerGatewayUrl)');
+      return;
+    }
+
+    const sinceMs = lastEventTimestamp || 0;
+    const events = await fetchOrderEvents(minerGatewayUrl, hlAddress, minerApiKey, sinceMs);
+
+    if (!Array.isArray(events) || events.length === 0) return;
+
+    let latestTimestamp = sinceMs;
+    for (const event of events) {
+      showOrderEventNotification(event);
+      if (event.timestamp && event.timestamp > latestTimestamp) {
+        latestTimestamp = event.timestamp;
+      }
+    }
+
+    await chrome.storage.local.set({ lastEventTimestamp: latestTimestamp });
+    console.log(`Processed ${events.length} order event(s), latest timestamp: ${latestTimestamp}`);
+  } catch (e) {
+    console.error('Order event polling failed:', e);
+  }
+}
+
+// ── Show Order Event Notification ──────────────────────────────────────────
+
+function showOrderEventNotification(event) {
+  const pair = event.pair || 'Unknown';
+  const type = event.type || 'Order';
+  const isRejected = event.status === 'rejected';
+
+  const title = isRejected
+    ? `Order Rejected: ${pair} ${type}`
+    : `Order Accepted: ${pair} ${type}`;
+
+  const message = isRejected
+    ? `Reason: ${event.reason || 'Unknown error'}`
+    : `Fill hash: ${event.fillHash || 'N/A'}`;
+
+  const notificationId = `hyperscaled-order-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+
+  chrome.notifications.create(notificationId, {
+    type: 'basic',
+    iconUrl: 'icon128.png',
+    title,
+    message,
+    priority: 2,
+    requireInteraction: isRejected
+  }, (id) => {
+    if (chrome.runtime.lastError) {
+      console.error('Order notification error:', chrome.runtime.lastError);
+    }
+  });
+}
+
+// ── Alarm Management ───────────────────────────────────────────────────────
+
+function ensurePeriodicAlarm() {
+  chrome.alarms.get(PERIODIC_POLL_ALARM, (alarm) => {
+    if (alarm) return;
+    chrome.alarms.create(PERIODIC_POLL_ALARM, {
+      periodInMinutes: PERIODIC_POLL_INTERVAL_MINUTES
+    });
+    console.log('Periodic order poll alarm created (every 5 min)');
+  });
+}
+
+function startActiveMonitoring() {
+  const expiresAt = Date.now() + ACTIVE_MONITORING_DURATION_MS;
+  chrome.storage.local.set({ activeMonitoringExpiresAt: expiresAt });
+
+  chrome.alarms.create(ACTIVE_POLL_ALARM, {
+    periodInMinutes: ACTIVE_POLL_INTERVAL_MINUTES
+  });
+  console.log('Active monitoring started (every 30s for 5 min)');
+}
+
+function checkActiveMonitoringExpiry() {
+  chrome.storage.local.get(['activeMonitoringExpiresAt'], ({ activeMonitoringExpiresAt }) => {
+    if (!activeMonitoringExpiresAt) return;
+    if (Date.now() >= activeMonitoringExpiresAt) {
+      chrome.alarms.clear(ACTIVE_POLL_ALARM);
+      chrome.storage.local.remove('activeMonitoringExpiresAt');
+      console.log('Active monitoring expired, cleared active alarm');
+    }
+  });
+}
+
+// ── Alarm Listener ─────────────────────────────────────────────────────────
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === PERIODIC_POLL_ALARM) {
+    pollAndNotify();
+  } else if (alarm.name === ACTIVE_POLL_ALARM) {
+    checkActiveMonitoringExpiry();
+    pollAndNotify();
   }
 });
+
+// ── Notification Click Handler ─────────────────────────────────────────────
+
+chrome.notifications.onClicked.addListener((notificationId) => {
+  if (notificationId === 'hyperfunded-position') {
+    chrome.tabs.create({ url: 'https://app.hyperliquid.xyz' });
+  } else if (notificationId.startsWith('hyperscaled-order-')) {
+    chrome.tabs.create({ url: 'https://app.hyperliquid.xyz/trade' });
+  }
+});
+
+// ── Service Worker Startup ─────────────────────────────────────────────────
+
+(async () => {
+  try {
+    const { hlAddress, minerApiKey, minerGatewayUrl } =
+      await chrome.storage.local.get(['hlAddress', 'minerApiKey', 'minerGatewayUrl']);
+
+    if (hlAddress && minerApiKey) {
+      if (!minerGatewayUrl) {
+        await resolveMinerGatewayUrl();
+      }
+      ensurePeriodicAlarm();
+      console.log('Service worker startup: periodic alarm ensured');
+    }
+
+    checkActiveMonitoringExpiry();
+  } catch (e) {
+    console.error('Service worker startup error:', e);
+  }
+})();

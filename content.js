@@ -8,7 +8,7 @@
   // ── Supported trading pairs ─────────────────────────────────────────────────
   const SUPPORTED_SYMBOLS = ["BTC", "ETH", "SOL", "XRP", "DOGE", "ADA"];
   const UNSUPPORTED_OVERLAY_ID = "hf-unsupported-overlay";
-  const LOW_BALANCE_THRESHOLD = 1000;
+  const LOW_BALANCE_THRESHOLD = 1;
   const LOW_BALANCE_OVERLAY_ID = "hf-low-balance-overlay";
   const BALANCE_CHECK_INTERVAL = 30000;
 
@@ -636,6 +636,54 @@
     clearInterval(bindLoop);
     bindLoop = null;
   }
+
+  // ── Buy/Sell button click detection ──────────────────────────────────────
+  const ORDER_BUTTON_PATTERNS = [
+    /^buy$/i,
+    /^sell$/i,
+    /^place\s+order$/i,
+    /^long$/i,
+    /^short$/i,
+    /^market\s+buy$/i,
+    /^market\s+sell$/i,
+    /^limit\s+buy$/i,
+    /^limit\s+sell$/i,
+    /^open\s+long$/i,
+    /^open\s+short$/i,
+  ];
+
+  function isOrderButtonClick(target) {
+    let el = target;
+    for (let i = 0; i < 5 && el; i++) {
+      const tag = (el.tagName || '').toLowerCase();
+      const isClickable = tag === 'button' || tag === 'a' ||
+        el.getAttribute('role') === 'button' ||
+        el.getAttribute('type') === 'submit';
+
+      if (isClickable) {
+        const text = (el.textContent || '').trim();
+        if (ORDER_BUTTON_PATTERNS.some(p => p.test(text))) return true;
+      }
+      el = el.parentElement;
+    }
+    return false;
+  }
+
+  let lastOrderClickTime = 0;
+  document.body.addEventListener('click', (e) => {
+    if (!isOrderButtonClick(e.target)) return;
+
+    const now = Date.now();
+    if (now - lastOrderClickTime < 2000) return;
+    lastOrderClickTime = now;
+
+    console.log('[Hyperscaled] Buy/sell button click detected');
+    chrome.runtime.sendMessage({ action: 'orderPlaced' }, () => {
+      if (chrome.runtime.lastError) {
+        console.error('[Hyperscaled] Failed to send orderPlaced:', chrome.runtime.lastError);
+      }
+    });
+  }, { capture: true, passive: true });
 
   // ── SPA mount ──────────────────────────────────────────────────────────────
   function isOnTradeRoute() {
