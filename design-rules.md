@@ -78,6 +78,19 @@ Red signals: blocked, critical, loss, unsafe to trade.
 
 ---
 
+## Indigo Surface
+
+Indigo (`#6466f1`) is used exclusively for the Trading Capacity bar — a neutral, non-semantic indicator distinct from teal (positive/active) and amber/red (warning/loss).
+
+| Token | Value | Use when |
+|-------|-------|----------|
+| `--indigo` | `#6466f1` | Capacity bar fill (gradient start) |
+| `--indigo-bg` | `rgba(100, 102, 241, 0.1)` | Capacity bar track background |
+
+**Rule:** Do not use `--indigo` for any semantic purpose (it has no directional meaning). It is a visual separator from teal and amber — one color per indicator type.
+
+---
+
 ## Card Surfaces
 
 Layered surfaces create depth without heavy shadows. Use the lowest opacity that achieves legibility.
@@ -90,7 +103,7 @@ Layered surfaces create depth without heavy shadows. Use the lowest opacity that
 | `--border-outer` | 8% white | Container border, stronger dividers |
 | `--bar-bg` | 6% white | Progress bar tracks |
 
-**Card usage rule:** Use cards only for grouped interactive units or primary KPI elevation. Metric sections (Challenge Progress, Drawdown), secondary data (HL Account), navigation links (Analytics), and utility labels (Trading Capacity) breathe directly on the background — no card background, no border. Spacing and typography create grouping, not containers.
+**Card usage rule:** Use cards for: Funded Account balance card (primary KPI), Position cards (grouped interactive data), Analytics link (navigational destination), Wallet Config form (first-run setup). Everything else — Trading Capacity, Challenge Progress, Drawdown — breathes directly on the background.
 
 **Never** add box-shadows to cards — depth comes from opacity layering only.
 
@@ -109,14 +122,14 @@ Layered surfaces create depth without heavy shadows. Use the lowest opacity that
 |-----|------|------|--------|-------|
 | Balance / KPI large | Menlo | 22px | 400 | tracking -0.44px, tabular-nums |
 | Balance secondary | Menlo | 18px | 400 | tracking -0.36px, tabular-nums |
-| P&L delta / balance change | Menlo | 11px | 400 | tabular-nums |
-| Section titles (Challenge Progress, Drawdown) | UI | 13px | 500 | |
-| Section values (percentages, gauge readings) | Menlo | 12px | 500 | tabular-nums |
-| Capacity header labels | UI | 11px | 400 | uppercase, letter-spacing 0.06em |
-| Balance card labels | UI | 10px | 400 | uppercase, letter-spacing 0.06em, `--text-dim` |
+| Balance change / P&L delta | UI | 12px | 400 | `--green` or `--red` |
+| Section titles (Challenge Progress, Drawdown) | UI | 14px | 600 | `--text-strong` |
+| Section values (percentages, gauge readings) | Menlo | 13px | 600 | tabular-nums; challenge = `--accent`, drawdown = `--amber` |
+| Capacity title | UI | 14px | 600 | `--text-strong` |
+| Balance card label | UI | 11px | 400 | `--text-label`, line-height 16.5px |
 | Body / misc | UI | 14px | 400 | |
-| Capacity data values | Menlo | 11px | 500 | tabular-nums |
-| Position PnL | Menlo | 16px | 600 | tracking -0.2px |
+| Capacity footer values | UI | 11px | 400 | `--text-faint` |
+| Position PnL | UI | 12px | 600 | `--green` / `--red` |
 | Trading symbols | Menlo | 12px | 600 | |
 | Trading data | Menlo | 10px | 400–600 | |
 
@@ -188,7 +201,7 @@ Configuration UI that is only needed once (or rarely) must not consume prime ver
 **Pattern:** Setup UI moves into the header when configured. The expanded form card only appears on first run or when explicitly editing. Zero screen real estate is spent on configuration during normal operation.
 
 **Wallet address — rules:**
-- Collapsed state lives in `.header-right` as `.wallet-inline`: `●●●● xxxx · Edit`. Last 4 chars only. The `0x` prefix is omitted — brevity over completeness.
+- Collapsed state lives in `.header-right` as `.wallet-inline`: `0x34...1234`. First 4 chars of address (`0x` + 2 hex) + `...` + last 4 chars. Brevity with enough context to recognize the address.
 - Address text: `--font-mono`, `--text-dim`. Edit link: `--text-ghost` at rest → `--text-subtle` on hover. No teal at any state.
 - `#walletConfig` card is hidden (`display: none`) whenever a saved address exists.
 - On save, collapse immediately via `showWalletCollapsed(address)`. No separate success state.

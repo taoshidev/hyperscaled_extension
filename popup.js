@@ -26,7 +26,7 @@ async function refreshBalance() {
         });
 
         const balance = response.accountValue;
-        const hlValueEl = document.querySelector('.balance-card:not(.balance-card--primary) .balance-value');
+        const hlValueEl = document.getElementById('hlBalanceHeader');
         if (hlValueEl) hlValueEl.textContent = fmtUsd(balance);
 
         const warningEl = document.getElementById('lowBalanceWarning');
@@ -63,10 +63,10 @@ function updateData() {
     refreshBalance();
 }
 
-// Truncate wallet address for inline header display: ●●●● abcd
+// Truncate wallet address for inline header display: 0x34...1234
 function truncateAddress(address) {
-    if (!address || address.length < 4) return address;
-    return `●●●● ${address.slice(-4)}`;
+    if (!address || address.length < 8) return address;
+    return `${address.slice(0, 4)}...${address.slice(-4)}`;
 }
 
 function showWalletCollapsed(address) {
@@ -250,7 +250,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     const addressInput = document.getElementById('walletAddress');
     const saveBtn = document.getElementById('walletSave');
     const walletStatus = document.getElementById('walletStatus');
-    const editBtn = document.getElementById('walletEdit');
+    const walletCollapsed = document.getElementById('walletCollapsed');
 
     storedAddress = await loadAddress();
     if (storedAddress) {
@@ -258,8 +258,8 @@ document.addEventListener('DOMContentLoaded', async function() {
         showWalletCollapsed(storedAddress);
     }
 
-    if (editBtn) {
-        editBtn.addEventListener('click', showWalletExpanded);
+    if (walletCollapsed) {
+        walletCollapsed.addEventListener('click', showWalletExpanded);
     }
 
     if (saveBtn) {

@@ -4,6 +4,51 @@ Recurring UI patterns in `popup.html` / `popup.css`. Use these structures when a
 
 ---
 
+## Trading Capacity Block
+
+A header-bar-footer layout displaying the trader's used vs. remaining position capacity. Uses an indigo bar (distinct from teal/amber) to signal a neutral utilization metric.
+
+### HTML structure
+
+```html
+<div class="capacity-block">
+    <div class="capacity-header">
+        <span class="capacity-title">Trading Capacity</span>
+        <span class="capacity-rule">62.5% / 125% LIMITS</span>
+    </div>
+    <div class="capacity-bar">
+        <div class="capacity-fill" style="width: 11.4%;"></div>
+    </div>
+    <div class="capacity-footer">
+        <span class="capacity-used">$234.50 used</span>
+        <span class="capacity-remaining">$1,822.59 left</span>
+    </div>
+</div>
+```
+
+### Tokens used
+
+| Element | Property | Token / Value |
+|---------|----------|---------------|
+| Title | Font size / weight | `14px / 600` |
+| Title | Color | `--text-strong` |
+| Limits badge | Border | `--border-outer` |
+| Limits badge | Color | `--text-strong` |
+| Limits badge | Padding | `4px 8px` |
+| Bar track | Background | `--indigo-bg` |
+| Bar fill | Gradient | `linear-gradient(90deg, --indigo, #4041c8)` |
+| Bar height | — | `10px` |
+| Footer labels | Color | `--text-faint` |
+| Footer labels | Font size | `11px` |
+
+### Rules
+
+- Never use teal or amber for this bar — indigo keeps capacity visually separate from P&L and challenge indicators.
+- Footer is always `$X used` left, `$X left` right. No "of $total" format.
+- Bar fill width is set inline via `style="width: XX%;"` calculated from JS.
+
+---
+
 ## Metric Section
 
 A self-contained section displaying a single tracked metric with a title/value header, a progress bar, and a sublabel. Used by Challenge Progress and Current Drawdown.
@@ -62,7 +107,7 @@ The wallet address lives in the header once saved — zero screen real estate wa
 
 ```html
 <div id="walletCollapsed" class="wallet-inline" style="display: none;">
-  <span id="walletAddressDisplay" class="wallet-inline-address">●●●● abcd</span>
+  <span id="walletAddressDisplay" class="wallet-inline-address">0x34...abcd</span>
   <button id="walletEdit" class="wallet-inline-edit">· Edit</button>
 </div>
 ```
@@ -137,10 +182,9 @@ Position card PnL typography and color:
 
 | Property | Value |
 |----------|-------|
-| Font | `--font-mono` (Menlo) — financial data, always |
-| Size | `16px` — largest number in the card; the primary KPI |
+| Font | `--font-ui` (Inter) |
+| Size | `12px` |
 | Weight | `600` |
-| Letter-spacing | `-0.2px` |
 
 | State | Class | Token |
 |-------|-------|-------|
@@ -318,7 +362,7 @@ A card that collapses to a single-line summary once the user has completed setup
 
 ### Rules
 
-- Address is truncated to `0xXXXX...YYYY` (first 6 + last 4 chars) in monospace.
+- Address is truncated to `0x34...1234` format: `address.slice(0, 4) + '...' + address.slice(-4)` — first 4 chars (0x + 2 hex) + last 4 chars, in monospace.
 - The confirmation mark (`✓`) uses `--text-subtle`, not `--accent` — it is a confirmation signal, not a call to action.
 - The edit icon uses `--text-ghost` at rest (barely visible) and `--text-subtle` on hover. No teal at any state.
 - On save: collapse immediately (do not show a success badge — the collapsed address itself is the confirmation).

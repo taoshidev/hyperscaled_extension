@@ -16,9 +16,9 @@
         <div class="header">
             <div class="logo">Hyper<b>scaled</b></div>
             <div class="header-right">
-                <div id="walletCollapsed" class="wallet-inline" style="display: none;">
-                    <span id="walletAddressDisplay" class="wallet-inline-address">●●●● 0000</span>
-                    <button id="walletEdit" class="wallet-inline-edit">· Edit</button>
+                <div id="walletCollapsed" class="wallet-inline" style="display: none;" title="Click to edit wallet address">
+                    <span id="walletAddressDisplay" class="wallet-inline-address">0x00...0000</span>
+                    <span id="hlBalanceHeader" class="wallet-inline-balance">$0.00</span>
                 </div>
                 <div class="status-badge">In Challenge</div>
             </div>
@@ -45,39 +45,29 @@
             </div>
         </div>
 
-        <!-- Account Balances -->
-        <div class="balance-grid">
-            <div class="balance-card balance-card--primary">
+        <!-- Account Balance -->
+        <div class="balance-card balance-card--primary">
+            <div class="balance-left">
                 <div class="balance-label">Funded Account</div>
                 <div class="balance-value">$106,456.78</div>
-                <div class="balance-change positive">+$6,456.78 (6.45%)</div>
             </div>
-            <div class="balance-card">
-                <div class="balance-label">HL Account</div>
-                <div class="balance-value balance-value--sm">$1,645.67</div>
-                <div class="balance-change neutral">Live equity</div>
-            </div>
+            <div class="balance-change positive">+$6,456.78 (6.45%)</div>
         </div>
+
+        <div class="section-divider"></div>
 
         <!-- Trading Capacity -->
         <div class="capacity-block">
             <div class="capacity-header">
                 <span class="capacity-title">Trading Capacity</span>
-                <span class="capacity-rule">62.5% / 125% limits</span>
+                <span class="capacity-rule">62.5% / 125% LIMITS</span>
             </div>
-            <div class="capacity-rows">
-                <div class="capacity-row">
-                    <div class="capacity-row-top">
-                        <span class="capacity-label">Total across all positions</span>
-                        <span class="capacity-used">$234.50 <span class="capacity-of">of</span> $2,057.09</span>
-                    </div>
-                    <div class="capacity-bar-wrap">
-                        <div class="capacity-bar">
-                            <div class="capacity-fill capacity-fill--total" style="width: 11.4%;"></div>
-                        </div>
-                        <span class="capacity-remaining">$1,822.59 left</span>
-                    </div>
-                </div>
+            <div class="capacity-bar">
+                <div class="capacity-fill" style="width: 11.4%;"></div>
+            </div>
+            <div class="capacity-footer">
+                <span class="capacity-used">$234.50 used</span>
+                <span class="capacity-remaining">$1,822.59 left</span>
             </div>
         </div>
 
@@ -85,7 +75,7 @@
         <div class="section">
             <div class="section-header">
                 <div class="section-title">Challenge Progress</div>
-                <div class="section-value">6.45% / 10%</div>
+                <div class="section-value challenge">6.45% / 10%</div>
             </div>
             <div class="progress-bar">
                 <div class="progress-fill" style="width: 61.25%;"></div>
@@ -104,6 +94,8 @@
             </div>
             <div class="progress-label">$2,700 remaining buffer</div>
         </div>
+
+        <div class="section-divider"></div>
 
         <!-- Open Positions -->
         <div class="section">
