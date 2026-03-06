@@ -1,5 +1,7 @@
 const LOW_BALANCE_THRESHOLD = 1000;
+const DEFAULT_MAX_LEVERAGE = 0.5;
 let storedAddress = null;
+let tradePairMaxLeverage = {};
 
 function fmtUsd(n) {
     return '$' + Number(n).toLocaleString('en-US', {
@@ -43,6 +45,34 @@ async function refreshBalance() {
         }
     } catch (e) {
         console.error('Balance fetch failed:', e);
+    }
+}
+
+// Fetch allowed trade pairs from validator
+async function fetchTradePairsData() {
+    try {
+        const result = await new Promise((resolve, reject) => {
+            chrome.runtime.sendMessage(
+                { action: 'fetchTradePairs' },
+                (res) => {
+                    if (chrome.runtime.lastError) {
+                        reject(new Error(chrome.runtime.lastError.message));
+                        return;
+                    }
+                    if (res?.success) resolve(res.data);
+                    else reject(new Error(res?.error || 'Unknown error'));
+                }
+            );
+        });
+
+        const pairs = result.allowed_trade_pairs || [];
+        tradePairMaxLeverage = {};
+        for (const pair of pairs) {
+            const symbol = pair.trade_pair_id.replace(/USD[CT]?$/i, '');
+            tradePairMaxLeverage[symbol] = pair.max_leverage;
+        }
+    } catch (e) {
+        console.error('Trade pairs fetch failed:', e);
     }
 }
 
@@ -131,8 +161,16 @@ async function refreshValidatorData() {
             drawdownLabelEl.textContent = `${fmtUsd(Math.max(bufferDollar, 0))} remaining buffer`;
         }
 
-        // Capacity
-        const maxTotal = accountSize * 1.25;
+        // Capacity — derive max leverage from positions' pairs
+        const positionLeverages = positions
+            .map(pos => {
+                const coin = (pos.coin || pos.symbol || '').toUpperCase();
+                return tradePairMaxLeverage[coin] || DEFAULT_MAX_LEVERAGE;
+            });
+        const effectiveMaxLev = positionLeverages.length > 0
+            ? Math.max(...positionLeverages)
+            : DEFAULT_MAX_LEVERAGE;
+        const maxTotal = accountSize * effectiveMaxLev * 2;
         const capacityUsedEl = document.getElementById('capacityUsed');
         const capacityMaxEl = document.getElementById('capacityMax');
         const capacityFillEl = document.getElementById('capacityFill');
@@ -238,6 +276,7 @@ async function saveAddress(address) {
 
 function updateData() {
     refreshBalance();
+    fetchTradePairsData();
     refreshValidatorData();
 }
 
@@ -465,6 +504,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     // ── Periodic data refresh ───────────────────────────────
     refreshBalance();
+    fetchTradePairsData();
     refreshValidatorData();
     setInterval(updateData, 10000);
 });

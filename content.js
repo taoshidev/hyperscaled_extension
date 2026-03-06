@@ -5,8 +5,12 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 (() => {
-  // ── Supported trading pairs ─────────────────────────────────────────────────
-  const SUPPORTED_SYMBOLS = ["BTC", "ETH", "SOL", "XRP", "DOGE", "ADA"];
+  // ── Supported trading pairs (fetched from validator) ────────────────────────
+  let allowedTradePairs = [];
+  let allowedSymbols = [];
+  let tradePairMaxLeverage = {}; // symbol -> max_leverage
+  let tradePairsLoaded = false;
+  const DEFAULT_MAX_LEVERAGE = 0.5; // safe fallback until data loads
   const UNSUPPORTED_OVERLAY_ID = "hf-unsupported-overlay";
   const LOW_BALANCE_THRESHOLD = 1000;
   const LOW_BALANCE_OVERLAY_ID = "hf-low-balance-overlay";
@@ -34,8 +38,15 @@
   const LAYOUT_STYLE_ID = "hf-layout-fix";
   const BANNER_HEIGHT = 48;
 
-  const MAX_SINGLE = () => ACCOUNT.hlBalance * 0.625;
-  const MAX_TOTAL = () => ACCOUNT.hlBalance * 1.25;
+  function getMaxLeverage(symbol) {
+    if (symbol && tradePairMaxLeverage[symbol] !== undefined) {
+      return tradePairMaxLeverage[symbol];
+    }
+    return DEFAULT_MAX_LEVERAGE;
+  }
+
+  const MAX_SINGLE = () => ACCOUNT.hlBalance * getMaxLeverage(getCurrentSymbol());
+  const MAX_TOTAL = () => ACCOUNT.hlBalance * getMaxLeverage(getCurrentSymbol()) * 2;
 
   const fmt = (n) =>
     "$" +
@@ -198,7 +209,8 @@
 
   function isSymbolSupported(symbol) {
     if (!symbol) return true; // can't determine → don't block
-    return SUPPORTED_SYMBOLS.includes(symbol);
+    if (!tradePairsLoaded) return true; // don't block before data loads
+    return allowedSymbols.includes(symbol);
   }
 
   let lastDetectedSymbol = null;
@@ -221,7 +233,7 @@
         <span class="hf-unsupported-title">Unsupported Pair</span>
         <span class="hf-unsupported-msg">
           <b>${symbol}-USDC</b> is not supported by Hyperscaled.<br>
-          Supported pairs: <b>${SUPPORTED_SYMBOLS.map(s => s + "-USDC").join(", ")}</b>
+          Supported pairs: <b>${allowedSymbols.map(s => s + "-USDC").join(", ")}</b>
         </span>
       </div>
     `;
@@ -328,6 +340,48 @@
       updateBannerFromValidator();
     } catch (e) {
       console.error("[Hyperscaled] Validator fetch failed:", e);
+    }
+  }
+
+  async function fetchTradePairsData() {
+    try {
+      const result = await new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage(
+          { action: "fetchTradePairs" },
+          (response) => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+              return;
+            }
+            if (response?.success) resolve(response.data);
+            else reject(new Error(response?.error || "Unknown error"));
+          }
+        );
+      });
+
+      allowedTradePairs = result.allowed_trade_pairs || [];
+      const pairIds = result.allowed_trade_pair_ids || [];
+
+      // Extract symbols from trade_pair_ids (e.g., "BTCUSD" -> "BTC")
+      allowedSymbols = pairIds.map((id) => id.replace(/USD[CT]?$/i, ""));
+
+      // Build max leverage map by symbol
+      tradePairMaxLeverage = {};
+      for (const pair of allowedTradePairs) {
+        const symbol = pair.trade_pair_id.replace(/USD[CT]?$/i, "");
+        tradePairMaxLeverage[symbol] = pair.max_leverage;
+      }
+
+      tradePairsLoaded = true;
+
+      // Re-check pair support with fresh data
+      lastDetectedSymbol = null; // force re-evaluation
+      checkPairSupport();
+
+      // Update banner with new leverage data
+      updateBannerFromValidator();
+    } catch (e) {
+      console.error("[Hyperscaled] Trade pairs fetch failed:", e);
     }
   }
 
@@ -489,10 +543,12 @@
   function startBalanceChecking() {
     checkBalance();
     fetchValidatorData();
+    fetchTradePairsData();
     if (balanceCheckTimer) clearInterval(balanceCheckTimer);
     balanceCheckTimer = setInterval(() => {
       checkBalance();
       fetchValidatorData();
+      fetchTradePairsData();
     }, BALANCE_CHECK_INTERVAL);
   }
 
@@ -507,6 +563,7 @@
     if (namespace === "local" && changes.hlAddress) {
       checkBalance();
       fetchValidatorData();
+      fetchTradePairsData();
     }
   });
 
@@ -634,12 +691,14 @@
       const overSingle = p > leftSingle;
       const overTotal = p > leftTotal;
 
+      const levPct = (getMaxLeverage(getCurrentSymbol()) * 100).toFixed(0);
+
       if (overSingle && overTotal) {
         msg = `Exceeds both limits — ${fmt(leftSingle)} single / ${fmt(leftTotal)} total available`;
       } else if (overSingle) {
-        msg = `Over 62.5% single limit — max ${fmt(leftSingle)} available`;
+        msg = `Over ${levPct}% single limit — max ${fmt(leftSingle)} available`;
       } else if (overTotal) {
-        msg = `Over 125% total limit — max ${fmt(leftTotal)} available`;
+        msg = `Over ${levPct * 2}% total limit — max ${fmt(leftTotal)} available`;
       } else if (worstPct >= 80) {
         msg = `Approaching limit — ${fmt(Math.min(leftSingle, leftTotal) - p)} remaining after this order`;
       }
