@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Hyperfunded",
+  "name": "Hyperscaled",
   "version": "1.0.0",
   "description": "Track your Hyperfunded account and Hyperliquid positions",
   "action": {
