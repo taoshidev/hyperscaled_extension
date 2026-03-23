@@ -4,6 +4,16 @@ Decisions and conventions for the Hyperscaled extension. Paste this file as cont
 
 ---
 
+## Base Surfaces
+
+| Token | Value | Use when |
+|-------|-------|----------|
+| `--bg` | `#18181b` | Root background for all Hyperscaled UI — popup container, injected banner. The single source of truth for the near-black base referenced throughout the design system. |
+
+**Rule:** Never hardcode `#18181b` — always use `var(--bg)`. This keeps future theming possible.
+
+---
+
 ## White Opacity Scale
 
 The UI uses translucent whites over a near-black background (`#18181b`) to create depth. Never use flat gray colors for layered text — use the opacity primitives so elements stay correct on any future dark background.
@@ -61,6 +71,18 @@ Three levels. Use the lowest level that communicates the action's importance.
   background: transparent;
 }
 ```
+
+---
+
+## Amber / Caution Surface
+
+Amber (`#ffb900`) signals: approaching a limit, caution, elevated risk. It sits between teal (safe) and red (blocked) in the severity scale.
+
+| Token | Value | Use when |
+|-------|-------|----------|
+| `--amber` | `#ffb900` | Drawdown values ≥ 4%, target progress ≥ 8%, warning-state bottom borders. Always paired with the ⚠ icon when used on drawdown values. |
+
+**Rule:** Amber is a transitional state — it means "pay attention, not yet critical." If the condition worsens, the value graduates to `--red`. Never use amber and red on the same element simultaneously.
 
 ---
 

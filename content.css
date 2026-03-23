@@ -1,8 +1,43 @@
 /* ─────────────────────────────────────────────────────────────────────────────
    Hyperfunded banner — injected into app.hyperliquid.xyz/trade/*
    All rules use !important to beat Hyperliquid's own stylesheet resets.
+
+   Design tokens (mirrored from popup.css / design-rules.md)
+   Defined here because content scripts can't share :root with the host page.
 ───────────────────────────────────────────────────────────────────────────── */
 
+/* ── Token definitions ──────────────────────────────────────────────────── */
+#hf-banner {
+  --bg: #18181b;
+  --accent: #00c6a7;
+  --accent-bg: rgba(0,198,167,0.10);
+  --accent-border: rgba(0,198,167,0.20);
+  --amber: #ffb900;
+  --red: rgb(239,68,68);
+  --indigo: #6466f1;
+  --indigo-bg: rgba(100,102,241,0.10);
+  --danger-bg: rgba(239,68,68,0.08);
+  --danger-border: rgba(239,68,68,0.25);
+  --text-primary: #ffffff;
+  --text-strong: rgba(255,255,255,0.90);
+  --text-body: rgba(255,255,255,0.70);
+  --text-subtle: rgba(255,255,255,0.50);
+  --text-label: rgba(255,255,255,0.45);
+  --text-faint: rgba(255,255,255,0.40);
+  --text-ghost: rgba(255,255,255,0.30);
+  --border-card: rgba(255,255,255,0.06);
+  --bar-bg: rgba(255,255,255,0.06);
+  --font-ui: ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Menlo', monospace;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --radius-card: 12px;
+  --radius-sm: 8px;
+}
+
+/* ── Main banner bar ────────────────────────────────────────────────────── */
 #hf-banner {
   all: initial !important;
   display: block !important;
@@ -11,428 +46,302 @@
   left: 0 !important;
   right: 0 !important;
   width: 100% !important;
-  height: 48px !important;
-  z-index: 2147483647 !important;
-  background: rgba(10, 10, 12, 0.96) !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
-  backdrop-filter: blur(16px) !important;
-  -webkit-backdrop-filter: blur(16px) !important;
-  box-shadow: 0 1px 0 rgba(59, 130, 246, 0.12), 0 2px 20px rgba(0,0,0,0.5) !important;
+  z-index: 999999 !important;
+  background: var(--bg) !important;
   box-sizing: border-box !important;
-  font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif !important;
+  font-family: var(--font-ui) !important;
   font-size: 12px !important;
-  color: #ffffff !important;
+  color: var(--text-primary) !important;
   line-height: 1 !important;
 }
 
 #hf-banner * {
   all: revert !important;
   box-sizing: border-box !important;
-  font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif !important;
   line-height: 1 !important;
 }
 
-#hf-banner .hf-inner {
+/* ── Inner flex row ─────────────────────────────────────────────────────── */
+#hf-banner .hf-bar {
   display: flex !important;
   align-items: center !important;
-  height: 48px !important;
-  padding: 0 20px !important;
-  gap: 24px !important;
-  max-width: 100% !important;
+  height: 38px !important;
+  padding: 0 var(--space-4) !important;
+  gap: var(--space-3) !important;
+  overflow: hidden !important;
+  border-bottom: 1px solid var(--border-card) !important;
+  transition: border-color 0.15s ease !important;
 }
 
-/* ── Brand ─────────────────────────────────────────────────────────────── */
-#hf-banner .hf-brand {
-  display: flex !important;
-  align-items: center !important;
-  gap: 10px !important;
-  flex-shrink: 0 !important;
+#hf-banner.hf-disabled .hf-bar {
+  border-bottom-color: var(--danger-border) !important;
 }
 
-#hf-banner .hf-logo {
-  font-size: 13px !important;
-  font-weight: 400 !important;
-  color: #ffffff !important;
-  letter-spacing: -0.02em !important;
-  white-space: nowrap !important;
+#hf-banner.hf-warning .hf-bar {
+  border-bottom-color: rgba(255,185,0,0.25) !important;
 }
 
-#hf-banner .hf-logo b {
-  font-weight: 600 !important;
-}
-
-#hf-banner .hf-testnet-badge {
-  display: inline-flex !important;
-  align-items: center !important;
-  padding: 2px 7px !important;
-  margin-left: 6px !important;
-  background: rgba(251, 191, 36, 0.15) !important;
-  border: 1px solid rgba(251, 191, 36, 0.35) !important;
-  border-radius: 4px !important;
-  font-size: 9px !important;
-  font-weight: 700 !important;
-  letter-spacing: 0.06em !important;
-  color: rgb(251, 191, 36) !important;
-  white-space: nowrap !important;
-}
-
+/* ── Vertical dividers ──────────────────────────────────────────────────── */
 #hf-banner .hf-divider {
   display: block !important;
   width: 1px !important;
-  height: 16px !important;
-  background: rgba(255,255,255,0.1) !important;
+  height: 20px !important;
+  background: var(--border-card) !important;
   flex-shrink: 0 !important;
 }
 
-#hf-banner .hf-hl-bal {
-  font-size: 12px !important;
-  font-weight: 500 !important;
-  color: rgba(255,255,255,0.55) !important;
+/* ── Brand ──────────────────────────────────────────────────────────────── */
+#hf-banner .hf-brand {
+  font-family: var(--font-ui) !important;
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  color: var(--text-primary) !important;
   white-space: nowrap !important;
+  flex-shrink: 0 !important;
 }
 
-/* ── Stats ─────────────────────────────────────────────────────────────── */
-#hf-banner .hf-stats {
-  display: flex !important;
-  align-items: center !important;
-  gap: 28px !important;
-  flex: 1 !important;
+#hf-banner .hf-brand b {
+  font-weight: 800 !important;
+  color: var(--accent) !important;
 }
 
-#hf-banner .hf-stat {
+/* ── Status badge (In Challenge) ────────────────────────────────────────── */
+#hf-banner .hf-status-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  padding: 2px 9px !important;
+  background: var(--accent-bg) !important;
+  border: 1px solid var(--accent-border) !important;
+  border-radius: var(--radius-card) !important;
+  font-family: var(--font-ui) !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  color: var(--accent) !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+}
+
+/* ── Generic stat group ─────────────────────────────────────────────────── */
+#hf-banner .hf-stat-group {
   display: flex !important;
   align-items: center !important;
-  gap: 8px !important;
+  gap: var(--space-2) !important;
+  flex-shrink: 0 !important;
 }
 
 #hf-banner .hf-stat-label {
-  font-size: 11px !important;
-  color: rgba(255,255,255,0.35) !important;
-  white-space: nowrap !important;
+  font-family: var(--font-ui) !important;
+  font-size: 10px !important;
   font-weight: 400 !important;
-}
-
-#hf-banner .hf-bar {
-  width: 80px !important;
-  height: 4px !important;
-  background: rgba(255,255,255,0.08) !important;
-  border-radius: 2px !important;
-  overflow: hidden !important;
-  flex-shrink: 0 !important;
-}
-
-#hf-banner .hf-fill {
-  height: 4px !important;
-  border-radius: 2px !important;
-  transition: width 0.2s ease, background 0.2s ease !important;
-}
-
-#hf-banner .hf-fill--challenge {
-  background: linear-gradient(90deg, #3b82f6, #8b5cf6) !important;
-}
-
-#hf-banner .hf-fill--drawdown {
-  background: linear-gradient(90deg, #fbbf24, #f59e0b) !important;
-}
-
-#hf-banner .hf-fill--capacity {
-  background: linear-gradient(90deg, #10b981, #3b82f6) !important;
-}
-
-#hf-banner .hf-fill--warn {
-  background: linear-gradient(90deg, #f59e0b, #ef4444) !important;
-}
-
-#hf-banner .hf-fill--danger {
-  background: #ef4444 !important;
-  animation: hf-pulse 0.9s ease-in-out infinite !important;
-}
-
-@keyframes hf-pulse {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.55; }
-}
-
-#hf-banner .hf-stat-val {
-  font-size: 11px !important;
-  font-weight: 500 !important;
-  color: rgba(255,255,255,0.7) !important;
+  color: var(--text-label) !important;
+  text-transform: uppercase !important;
   white-space: nowrap !important;
+  letter-spacing: 0.02em !important;
+}
+
+#hf-banner .hf-stat-value {
+  font-family: var(--font-mono) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: var(--text-primary) !important;
   font-variant-numeric: tabular-nums !important;
+  white-space: nowrap !important;
 }
 
-#hf-banner .hf-muted {
-  color: rgba(255,255,255,0.3) !important;
+#hf-banner .hf-stat-suffix {
+  font-family: var(--font-mono) !important;
+  font-size: 10px !important;
   font-weight: 400 !important;
+  color: var(--text-subtle) !important;
+  font-variant-numeric: tabular-nums !important;
+  white-space: nowrap !important;
 }
 
-#hf-banner .hf-stat--warn  .hf-stat-val   { color: #fbbf24 !important; }
-#hf-banner .hf-stat--danger .hf-stat-val  { color: #ef4444 !important; }
-#hf-banner .hf-stat--warn  .hf-stat-label { color: rgba(251,191,36,0.55) !important; }
-#hf-banner .hf-stat--danger .hf-stat-label{ color: rgba(239,68,68,0.55) !important; }
-
-/* ── Right: warning + close ─────────────────────────────────────────────── */
-#hf-banner .hf-right {
+/* ── Drawdown stacked pair ──────────────────────────────────────────────── */
+#hf-banner .hf-dd-stack {
   display: flex !important;
-  align-items: center !important;
-  gap: 10px !important;
+  flex-direction: column !important;
+  gap: var(--space-1) !important;
   flex-shrink: 0 !important;
-  margin-left: auto !important;
 }
 
-#hf-banner .hf-warn {
+#hf-banner .hf-dd-row {
   display: flex !important;
   align-items: center !important;
-  gap: 6px !important;
-  padding: 0 10px !important;
-  height: 26px !important;
-  background: rgba(239,68,68,0.1) !important;
-  border: 1px solid rgba(239,68,68,0.25) !important;
+  gap: var(--space-2) !important;
+}
+
+#hf-banner .hf-dd-label {
+  font-family: var(--font-ui) !important;
+  font-size: 9px !important;
+  font-weight: 400 !important;
+  color: var(--text-label) !important;
+  text-transform: uppercase !important;
+  width: 52px !important;
+  flex-shrink: 0 !important;
+  white-space: nowrap !important;
+}
+
+#hf-banner .hf-dd-value {
+  font-family: var(--font-mono) !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  font-variant-numeric: tabular-nums !important;
+  white-space: nowrap !important;
+}
+
+#hf-banner .hf-dd-suffix {
+  font-family: var(--font-mono) !important;
+  font-size: 10px !important;
+  font-weight: 400 !important;
+  color: var(--text-subtle) !important;
+  white-space: nowrap !important;
+}
+
+#hf-banner .hf-dd-warn {
+  font-size: 9px !important;
+  margin-left: 2px !important;
+}
+
+/* ── Target mini progress bar ───────────────────────────────────────────── */
+#hf-banner .hf-target-bar {
+  width: 100px !important;
+  height: 5px !important;
+  background: var(--bar-bg) !important;
   border-radius: 5px !important;
-  opacity: 0 !important;
-  pointer-events: none !important;
-  transition: opacity 0.2s ease !important;
-  max-width: 360px !important;
   overflow: hidden !important;
-}
-
-#hf-banner .hf-warn.hf-warn--on {
-  opacity: 1 !important;
-  pointer-events: auto !important;
-}
-
-#hf-banner .hf-warn-icon {
-  font-size: 11px !important;
-  color: #ef4444 !important;
   flex-shrink: 0 !important;
 }
 
-#hf-banner #hf-warn-text {
+#hf-banner .hf-target-fill {
+  height: 5px !important;
+  border-radius: 5px !important;
+  transition: width 0.2s ease, background-color 0.2s ease !important;
+}
+
+#hf-banner .hf-target-value {
+  font-family: var(--font-mono) !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  font-variant-numeric: tabular-nums !important;
+  white-space: nowrap !important;
+}
+
+#hf-banner .hf-target-suffix {
+  font-family: var(--font-mono) !important;
+  font-size: 10px !important;
+  color: var(--text-subtle) !important;
+  white-space: nowrap !important;
+}
+
+/* ── Spacer ─────────────────────────────────────────────────────────────── */
+#hf-banner .hf-spacer {
+  flex: 1 !important;
+}
+
+/* ── Rules button (stubbed) ─────────────────────────────────────────────── */
+#hf-banner .hf-rules-btn {
+  all: unset !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  padding: 3px 12px !important;
+  background: var(--indigo-bg) !important;
+  border: 1px solid rgba(100,102,241,0.25) !important;
+  border-radius: var(--radius-card) !important;
+  font-family: var(--font-ui) !important;
   font-size: 11px !important;
-  color: #fca5a5 !important;
+  font-weight: 700 !important;
+  color: var(--indigo) !important;
+  white-space: nowrap !important;
+  opacity: 0.5 !important;
+  cursor: default !important;
+  flex-shrink: 0 !important;
+}
+
+/* ── Disabled state — inline warning text ───────────────────────────────── */
+#hf-banner .hf-disabled-msg {
+  display: none !important;
+  align-items: center !important;
+  gap: var(--space-2) !important;
+  font-family: var(--font-ui) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: var(--red) !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+}
+
+#hf-banner.hf-disabled .hf-disabled-msg {
+  display: flex !important;
+}
+
+/* ── Disabled sub-strip ─────────────────────────────────────────────────── */
+#hf-banner .hf-sub-strip {
+  display: none !important;
+  align-items: center !important;
+  gap: var(--space-3) !important;
+  padding: var(--space-2) var(--space-4) !important;
+  background: rgba(239,68,68,0.05) !important;
+  border-bottom: 1px solid var(--danger-border) !important;
+}
+
+#hf-banner.hf-disabled .hf-sub-strip {
+  display: flex !important;
+}
+
+#hf-banner .hf-sub-strip-title {
+  font-family: var(--font-ui) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: var(--red) !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+}
+
+#hf-banner .hf-sub-strip-body {
+  font-family: var(--font-ui) !important;
+  font-size: 11px !important;
+  font-weight: 400 !important;
+  color: var(--text-body) !important;
   white-space: nowrap !important;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
 }
 
-#hf-banner .hf-close {
+#hf-banner .hf-sub-strip-btn {
   all: unset !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  width: 22px !important;
-  height: 22px !important;
-  border-radius: 4px !important;
-  color: rgba(255,255,255,0.25) !important;
-  font-size: 11px !important;
-  cursor: pointer !important;
-  flex-shrink: 0 !important;
-  transition: color 0.15s, background 0.15s !important;
-}
-
-#hf-banner .hf-close:hover {
-  color: rgba(255,255,255,0.7) !important;
-  background: rgba(255,255,255,0.08) !important;
-}
-
-/* ── Unsupported-pair warning overlay ─────────────────────────────────────── */
-#hf-unsupported-overlay {
-  all: initial !important;
-  display: flex !important;
-  position: fixed !important;
-  top: 48px !important;          /* below the banner */
-  left: 0 !important;
-  right: 0 !important;
-  bottom: 0 !important;
-  z-index: 2147483646 !important;
-  background: rgba(0, 0, 0, 0.75) !important;
-  backdrop-filter: blur(6px) !important;
-  -webkit-backdrop-filter: blur(6px) !important;
-  align-items: center !important;
-  justify-content: center !important;
-  font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif !important;
-}
-
-#hf-unsupported-overlay * {
-  all: revert !important;
-  box-sizing: border-box !important;
-  font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif !important;
-}
-
-#hf-unsupported-overlay .hf-unsupported-card {
-  position: relative !important;
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: center !important;
-  gap: 12px !important;
-  padding: 36px 48px !important;
-  background: rgba(20, 20, 24, 0.95) !important;
-  border: 1px solid rgba(239, 68, 68, 0.35) !important;
-  border-radius: 14px !important;
-  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6),
-              0 0 0 1px rgba(239, 68, 68, 0.10) !important;
-  max-width: 420px !important;
-  text-align: center !important;
-}
-
-#hf-unsupported-overlay .hf-unsupported-icon {
-  font-size: 36px !important;
-  line-height: 1.2 !important;
-}
-
-#hf-unsupported-overlay .hf-unsupported-title {
-  font-size: 18px !important;
-  font-weight: 700 !important;
-  color: #ef4444 !important;
-  letter-spacing: -0.01em !important;
-}
-
-#hf-unsupported-overlay .hf-unsupported-msg {
-  font-size: 14px !important;
-  font-weight: 400 !important;
-  color: rgba(255, 255, 255, 0.7) !important;
-  line-height: 1.6 !important;
-}
-
-#hf-unsupported-overlay .hf-unsupported-msg b {
-  font-weight: 600 !important;
-  color: #ffffff !important;
-}
-
-#hf-unsupported-overlay .hf-unsupported-close {
-  all: unset !important;
-  position: absolute !important;
-  top: 12px !important;
-  right: 12px !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  width: 26px !important;
-  height: 26px !important;
-  border-radius: 6px !important;
-  color: rgba(255,255,255,0.35) !important;
-  font-size: 13px !important;
-  cursor: pointer !important;
-  transition: color 0.15s, background 0.15s !important;
-}
-
-#hf-unsupported-overlay .hf-unsupported-close:hover {
-  color: rgba(255,255,255,0.8) !important;
-  background: rgba(255,255,255,0.1) !important;
-}
-
-/* ── Low balance badge in banner ──────────────────────────────────────────── */
-#hf-banner .hf-low-badge {
-  display: none !important;
-  align-items: center !important;
-  padding: 3px 8px !important;
-  margin-left: 6px !important;
-  background: rgba(239, 68, 68, 0.18) !important;
-  border: 1px solid rgba(239, 68, 68, 0.4) !important;
-  border-radius: 4px !important;
-  font-size: 9px !important;
-  font-weight: 700 !important;
-  letter-spacing: 0.06em !important;
-  color: #ef4444 !important;
-  white-space: nowrap !important;
-  animation: hf-pulse 1.2s ease-in-out infinite !important;
-}
-
-/* ── Low balance blocking overlay ─────────────────────────────────────────── */
-#hf-low-balance-overlay {
-  all: initial !important;
-  display: flex !important;
-  position: fixed !important;
-  top: 48px !important;
-  left: 0 !important;
-  right: 0 !important;
-  bottom: 0 !important;
-  z-index: 2147483646 !important;
-  background: rgba(0, 0, 0, 0.82) !important;
-  backdrop-filter: blur(8px) !important;
-  -webkit-backdrop-filter: blur(8px) !important;
-  align-items: center !important;
-  justify-content: center !important;
-  font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif !important;
-}
-
-#hf-low-balance-overlay * {
-  all: revert !important;
-  box-sizing: border-box !important;
-  font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif !important;
-}
-
-#hf-low-balance-overlay .hf-low-balance-card {
-  position: relative !important;
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: center !important;
-  gap: 14px !important;
-  padding: 44px 56px !important;
-  background: rgba(20, 20, 24, 0.96) !important;
-  border: 1px solid rgba(239, 68, 68, 0.45) !important;
-  border-radius: 16px !important;
-  box-shadow: 0 8px 48px rgba(239, 68, 68, 0.12),
-              0 0 0 1px rgba(239, 68, 68, 0.08) !important;
-  max-width: 440px !important;
-  text-align: center !important;
-}
-
-#hf-low-balance-overlay .hf-low-balance-icon {
-  font-size: 42px !important;
-  line-height: 1.2 !important;
-}
-
-#hf-low-balance-overlay .hf-low-balance-title {
-  font-size: 20px !important;
-  font-weight: 700 !important;
-  color: #ef4444 !important;
-  letter-spacing: -0.01em !important;
-}
-
-#hf-low-balance-overlay .hf-low-balance-amount {
-  font-size: 32px !important;
-  font-weight: 600 !important;
-  color: #fca5a5 !important;
-  letter-spacing: -0.02em !important;
-  font-variant-numeric: tabular-nums !important;
-}
-
-#hf-low-balance-overlay .hf-low-balance-msg {
-  font-size: 14px !important;
-  font-weight: 400 !important;
-  color: rgba(255, 255, 255, 0.65) !important;
-  line-height: 1.7 !important;
-}
-
-#hf-low-balance-overlay .hf-low-balance-msg b {
-  font-weight: 600 !important;
-  color: #ffffff !important;
-}
-
-#hf-low-balance-overlay .hf-low-balance-btn {
   display: inline-flex !important;
   align-items: center !important;
-  margin-top: 6px !important;
-  padding: 10px 24px !important;
-  background: rgba(239, 68, 68, 0.15) !important;
-  border: 1px solid rgba(239, 68, 68, 0.35) !important;
-  border-radius: 8px !important;
-  color: #fca5a5 !important;
-  font-size: 13px !important;
+  padding: var(--space-1) var(--space-3) !important;
+  background: transparent !important;
+  border: 1px solid var(--danger-border) !important;
+  border-radius: var(--radius-sm) !important;
+  font-family: var(--font-ui) !important;
+  font-size: 11px !important;
   font-weight: 500 !important;
-  text-decoration: none !important;
+  color: var(--red) !important;
+  white-space: nowrap !important;
   cursor: pointer !important;
-  transition: background 0.15s, border-color 0.15s !important;
+  flex-shrink: 0 !important;
+  margin-left: auto !important;
+  transition: background 0.15s ease, border-color 0.15s ease !important;
 }
 
-#hf-low-balance-overlay .hf-low-balance-btn:hover {
-  background: rgba(239, 68, 68, 0.25) !important;
-  border-color: rgba(239, 68, 68, 0.55) !important;
-  color: #ffffff !important;
+#hf-banner .hf-sub-strip-btn:hover {
+  background: var(--danger-bg) !important;
+  border-color: rgba(239,68,68,0.45) !important;
 }
 
-/* Hard-disabled trade buttons (applied directly to HL order button). */
+#hf-banner .hf-sub-strip-via {
+  font-family: var(--font-ui) !important;
+  font-size: 10px !important;
+  font-weight: 400 !important;
+  color: var(--text-ghost) !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+}
+
+/* ── Hard-disabled trade buttons (applied to HL order buttons) ──────────── */
 button.hf-trade-blocked,
 button.hf-trade-blocked:disabled {
   pointer-events: none !important;

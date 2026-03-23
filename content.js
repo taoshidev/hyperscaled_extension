@@ -15,12 +15,9 @@
   // ── Supported trading pairs (fetched from validator, fallback to defaults) ──
   let SUPPORTED_SYMBOLS = ["BTC", "ETH", "SOL", "XRP", "DOGE", "ADA"];
   const UNSUPPORTED_OVERLAY_ID = "hf-unsupported-overlay";
-  const LOW_BALANCE_THRESHOLD = 1; // TODO change to 1000
-  const LOW_BALANCE_OVERLAY_ID = "hf-low-balance-overlay";
   const BALANCE_CHECK_INTERVAL = 30000;
 
   let currentBalance = null;
-  let isLowBalance = false;
   let balanceVerified = false;
   let balanceCheckTimer = null;
 
@@ -31,6 +28,8 @@
     challengeCurrent: 0,
     drawdownCurrent: 0,
     drawdownMax: 5,
+    daily_loss_pct: 0,
+    eod_trailing_loss_pct: 0,
     openSingleUsed: 0,
     openTotalUsed: 0,
     maxPositionPerPair: 0,
@@ -43,7 +42,7 @@
 
   const BANNER_ID = "hf-banner";
   const LAYOUT_STYLE_ID = "hf-layout-fix";
-  const BANNER_HEIGHT = 48;
+  const BANNER_HEIGHT = 38;
 
   const MAX_SINGLE = () => ACCOUNT.maxPositionPerPair || (ACCOUNT.hlBalance * 0.625);
   const MAX_TOTAL = () => ACCOUNT.maxPortfolio || (ACCOUNT.hlBalance * 1.25);
@@ -59,55 +58,108 @@
   const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
 
   // ── Banner HTML ────────────────────────────────────────────────────────────
+
+  function ddColor(val) {
+    if (val >= 5) return 'var(--red)';
+    if (val >= 4) return 'var(--amber)';
+    return 'var(--accent)';
+  }
+
+  function ddWarn(val) {
+    return val >= 4 ? ' ⚠' : '';
+  }
+
+  function targetColor(val) {
+    if (val >= 10) return 'var(--accent)';
+    if (val >= 8) return 'var(--amber)';
+    return 'var(--indigo)';
+  }
+
   function getBannerHTML() {
-    const challengePct = pct(ACCOUNT.challengeCurrent, ACCOUNT.challengeTarget);
-    const drawdownPct = pct(ACCOUNT.drawdownCurrent, ACCOUNT.drawdownMax);
-    const capacityPct = pct(ACCOUNT.openTotalUsed, MAX_TOTAL()); // TOTAL-based
+    const daily = ACCOUNT.daily_loss_pct || 0;
+    const trailing = ACCOUNT.eod_trailing_loss_pct || 0;
+    const target = ACCOUNT.challengeCurrent || 0;
+    const targetMax = ACCOUNT.challengeTarget || 10;
+    const targetPct = targetMax > 0 ? Math.min((target / targetMax) * 100, 100) : 0;
+    const equity = ACCOUNT.hlBalance || 0;
+    const isDisabled = shouldBlockTrade;
+    const isWarning = daily >= 4 || trailing >= 4;
 
     return `
-      <div class="hf-inner">
-        <div class="hf-brand">
-          <span class="hf-logo">Hyper<b>scaled</b></span>${IS_TESTNET ? '<span class="hf-testnet-badge">TESTNET</span>' : ''}
-          <span class="hf-divider"></span>
-          <span class="hf-hl-bal">${fmt(ACCOUNT.hlBalance)}</span>
-          <span class="hf-low-badge" id="hf-low-badge" style="display:none">LOW BALANCE</span>
+      <div class="hf-bar">
+        <!-- 1. Brand -->
+        <span class="hf-brand">Hyper<b>scaled</b></span>
+
+        <!-- 2. Status badge -->
+        <span class="hf-status-badge">● In Challenge</span>
+
+        <!-- 3. Divider -->
+        <span class="hf-divider"></span>
+
+        <!-- 4. Equity -->
+        <div class="hf-stat-group">
+          <span class="hf-stat-label">EQUITY</span>
+          <span class="hf-stat-value" id="hf-equity">${fmt(equity)}</span>
         </div>
 
-        <div class="hf-stats">
-          <div class="hf-stat">
-            <span class="hf-stat-label">Challenge</span>
-            <div class="hf-bar">
-              <div class="hf-fill hf-fill--challenge" id="hf-fill-challenge" style="width:${challengePct}% !important"></div>
-            </div>
-            <span class="hf-stat-val">${Math.round(ACCOUNT.challengeCurrent)}% <span class="hf-muted">/ ${ACCOUNT.challengeTarget}%</span></span>
-          </div>
+        <!-- 5. Divider -->
+        <span class="hf-divider"></span>
 
-          <div class="hf-stat">
-            <span class="hf-stat-label">Drawdown</span>
-            <div class="hf-bar">
-              <div class="hf-fill hf-fill--drawdown" id="hf-fill-drawdown" style="width:${drawdownPct}% !important"></div>
-            </div>
-            <span class="hf-stat-val">${Math.round(ACCOUNT.drawdownCurrent)}% <span class="hf-muted">/ ${ACCOUNT.drawdownMax}%</span></span>
+        <!-- 6. Daily / Trailing stacked -->
+        <div class="hf-dd-stack">
+          <div class="hf-dd-row">
+            <span class="hf-dd-label">DAILY</span>
+            <span class="hf-dd-value" id="hf-daily" style="color:${ddColor(daily)} !important">${daily.toFixed(2)}%</span>
+            <span class="hf-dd-suffix">/ 5.00%</span>
+            ${daily >= 4 ? `<span class="hf-dd-warn" style="color:${ddColor(daily)} !important">⚠</span>` : ''}
           </div>
-
-          <div class="hf-stat" id="hf-stat-cap">
-            <span class="hf-stat-label">Capacity</span>
-            <div class="hf-bar">
-              <div class="hf-fill hf-fill--capacity" id="hf-fill-cap" style="width:${capacityPct}% !important"></div>
-            </div>
-            <span class="hf-stat-val" id="hf-cap-val">
-              ${fmt(ACCOUNT.openTotalUsed)} <span class="hf-muted">/ ${fmt(MAX_TOTAL())}</span>
-            </span>
+          <div class="hf-dd-row">
+            <span class="hf-dd-label">TRAILING</span>
+            <span class="hf-dd-value" id="hf-trailing" style="color:${ddColor(trailing)} !important">${trailing.toFixed(2)}%</span>
+            <span class="hf-dd-suffix">/ 5.00%</span>
+            ${trailing >= 4 ? `<span class="hf-dd-warn" style="color:${ddColor(trailing)} !important">⚠</span>` : ''}
           </div>
         </div>
 
-        <div class="hf-right">
-          <div class="hf-warn" id="hf-warn">
-            <span class="hf-warn-icon">⚠</span>
-            <span id="hf-warn-text"></span>
+        <!-- 7. Divider -->
+        <span class="hf-divider"></span>
+
+        <!-- 8. Target -->
+        <div class="hf-stat-group">
+          <span class="hf-stat-label">TARGET</span>
+          <div class="hf-target-bar">
+            <div class="hf-target-fill" id="hf-target-fill" style="width:${targetPct}% !important; background-color:${targetColor(target)} !important"></div>
           </div>
-          <button class="hf-close" id="hf-close" type="button">✕</button>
+          <span class="hf-target-value" id="hf-target-val" style="color:${targetColor(target)} !important">${target.toFixed(1)}%</span>
+          <span class="hf-target-suffix">/ ${targetMax}%</span>
         </div>
+
+        <!-- 9. Divider -->
+        <span class="hf-divider"></span>
+
+        <!-- 10. HWM -->
+        <div class="hf-stat-group">
+          <span class="hf-stat-label">HWM</span>
+          <span class="hf-stat-value" id="hf-hwm">${fmt(equity)}</span>
+        </div>
+
+        <!-- Disabled inline message (hidden unless .hf-disabled) -->
+        <span class="hf-divider" style="display:${isDisabled ? 'block' : 'none'} !important"></span>
+        <span class="hf-disabled-msg" id="hf-disabled-msg">🚫 Daily loss limit hit — trading paused</span>
+
+        <!-- 11. Spacer -->
+        <span class="hf-spacer"></span>
+
+        <!-- 12. Rules button (stubbed) -->
+        <span class="hf-rules-btn">● Rules</span>
+      </div>
+
+      <!-- Disabled sub-strip -->
+      <div class="hf-sub-strip">
+        <span class="hf-sub-strip-title">Hyperscaled Extension</span>
+        <span class="hf-sub-strip-body">Your daily loss limit of 5% has been reached. New trade submissions are blocked until the next trading day (resets 00:00 UTC).</span>
+        <a class="hf-sub-strip-btn" id="hf-dashboard-link">View Dashboard →</a>
+        <span class="hf-sub-strip-via">via Hyperscaled extension</span>
       </div>
     `;
   }
@@ -117,7 +169,7 @@
     if (document.getElementById(LAYOUT_STYLE_ID)) return;
     const st = document.createElement("style");
     st.id = LAYOUT_STYLE_ID;
-    st.textContent = `html, body { padding-top: ${BANNER_HEIGHT}px !important; }`;
+    st.textContent = `html, body { padding-top: ${BANNER_HEIGHT}px !important; background-color: #18181b !important; }`;
     (document.head || document.documentElement).appendChild(st);
   }
   function removeLayoutFix() {
@@ -132,23 +184,24 @@
     banner.id = BANNER_ID;
     banner.innerHTML = getBannerHTML();
 
+    // Apply state classes
+    applyBannerStateClasses(banner);
+
     (document.body || document.documentElement).prepend(banner);
     ensureLayoutFix();
 
-    banner.querySelector("#hf-close")?.addEventListener("click", teardown);
+    // Wire dashboard link in sub-strip
+    banner.querySelector("#hf-dashboard-link")?.addEventListener("click", (e) => {
+      e.preventDefault();
+      window.open("https://vanta.network/dashboard", "_blank");
+    });
 
     startBindingLoop();
     scheduleUpdate();
     startBalanceChecking();
-
-    // Fail closed: block trading immediately until balance is verified >= $1,000
-    if (!balanceVerified || isLowBalance) {
-      showTradeBlockOverlay(isLowBalance ? "low-balance" : "checking");
-    }
   }
 
   function teardown() {
-    if (isLowBalance || !balanceVerified) return;
     shouldBlockTrade = false;
     enforceTradeBlock();
     stopTradeBlockObserver();
@@ -157,7 +210,6 @@
     stopBalanceChecking();
     document.getElementById(BANNER_ID)?.remove();
     removeUnsupportedOverlay();
-    removeLowBalanceOverlay();
     removeLayoutFix();
   }
 
@@ -448,6 +500,8 @@
       ACCOUNT.challengeTarget = parseFloat(cp.target_return_percent) || ACCOUNT.challengeTarget;
       ACCOUNT.drawdownCurrent = parseFloat(cp.drawdown_percent) || 0;
       ACCOUNT.drawdownMax = parseFloat(cp.drawdown_limit_percent) || ACCOUNT.drawdownMax;
+      ACCOUNT.daily_loss_pct = parseFloat(cp.daily_loss_percent) || 0;
+      ACCOUNT.eod_trailing_loss_pct = parseFloat(cp.eod_trailing_loss_percent) || 0;
 
       ACCOUNT.openTotalUsed = totalNotional;
       ACCOUNT.openSingleUsed = maxSingleNotional;
@@ -459,12 +513,29 @@
     }
   }
 
+  function applyBannerStateClasses(banner) {
+    const daily = ACCOUNT.daily_loss_pct || 0;
+    const trailing = ACCOUNT.eod_trailing_loss_pct || 0;
+    banner.classList.remove('hf-disabled', 'hf-warning');
+    if (shouldBlockTrade) {
+      banner.classList.add('hf-disabled');
+    } else if (daily >= 4 || trailing >= 4) {
+      banner.classList.add('hf-warning');
+    }
+  }
+
   function updateBannerFromValidator() {
     const banner = document.getElementById(BANNER_ID);
     if (!banner) return;
     banner.innerHTML = getBannerHTML();
-    banner.querySelector("#hf-close")?.addEventListener("click", teardown);
-    updateBannerBalance();
+    applyBannerStateClasses(banner);
+
+    // Re-wire dashboard link
+    banner.querySelector("#hf-dashboard-link")?.addEventListener("click", (e) => {
+      e.preventDefault();
+      window.open("https://vanta.network/dashboard", "_blank");
+    });
+
     updateBanner(getPendingNotional());
   }
 
@@ -472,16 +543,9 @@
     const address = await getUserAddress();
     console.log("[Hyperscaled] checkBalance address:", address);
     if (!address) {
-      console.warn("[Hyperscaled] No address found — blocking trades");
-      isLowBalance = true;
+      console.warn("[Hyperscaled] No address found");
       balanceVerified = false;
-      showTradeBlockOverlay("no-address");
-      updateBannerBalance();
       return;
-    }
-
-    if (!balanceVerified) {
-      showTradeBlockOverlay("checking");
     }
 
     try {
@@ -505,117 +569,27 @@
       ACCOUNT.hlBalance = currentBalance;
       balanceVerified = true;
 
-      const wasLow = isLowBalance;
-      isLowBalance = currentBalance < LOW_BALANCE_THRESHOLD;
-
-      if (isLowBalance) {
-        showTradeBlockOverlay("low-balance");
-        if (!wasLow) {
-          chrome.runtime.sendMessage({
-            action: "lowBalanceWarning",
-            balance: currentBalance,
-          });
-        }
-      } else {
-        removeLowBalanceOverlay();
-      }
-
       updateBannerBalance();
       scheduleUpdate();
     } catch (e) {
       console.error("[Hyperscaled] Balance check failed:", e);
-      if (!balanceVerified) {
-        isLowBalance = true;
-        showTradeBlockOverlay("error");
-        updateBannerBalance();
-      }
     }
-  }
-
-  const OVERLAY_CONFIGS = {
-    "checking": {
-      icon: "⏳",
-      title: "Verifying Balance",
-      msg: "Checking your Hyperliquid account balance...",
-    },
-    "no-address": {
-      icon: "🔗",
-      title: "Wallet Not Connected",
-      msg: "Enter your Hyperliquid wallet address in the<br>Hyperscaled extension popup to enable trading.",
-    },
-    "low-balance": {
-      icon: "🚫",
-      title: "Trading Disabled",
-      showAmount: true,
-      msg: `Your Hyperliquid balance is below <b>$THRESHOLD</b>.<br>New trades are blocked to protect your account.<br>Deposit funds to resume trading.`,
-      btn: { text: "Go to Portfolio →", href: HL_APP_ORIGIN + "/portfolio" },
-    },
-    "error": {
-      icon: "⚠️",
-      title: "Balance Check Failed",
-      msg: "Could not verify your account balance.<br>Trading is blocked until balance is confirmed.",
-      btn: { text: "Retry", action: "retry" },
-    },
-  };
-
-  function showTradeBlockOverlay(reason) {
-    const existing = document.getElementById(LOW_BALANCE_OVERLAY_ID);
-    if (existing && existing.dataset.reason === reason) return;
-    if (existing) existing.remove();
-
-    const cfg = OVERLAY_CONFIGS[reason];
-    if (!cfg) return;
-
-    const msgHTML = cfg.msg.replace("$THRESHOLD", fmt(LOW_BALANCE_THRESHOLD));
-
-    const overlay = document.createElement("div");
-    overlay.id = LOW_BALANCE_OVERLAY_ID;
-    overlay.dataset.reason = reason;
-    overlay.innerHTML = `
-      <div class="hf-low-balance-card">
-        <span class="hf-low-balance-icon">${cfg.icon}</span>
-        <span class="hf-low-balance-title">${cfg.title}</span>
-        ${cfg.showAmount && currentBalance !== null ? `<span class="hf-low-balance-amount">${fmt(currentBalance)}</span>` : ""}
-        <span class="hf-low-balance-msg">${msgHTML}</span>
-        ${cfg.btn ? `<a class="hf-low-balance-btn" id="hf-low-balance-link">${cfg.btn.text}</a>` : ""}
-      </div>
-    `;
-    (document.body || document.documentElement).appendChild(overlay);
-
-    const link = overlay.querySelector("#hf-low-balance-link");
-    if (link && cfg.btn) {
-      link.addEventListener("click", (e) => {
-        e.preventDefault();
-        if (cfg.btn.href) window.location.href = cfg.btn.href;
-        else if (cfg.btn.action === "retry") checkBalance();
-      });
-    }
-  }
-
-  function removeLowBalanceOverlay() {
-    document.getElementById(LOW_BALANCE_OVERLAY_ID)?.remove();
   }
 
   function updateBannerBalance() {
-    const balEl = document.querySelector("#hf-banner .hf-hl-bal");
-    const badge = document.getElementById("hf-low-badge");
-    const closeBtn = document.getElementById("hf-close");
-    const blocked = isLowBalance || !balanceVerified;
+    const equityEl = document.getElementById("hf-equity");
+    const hwmEl = document.getElementById("hf-hwm");
 
-    if (balEl && currentBalance !== null) {
-      balEl.textContent = fmt(currentBalance);
-      balEl.style.setProperty(
-        "color",
-        isLowBalance ? "#ef4444" : "rgba(255,255,255,0.55)",
-        "important"
-      );
+    if (equityEl && currentBalance !== null) {
+      equityEl.textContent = fmt(currentBalance);
     }
-    if (badge) {
-      badge.style.setProperty("display", isLowBalance ? "inline-flex" : "none", "important");
+    if (hwmEl && currentBalance !== null) {
+      hwmEl.textContent = fmt(currentBalance);
     }
-    if (closeBtn) {
-      closeBtn.style.setProperty("display", blocked ? "none" : "flex", "important");
-    }
+
+    // Re-apply state classes
+    const banner = document.getElementById(BANNER_ID);
+    if (banner) applyBannerStateClasses(banner);
   }
 
   function startBalanceChecking() {
@@ -724,72 +698,11 @@
 
   // ── Update banner ──────────────────────────────────────────────────────────
   function updateBanner(pendingNotional) {
-    const fillCap = document.getElementById("hf-fill-cap");
-    const capVal = document.getElementById("hf-cap-val");
-    const statCap = document.getElementById("hf-stat-cap");
-    const warnEl = document.getElementById("hf-warn");
-    const warnText = document.getElementById("hf-warn-text");
-    if (!fillCap) return;
+    const banner = document.getElementById(BANNER_ID);
+    if (!banner) return;
 
-    const maxSingle = MAX_SINGLE();
-    const maxTotal = MAX_TOTAL();
-
-    const currentSingle = ACCOUNT.openSingleUsed;
-    const currentTotal = ACCOUNT.openTotalUsed;
-
-    const p = pendingNotional || 0;
-
-    const projectedSingle = currentSingle + p;
-    const projectedTotal = currentTotal + p;
-
-    const singlePct = clamp((projectedSingle / maxSingle) * 100, 0, 100);
-    const totalPct = clamp((projectedTotal / maxTotal) * 100, 0, 100);
-
-    // Capacity bar fill is TOTAL-based
-    fillCap.style.setProperty("width", totalPct + "%", "important");
-
-    const worstPct = Math.max(singlePct, totalPct);
-    fillCap.className =
-      "hf-fill " +
-      (worstPct >= 100 ? "hf-fill--danger" : worstPct >= 80 ? "hf-fill--warn" : "hf-fill--capacity");
-
-    if (capVal) {
-      capVal.innerHTML = `${fmt(projectedTotal)} <span class="hf-muted">/ ${fmt(maxTotal)}</span>`;
-    }
-
-    if (statCap) {
-      statCap.className =
-        "hf-stat" + (worstPct >= 100 ? " hf-stat--danger" : worstPct >= 80 ? " hf-stat--warn" : "");
-    }
-
-    let msg = "";
-    if (p > 0) {
-      const leftSingle = maxSingle - currentSingle;
-      const leftTotal = maxTotal - currentTotal;
-
-      const overSingle = p > leftSingle;
-      const overTotal = p > leftTotal;
-
-      if (overSingle && overTotal) {
-        msg = `Exceeds both limits — ${fmt(leftSingle)} single / ${fmt(leftTotal)} total available`;
-      } else if (overSingle) {
-        msg = `Over per-pair limit (${fmt(maxSingle)}) — max ${fmt(leftSingle)} available`;
-      } else if (overTotal) {
-        msg = `Over portfolio limit (${fmt(maxTotal)}) — max ${fmt(leftTotal)} available`;
-      } else if (worstPct >= 80) {
-        msg = `Approaching limit — ${fmt(Math.min(leftSingle, leftTotal) - p)} remaining after this order`;
-      }
-    }
-
-    if (warnEl && warnText) {
-      if (msg) {
-        warnEl.classList.add("hf-warn--on");
-        warnText.textContent = msg;
-      } else {
-        warnEl.classList.remove("hf-warn--on");
-        warnText.textContent = "";
-      }
-    }
+    // Re-apply state classes (disabled / warning)
+    applyBannerStateClasses(banner);
 
     // Disable/enable trade buttons based on limit check
     checkAndBlockButtons();
@@ -827,14 +740,7 @@
       isClampingInProgress = true;
       setInputValue(input, maxAllowed);
       isClampingInProgress = false;
-
-      // Show warning
-      const warnEl = document.getElementById("hf-warn");
-      const warnText = document.getElementById("hf-warn-text");
-      if (warnEl && warnText) {
-        warnEl.classList.add("hf-warn--on");
-        warnText.textContent = `Clamped to ${fmt(maxAllowed)} — position limit reached`;
-      }
+      console.log(`[Hyperscaled] Clamped to ${fmt(maxAllowed)} — position limit reached`);
     }
   }
 
