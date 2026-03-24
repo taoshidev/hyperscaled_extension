@@ -72,6 +72,22 @@ Three levels. Use the lowest level that communicates the action's importance.
 }
 ```
 
+### Toggle Pill
+
+Used exclusively in the Settings notification preferences. A 36×20px pill with a 14px white knob.
+
+| State | Property | Token / Value |
+|-------|----------|---------------|
+| OFF | Background | `--border-card` (6% white) |
+| OFF | Knob position | `left: 3px` |
+| ON | Background | `--accent` |
+| ON | Knob position | `left: 19px` |
+| Knob | Size / color / radius | 14px / `#ffffff` / 50% |
+| Pill | Width / height / radius | 36px / 20px / 10px |
+| Transition | All | `0.2s ease` |
+
+**Rule:** State is toggled via `data-state="on"` / `data-state="off"` attribute on `.settings-toggle`. JS owns the state — CSS only reads the attribute.
+
 ---
 
 ## Amber / Caution Surface
@@ -143,7 +159,8 @@ Layered surfaces create depth without heavy shadows. Use the lowest opacity that
 | Use | Font | Size | Weight | Notes |
 |-----|------|------|--------|-------|
 | Balance value | Menlo | 19px | 700 | tracking -0.38px, tabular-nums — both Funded and HL cards |
-| Payout value | Menlo | 18px | 700 | tracking -0.36px, tabular-nums, `--accent` |
+| Payout value (inline card) | Menlo | 18px | 700 | tracking -0.36px, tabular-nums, `--accent` |
+| Payout value (claimable hero) | Menlo | 28px | 800 | tracking -0.56px, tabular-nums, `--accent` |
 | Balance change / P&L delta | UI | 11px | 400 | `--green` or `--red` |
 | Section titles (Challenge Progress, Drawdown, Capacity) | UI | 12px | 600 | `--text-strong` |
 | Section values (percentages, gauge readings) | Menlo | 12px | 700 | tabular-nums; challenge = `--accent`, drawdown = `--amber` |
@@ -199,7 +216,7 @@ Small pills (like "In Challenge", "LONG", "LOW BALANCE") use:
 - **Card padding:** `--space-3` compact · `--space-4` standard (position cards, balance cards)
 - **Inner gaps (flex):** `--space-2` (8px) for inline elements; `--space-1` (4px) for tight badge/icon pairs
 - **Section header margin-bottom:** `--space-2` (8px) — tight coupling between header and content
-- **Progress bar height:** `7px` primary gauges (challenge, drawdown) · `5px` secondary bars (capacity) — height encodes informational rank
+- **Progress bar height:** `10px` — all bars use a uniform height for visual consistency
 - **Progress bar spacing:** `margin-top: --space-1` · `margin-bottom: --space-1`
 - **Border radius ladder:** `--radius-outer` (16px) → `--radius-card` (12px) → `--radius-sm` (8px) → 4–6px badges/inputs; `5px` progress bars (track and fill must match)
 
@@ -236,21 +253,18 @@ The popup has three mutually exclusive screen states, toggled via `style.display
 
 | State | Trigger | Visible sections | Hidden sections |
 |-------|---------|-----------------|-----------------|
-| **Not Registered** | No wallet address saved | Header + `#walletConfig` (not-registered screen) + Footer | Pending, all active-trading sections |
-| **Pending** | Address saved, no active challenge | Header + `#pendingScreen` + Footer | walletConfig, all active-trading sections |
-| **Active** | Address saved, active challenge found | Header + walletCollapsed + balance/capacity/challenge/drawdown/positions/events + Footer | walletConfig, pendingScreen |
+| **Not Registered** | No wallet address saved | Header + `#walletConfig` (not-registered screen) + Footer | Pending, all active-trading sections, Positions, Payouts, Settings |
+| **Pending** | Address saved, no active challenge | Header + `#pendingScreen` + Footer | walletConfig, all active-trading sections, Positions, Payouts, Settings |
+| **Active** | Address saved, active challenge found | Header + walletCollapsed + balance/capacity/challenge/drawdown/positions/events + Footer | walletConfig, pendingScreen, Positions, Payouts, Settings |
+| **Positions** | "View all →" tapped from Active | Header + `#positionsScreen` + Footer | All active-trading sections |
+| **Payouts** | Payout card tapped from Active | Header + `#payoutsScreen` + Footer | All active-trading sections |
+| **Settings** | Settings entry point tapped | Header + `#settingsScreen` + Footer | All active-trading sections |
 
 **Rule:** Screen toggling is JS-only via `style.display`. CSS defines the layout for each screen; JS owns the state machine. Never use CSS classes for screen visibility toggling.
 
-### Progress bar height encoding
+### Progress bar height
 
-| Height | Use |
-|--------|-----|
-| 7px | Primary gauges (challenge progress, drawdown) — main metrics the trader monitors |
-| 5px | Capacity bars — utilization indicators |
-| 4px | Status indicators (pending confirmation) — secondary, non-interactive progress |
-
-**Note:** The pending status bar uses 4px as a deliberate distinction from the 5px secondary bar: it represents a transient waiting state, not a tracked metric. This is the thinnest bar in the hierarchy.
+All progress bars use a uniform `10px` height for visual consistency. No height-based hierarchy — bar purpose is distinguished by color alone (teal = challenge, amber = drawdown/pending, indigo = capacity).
 
 ---
 

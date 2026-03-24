@@ -38,7 +38,7 @@ A header-bar-footer layout displaying the trader's used vs. remaining position c
 | Limits badge | Border radius | `4px` |
 | Bar track | Background | `--indigo-bg` |
 | Bar fill | Background | `--indigo` (flat, no gradient) |
-| Bar height | — | `5px` |
+| Bar height | — | `10px` |
 | Bar radius | — | `5px` |
 | Bar spacing | — | `margin-top: --space-1`, `margin-bottom: --space-1` |
 | Footer labels | Color | `--text-faint` |
@@ -78,7 +78,7 @@ A self-contained section displaying a single tracked metric with a title/value h
 |----------|-------|-------|
 | Section title | `--text-strong` | 12px / 600 (UI font) |
 | Section value | varies | 12px / 700 (Menlo, tabular-nums); `.challenge` = `--accent`, `.drawdown` = `--amber` |
-| Bar height | — | `7px` — primary gauge height |
+| Bar height | — | `10px` — uniform bar height |
 | Bar radius | — | `5px` track + fill (must match) |
 | Bar spacing | — | `margin-top: --space-1`, `margin-bottom: --space-1` |
 | Bar background | `--bar-bg` | |
@@ -604,8 +604,214 @@ A status screen shown when the wallet address is saved but no active challenge i
 ### Rules
 
 - Hidden by default (`style="display: none;"`). JS developer toggles visibility.
-- The progress bar uses 4px height — the thinnest in the system — to signal a transient status rather than a tracked metric.
+- The progress bar uses the uniform 10px height. Bar purpose is distinguished by color (amber), not height.
 - Amber is used for both the progress fill and sublabel, consistent with the caution/waiting semantic.
 - The details card uses `--card-bg-subtle` (2% white) vs the status card's `--card-bg` (3% white) to establish visual hierarchy.
 - The last detail row uses `pending-detail-row--last` modifier to remove its bottom border.
 - All detail values are placeholder `--` text. The JS developer will add IDs or data-binding later.
+
+---
+
+## Positions Screen
+
+A full-list view of all open positions, accessed when the user taps "View all →" from the dashboard. Includes a header with active count badge, position cards (reused from the dashboard), and a Trading Capacity reminder block.
+
+### HTML structure
+
+```html
+<div id="positionsScreen" class="screen-positions" style="display: none;">
+    <div class="positions-header">
+        <span class="positions-title">Open Positions</span>
+        <span id="positionsCountBadge" class="positions-count-badge">0</span>
+    </div>
+    <div class="positions-sublabel">Mirrored from Vanta Network validator</div>
+    <div id="positionsListContainer">
+        <div class="positions-empty">No open positions</div>
+    </div>
+    <div class="positions-capacity-reminder">
+        <div class="positions-capacity-header">
+            <span class="positions-capacity-title">Trading Capacity</span>
+            <span id="positionsCapacityPct" class="positions-capacity-pct">0%</span>
+        </div>
+        <div class="positions-capacity-bar">
+            <div class="positions-capacity-fill" id="positionsCapacityFill" style="width: 0%;"></div>
+        </div>
+        <div class="positions-capacity-note">Max position size enforced in Hyperliquid UI.</div>
+    </div>
+</div>
+```
+
+### Tokens used
+
+| Element | Property | Token / Value |
+|---------|----------|---------------|
+| Screen layout | Flex / padding / gap | column / `--space-4` / `--space-3` |
+| Title | Font / size / weight / color | `--font-ui` / 13px / 700 / `--text-strong` |
+| Count badge | Color / bg / border / radius / padding | `--accent` / `--accent-bg` / `--accent-border` / 4px / 2px 6px |
+| Count badge | Font / size / weight | `--font-ui` / 10px / 700 |
+| Sublabel | Color / size | `--text-ghost` / 11px |
+| Empty state | Color / size / padding | `--text-ghost` / 11px / `--space-8` |
+| Capacity reminder | Border / bg / radius / padding | `rgba(100,102,241,0.2)` / `rgba(100,102,241,0.04)` / `--radius-card` / `--space-3` |
+| Capacity title | Color / size / weight | `--text-strong` / 12px / 600 |
+| Capacity pct | Color / size / weight | `--indigo` / 11px / 600 |
+| Capacity bar | Height / track / fill / radius | 5px / `--indigo-bg` / `--indigo` / 5px |
+| Capacity bar spacing | margin-top / margin-bottom | `--space-2` / `--space-2` |
+| Capacity note | Color / size | `--text-faint` / 11px |
+
+### Rules
+
+- Hidden by default (`style="display: none;"`). JS developer toggles visibility.
+- Position cards inside `#positionsListContainer` reuse the existing `.position-card` component — no new card pattern.
+- The capacity reminder breathes on background (no `--card-bg`), with an indigo-tinted border and faint indigo background.
+- The count badge text is the number of active positions, populated by JS.
+
+---
+
+## Payouts Screen
+
+A detail view showing the claimable payout amount, a request button, KYC note, and payout history rows.
+
+### HTML structure
+
+```html
+<div id="payoutsScreen" class="screen-payouts" style="display: none;">
+    <div class="payouts-claimable-card">
+        <div class="payouts-claimable-label">Claimable Payout</div>
+        <div class="payouts-claimable-value"><span id="payoutsClaimableAmount">$0.00</span></div>
+        <div class="payouts-claimable-wallet"><span id="payoutsWalletAddress">0x00...0000</span></div>
+        <button id="payoutsRequestBtn" class="payouts-request-btn">Request Payout</button>
+        <div class="payouts-kyc-note">
+            <span class="payouts-kyc-text">KYC required for first payout — </span>
+            <a href="#" id="payoutsKycLink" class="payouts-kyc-link">Set up via Privado ID →</a>
+        </div>
+    </div>
+    <div class="payouts-history-label">Payout History</div>
+    <div id="payoutsHistoryContainer">
+        <div class="payouts-history-card">
+            <div class="payouts-history-row">
+                <div class="payouts-history-left">
+                    <div class="payouts-history-amount">$0.00</div>
+                    <div class="payouts-history-date">--</div>
+                </div>
+                <div class="payouts-history-right">
+                    <div class="payouts-history-badge">Paid</div>
+                    <div class="payouts-history-tx">0x00...0000</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+```
+
+### Tokens used
+
+| Element | Property | Token / Value |
+|---------|----------|---------------|
+| Screen layout | Flex / padding / gap | column / `--space-4` / `--space-3` |
+| Claimable card | Surface / border / radius / padding | `--card-bg` / `--border-card` / `--radius-card` / `--space-5` |
+| Claimable label | Font / size / color / transform | `--font-ui` / 10px / `--text-label` / uppercase 0.08em |
+| Claimable value | Font / size / weight / color / tracking | `--font-mono` / 28px / 800 / `--accent` / -0.56px |
+| Wallet address | Font / size / color | `--font-ui` / 11px / `--text-subtle` |
+| Request button | Pattern | Ghost button (full-width variant) |
+| KYC text | Font / size / color | `--font-ui` / 11px / `--text-subtle` |
+| KYC link | Font / size / color | `--font-ui` / 11px / `--accent` |
+| History label | Font / size / color / transform | `--font-ui` / 11px / `--text-label` / uppercase 0.08em |
+| History card | Surface / border / radius / padding | `--card-bg` / `--border-card` / `--radius-card` / `--space-3` |
+| History amount | Font / size / weight / color | `--font-mono` / 13px / 600 / `--accent` |
+| History date | Font / size / color | `--font-ui` / 11px / `--text-subtle` |
+| Paid badge | Color / bg / border / radius / padding | `--accent` / `--accent-bg` / `--accent-border` / 20px / 3px 10px |
+| Tx hash | Font / size / color | `--font-mono` / 10px / `--text-ghost` |
+
+### Rules
+
+- Hidden by default (`style="display: none;"`). JS developer toggles visibility.
+- The claimable value uses 28px/800 weight — the largest financial value in the system — as a hero KPI.
+- The "Paid" badge uses pill-shaped radius (20px) to differentiate from rectangular status badges.
+- History rows are individual cards with `--space-2` gap between them (via `margin-top` on adjacent siblings).
+- All amounts, dates, and tx hashes are placeholders for JS data binding.
+
+---
+
+## Settings Screen
+
+A full settings view with wallet configuration, push notification toggles, and account management.
+
+### HTML structure
+
+```html
+<div id="settingsScreen" class="screen-settings" style="display: none;">
+    <div class="settings-back-row">
+        <span id="settingsBackBtn" class="settings-back-arrow">←</span>
+        <span class="settings-back-title">Settings</span>
+    </div>
+    <div class="settings-card">
+        <div class="settings-section-label">Wallet</div>
+        <div class="settings-field">
+            <div class="settings-field-label">Hyperliquid Address</div>
+            <div class="settings-input-row">
+                <input type="text" id="settingsHlAddress" class="settings-input" placeholder="0x..." />
+                <button id="settingsHlSave" class="settings-save-btn">Save</button>
+            </div>
+        </div>
+        <div class="settings-field settings-field--second">
+            <div class="settings-field-label">Payout Wallet</div>
+            <div class="settings-input-row">
+                <input type="text" id="settingsPayoutAddress" class="settings-input" placeholder="0x..." />
+                <button id="settingsPayoutSave" class="settings-save-btn">Save</button>
+            </div>
+        </div>
+    </div>
+    <div class="settings-card">
+        <div class="settings-section-label">Push Notifications</div>
+        <div class="settings-notif-desc">All on by default. Sent as Chrome push notifications even when the extension is closed.</div>
+        <div class="settings-toggle-list">
+            <div class="settings-toggle-row">
+                <span class="settings-toggle-label">Order mirrored successfully</span>
+                <div class="settings-toggle" data-setting="orderMirrored" data-state="on">
+                    <div class="settings-toggle-knob"></div>
+                </div>
+            </div>
+            <!-- ... 5 more toggle rows ... -->
+            <div class="settings-toggle-row settings-toggle-row--last">
+                <span class="settings-toggle-label">Registration complete</span>
+                <div class="settings-toggle" data-setting="registrationComplete" data-state="on">
+                    <div class="settings-toggle-knob"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="settings-card">
+        <div class="settings-section-label">Account</div>
+        <button id="settingsDisconnect" class="settings-disconnect-btn">Disconnect Wallet</button>
+    </div>
+    <div class="settings-footer">Powered by Vanta Network on Bittensor</div>
+</div>
+```
+
+### Tokens used
+
+| Element | Property | Token / Value |
+|---------|----------|---------------|
+| Screen layout | Flex / padding / gap | column / `--space-4` 0 (no horizontal) / `--space-3` |
+| Back arrow | Font / size / color | 18px / `--text-subtle` |
+| Back title | Font / size / weight / color | `--font-ui` / 14px / 700 / `--text-strong` |
+| Settings card | Surface / border / radius / padding | `--card-bg` / `--border-card` / `--radius-card` / `--space-4` |
+| Section label | Font / size / color / transform | `--font-ui` / 11px / `--text-label` / uppercase 0.08em |
+| Field label | Font / size / color | `--font-ui` / 11px / `--text-subtle` |
+| Input | Font / bg / border / radius / padding | `--font-mono` 11px / `--bg` / `--border-card` / `--radius-sm` / `--space-2` `--space-3` |
+| Save button | Pattern | Ghost button |
+| Notif description | Font / size / color / line-height | `--font-ui` / 11px / `--text-subtle` / 1.6 |
+| Toggle row | Padding / border-bottom | `--space-2` 0 / `--border-card` |
+| Toggle label | Font / size / color | `--font-ui` / 12px / `--text-primary` |
+| Toggle pill | See Toggle Pill pattern in design-rules.md |
+| Disconnect button | Pattern | Ghost button (full-width) |
+| Footer | Font / size / color | `--font-ui` / 10px / `--text-ghost` |
+
+### Rules
+
+- Hidden by default (`style="display: none;"`). JS developer toggles visibility.
+- The back arrow (`←`) is a click target for JS to navigate back to the dashboard.
+- Settings inputs use `--bg` background (recessed inside `--card-bg` card) — same pattern as the Not Registered screen.
+- Toggle state is controlled via `data-state` attribute. CSS reads it; JS writes it.
+- The last toggle row uses `settings-toggle-row--last` to remove its bottom border.
+- The "Disconnect Wallet" button uses the ghost button pattern — no destructive red styling (confirmation is JS's responsibility).
