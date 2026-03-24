@@ -145,7 +145,7 @@
 
         <!-- Disabled inline message (hidden unless .hf-disabled) -->
         <span class="hf-divider" style="display:${isDisabled ? 'block' : 'none'} !important"></span>
-        <span class="hf-disabled-msg" id="hf-disabled-msg">🚫 Daily loss limit hit — trading paused</span>
+        <span class="hf-disabled-msg" id="hf-disabled-msg"><svg class="hf-icon-disabled" width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="2"/><line x1="3.5" y1="3.5" x2="12.5" y2="12.5" stroke="currentColor" stroke-width="2"/></svg> Daily loss limit hit — trading paused</span>
 
         <!-- 11. Spacer -->
         <span class="hf-spacer"></span>

@@ -284,6 +284,11 @@
   display: flex !important;
 }
 
+#hf-banner .hf-icon-disabled {
+  flex-shrink: 0 !important;
+  color: var(--red) !important;
+}
+
 /* ── Disabled sub-strip ─────────────────────────────────────────────────── */
 #hf-banner .hf-sub-strip {
   display: none !important;

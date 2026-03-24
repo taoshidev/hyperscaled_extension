@@ -250,34 +250,6 @@ Hover reveals a teal border as the only accent signal — confirming interactivi
 
 ---
 
-## Muted Button
-
-For debug / developer tools that must exist in production but should not draw attention. Current instance: `test-btn`.
-
-### HTML structure
-
-```html
-<button class="test-btn">🔔 Test Notification</button>
-```
-
-### Tokens used
-
-| State | Property | Token |
-|-------|----------|-------|
-| Default | Background | `--card-bg-subtle` |
-| Default | Border | `--border-card` |
-| Default | Color | `--text-subtle` |
-| Hover | Background | `--card-bg` |
-| Hover | Border | `rgba(255,255,255,0.1)` |
-| Hover | Color | `--text-body` |
-| Transition | All | `0.15s ease` |
-
-### Rule
-
-No teal at any state. This button should read as infrastructure, not call-to-action.
-
----
-
 ## Balance Grid
 
 A 2-column grid displaying the Funded Account and HL Account as separate cards. Each card is a label/value/sublabel stack.

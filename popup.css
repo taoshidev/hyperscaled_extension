@@ -1068,46 +1068,6 @@ body {
     gap: 10px;
 }
 
-.test-btn {
-    width: 100%;
-    padding: 12.5px;
-    background: var(--card-bg-subtle);
-    border: 1px solid var(--border-card);
-    border-radius: 6px;
-    color: var(--text-subtle);
-    font-size: 13px;
-    font-family: var(--font-ui);
-    cursor: pointer;
-    transition: all 0.15s ease;
-    text-align: center;
-}
-
-.test-btn:hover {
-    background: var(--card-bg);
-    border-color: rgba(255, 255, 255, 0.1);
-    color: var(--text-body);
-}
-
-.notification-status {
-    width: 100%;
-    min-height: 0;
-    padding: 0;
-    background: var(--card-bg-subtle);
-    border: 1px solid var(--border-card);
-    border-radius: 4px;
-    color: var(--text-subtle);
-    font-size: 11px;
-    text-align: center;
-    transition: all 0.2s ease;
-}
-
-.notification-status:not(:empty) {
-    padding: 8.5px;
-    min-height: 34.5px;
-}
-
-.notification-status.success { color: var(--accent); }
-.notification-status.error   { color: var(--red); }
 
 .footer-text {
     font-size: 11px;

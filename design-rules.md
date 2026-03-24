@@ -60,7 +60,6 @@ Three levels. Use the lowest level that communicates the action's importance.
 | Level | Use when | Pattern |
 |-------|----------|---------|
 | **Ghost** | Utility / setup actions (e.g. Save wallet address) | `background: transparent`, `border: --border-card`, hover reveals `--accent-border` |
-| **Muted** | Dev tools / debug actions (e.g. Test Notification) | `background: --card-bg-subtle`, `border: --border-card`, hover lightens to `--card-bg` |
 | **Accent** | Reserved — no primary CTA buttons exist in the current popup | `background: --accent-bg`, `border: --accent-border` |
 
 **Ghost button hover pattern:**
