@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hyperscaled Banner — Preview</title>
+    <link rel="stylesheet" href="content.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body {
+            background: #0a0a0c;
+            color: #fff;
+            font-family: ui-sans-serif, system-ui, sans-serif;
+            min-height: 100vh;
+        }
+        #hf-banner { position: relative !important; }
+
+        .fake-hl {
+            padding: 32px 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .fake-hl-header {
+            display: flex; align-items: center; gap: 16px;
+            margin-bottom: 24px; opacity: 0.25;
+        }
+        .fake-hl-header span { font-size: 14px; color: rgba(255,255,255,0.5); }
+        .fake-hl-pair { font-size: 20px; font-weight: 600; color: #fff; letter-spacing: -0.02em; }
+        .fake-hl-grid { display: grid; grid-template-columns: 1fr 320px; gap: 16px; }
+        .fake-hl-chart {
+            background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 8px; height: 360px; display: flex; align-items: center;
+            justify-content: center; color: rgba(255,255,255,0.12); font-size: 14px;
+        }
+        .fake-hl-order {
+            background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 8px; padding: 20px; display: flex; flex-direction: column; gap: 12px;
+        }
+        .fake-hl-order label { font-size: 11px; color: rgba(255,255,255,0.35); margin-bottom: 4px; }
+        .fake-hl-order input {
+            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 6px; padding: 10px 12px; color: #fff; font-size: 14px;
+            font-family: 'Menlo', monospace; outline: none;
+        }
+        .fake-hl-order button {
+            margin-top: 8px; padding: 12px; border: none; border-radius: 6px;
+            font-size: 14px; font-weight: 600; cursor: pointer;
+        }
+        .fake-hl-order .btn-buy { background: #10b981; color: #fff; }
+        .fake-hl-order .btn-sell { background: #ef4444; color: #fff; }
+
+        .preview-controls {
+            position: fixed; bottom: 20px; right: 20px;
+            display: flex; flex-direction: column; gap: 8px; z-index: 9999;
+        }
+        .preview-controls button {
+            padding: 8px 14px; border-radius: 6px;
+            border: 1px solid rgba(255,255,255,0.15);
+            background: rgba(20,20,24,0.95); color: rgba(255,255,255,0.7);
+            font-size: 11px; font-family: ui-sans-serif, system-ui, sans-serif;
+            cursor: pointer; backdrop-filter: blur(12px); transition: all 0.15s;
+        }
+        .preview-controls button:hover {
+            background: rgba(40,40,48,0.95); color: #fff;
+            border-color: rgba(255,255,255,0.25);
+        }
+        .preview-controls button.active { border-color: #3b82f6; color: #3b82f6; }
+    </style>
+</head>
+<body>
+
+<div id="hf-banner">
+  <div class="hf-bar">
+    <span class="hf-brand"><img src="images/hyperscaled-logo.svg" alt="Hyperscaled" class="hf-brand-logo"></span>
+    <span class="hf-status-badge">● In Challenge</span>
+    <span class="hf-divider"></span>
+
+    <div class="hf-stat-group">
+      <span class="hf-stat-label">EQUITY</span>
+      <span class="hf-stat-value" id="hf-equity">$12,847.32</span>
+    </div>
+
+    <span class="hf-divider"></span>
+
+    <div class="hf-dd-stack hf-dd-trigger" id="hf-dd-trigger">
+      <div class="hf-dd-row">
+        <span class="hf-dd-label">DAILY</span>
+        <span class="hf-dd-value" id="hf-daily" style="color:var(--accent) !important">1.23%</span>
+        <span class="hf-dd-suffix">/ 5.00%</span>
+      </div>
+      <div class="hf-dd-row">
+        <span class="hf-dd-label">TRAILING</span>
+        <span class="hf-dd-value" id="hf-trailing" style="color:var(--accent) !important">2.10%</span>
+        <span class="hf-dd-suffix">/ 5.00%</span>
+      </div>
+    </div>
+
+    <!-- Drawdown Rules dropdown panel -->
+    <div class="hf-dd-panel" id="hf-dd-panel">
+      <div class="hf-dd-panel-header">
+        <div class="hf-dd-panel-title">Drawdown Rules</div>
+        <div class="hf-dd-panel-sub">Two independent drawdown rules — breaching either results in immediate disqualification.</div>
+      </div>
+      <div class="hf-dd-panel-grid">
+        <div class="hf-dd-panel-col">
+          <div class="hf-dd-panel-col-header">
+            <span class="hf-dd-panel-dot" style="background:var(--indigo) !important"></span>
+            <span class="hf-dd-panel-col-title">RULE 1 — DAILY LOSS LIMIT (5.00%)</span>
+            <span class="hf-dd-panel-badge hf-dd-panel-badge--accent">Safe</span>
+          </div>
+          <div class="hf-dd-panel-rows">
+            <div class="hf-dd-panel-row"><span class="hf-dd-panel-key">Day open equity</span><span class="hf-dd-panel-val">$12,847.32</span></div>
+            <div class="hf-dd-panel-row"><span class="hf-dd-panel-key">Breach level</span><span class="hf-dd-panel-val hf-dd-panel-val--red">$12,204.95</span></div>
+            <div class="hf-dd-panel-row"><span class="hf-dd-panel-key">Current loss</span><span class="hf-dd-panel-val">$158.02 (1.23%)</span></div>
+            <div class="hf-dd-panel-row"><span class="hf-dd-panel-key">Buffer remaining</span><span class="hf-dd-panel-val hf-dd-panel-val--accent">$484.35</span></div>
+          </div>
+          <div class="hf-dd-panel-note">Checked intraday in real-time. Resets 00:00 UTC.</div>
+        </div>
+        <div class="hf-dd-panel-col">
+          <div class="hf-dd-panel-col-header">
+            <span class="hf-dd-panel-dot" style="background:var(--amber) !important"></span>
+            <span class="hf-dd-panel-col-title">RULE 2 — EOD TRAILING LOSS LIMIT (5.00%)</span>
+            <span class="hf-dd-panel-badge hf-dd-panel-badge--accent">Safe</span>
+          </div>
+          <div class="hf-dd-panel-rows">
+            <div class="hf-dd-panel-row"><span class="hf-dd-panel-key">EOD high water mark</span><span class="hf-dd-panel-val">$12,847.32</span></div>
+            <div class="hf-dd-panel-row"><span class="hf-dd-panel-key">Breach level</span><span class="hf-dd-panel-val hf-dd-panel-val--red">$12,204.95</span></div>
+            <div class="hf-dd-panel-row"><span class="hf-dd-panel-key">Drawdown from HWM</span><span class="hf-dd-panel-val">$269.79 (2.10%)</span></div>
+            <div class="hf-dd-panel-row"><span class="hf-dd-panel-key">Buffer remaining</span><span class="hf-dd-panel-val hf-dd-panel-val--accent">$372.57</span></div>
+          </div>
+          <div class="hf-dd-panel-note">Checked at end of day. HWM trails upward with equity gains.</div>
+        </div>
+      </div>
+      <div class="hf-dd-panel-footer">
+        <span>Trading day resets 00:00 UTC</span>
+        <span class="hf-dd-panel-sep">|</span>
+        <span>Daily = intraday real-time</span>
+        <span class="hf-dd-panel-sep">|</span>
+        <span>Trailing = checked at EOD</span>
+      </div>
+    </div>
+
+    <span class="hf-divider"></span>
+
+    <div class="hf-stat-group">
+      <span class="hf-stat-label">TARGET</span>
+      <div class="hf-target-bar">
+        <div class="hf-target-fill" id="hf-target-fill" style="width:42% !important; background-color:var(--indigo) !important"></div>
+      </div>
+      <span class="hf-target-value" id="hf-target-val" style="color:var(--indigo) !important">4.2%</span>
+      <span class="hf-target-suffix">/ 10%</span>
+    </div>
+
+    <span class="hf-divider"></span>
+
+    <div class="hf-stat-group">
+      <span class="hf-stat-label">HWM</span>
+      <span class="hf-stat-value" id="hf-hwm">$12,847.32</span>
+    </div>
+
+    <span class="hf-divider" id="hf-disabled-divider" style="display:none !important"></span>
+    <span class="hf-disabled-msg" id="hf-disabled-msg"><svg class="hf-icon-disabled" width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="2"/><line x1="3.5" y1="3.5" x2="12.5" y2="12.5" stroke="currentColor" stroke-width="2"/></svg> Daily loss limit hit — trading paused</span>
+
+    <span class="hf-spacer"></span>
+  </div>
+
+  <div class="hf-sub-strip">
+    <span class="hf-sub-strip-title">Hyperscaled Extension</span>
+    <span class="hf-sub-strip-body">Your daily loss limit of 5% has been reached. New trade submissions are blocked until the next trading day (resets 00:00 UTC).</span>
+    <a class="hf-sub-strip-btn" href="#">View Dashboard →</a>
+    <span class="hf-sub-strip-via">via Hyperscaled extension</span>
+  </div>
+</div>
+
+<div class="fake-hl">
+    <div class="fake-hl-header">
+        <span class="fake-hl-pair">ETH-USD</span>
+        <span>$3,842.15</span>
+        <span style="color: #10b981;">+2.34%</span>
+    </div>
+    <div class="fake-hl-grid">
+        <div class="fake-hl-chart">[ Chart Area ]</div>
+        <div class="fake-hl-order">
+            <div><label>Size (USDC)</label><input type="text" placeholder="0.00" /></div>
+            <div><label>Price</label><input type="text" placeholder="Market" value="3,842.15" /></div>
+            <button class="btn-buy">Buy / Long</button>
+            <button class="btn-sell">Sell / Short</button>
+        </div>
+    </div>
+</div>
+
+<div class="preview-controls">
+    <button onclick="setState('normal')" class="active" id="btn-normal">Normal (safe)</button>
+    <button onclick="setState('warning')" id="btn-warning">Warning (≥4%)</button>
+    <button onclick="setState('disabled')" id="btn-disabled">Disabled (blocked)</button>
+    <button onclick="setState('target-high')" id="btn-target-high">Target ≥ 10%</button>
+</div>
+
+<script>
+function setState(mode) {
+    document.querySelectorAll('.preview-controls button').forEach(b => b.classList.remove('active'));
+    const btnId = mode === 'target-high' ? 'btn-target-high' : 'btn-' + mode;
+    document.getElementById(btnId).classList.add('active');
+
+    const banner = document.getElementById('hf-banner');
+    const daily = document.getElementById('hf-daily');
+    const trailing = document.getElementById('hf-trailing');
+    const targetFill = document.getElementById('hf-target-fill');
+    const targetVal = document.getElementById('hf-target-val');
+    const ddStack = document.getElementById('hf-dd-stack');
+    const disabledDiv = document.getElementById('hf-disabled-divider');
+
+    banner.classList.remove('hf-disabled', 'hf-warning');
+
+    switch (mode) {
+        case 'normal':
+            daily.style.setProperty('color', 'var(--accent)', 'important');
+            daily.textContent = '1.23%';
+            trailing.style.setProperty('color', 'var(--accent)', 'important');
+            trailing.textContent = '2.10%';
+            targetFill.style.setProperty('width', '42%', 'important');
+            targetFill.style.setProperty('background-color', 'var(--indigo)', 'important');
+            targetVal.style.setProperty('color', 'var(--indigo)', 'important');
+            targetVal.textContent = '4.2%';
+            disabledDiv.style.setProperty('display', 'none', 'important');
+            // Remove warning icons
+            ddStack.innerHTML = `
+              <div class="hf-dd-row">
+                <span class="hf-dd-label">DAILY</span>
+                <span class="hf-dd-value" id="hf-daily" style="color:var(--accent) !important">1.23%</span>
+                <span class="hf-dd-suffix">/ 5.00%</span>
+              </div>
+              <div class="hf-dd-row">
+                <span class="hf-dd-label">TRAILING</span>
+                <span class="hf-dd-value" id="hf-trailing" style="color:var(--accent) !important">2.10%</span>
+                <span class="hf-dd-suffix">/ 5.00%</span>
+              </div>`;
+            break;
+
+        case 'warning':
+            banner.classList.add('hf-warning');
+            ddStack.innerHTML = `
+              <div class="hf-dd-row">
+                <span class="hf-dd-label">DAILY</span>
+                <span class="hf-dd-value" id="hf-daily" style="color:var(--amber) !important">4.32%</span>
+                <span class="hf-dd-suffix">/ 5.00%</span>
+                <span class="hf-dd-warn" style="color:var(--amber) !important">⚠</span>
+              </div>
+              <div class="hf-dd-row">
+                <span class="hf-dd-label">TRAILING</span>
+                <span class="hf-dd-value" id="hf-trailing" style="color:var(--amber) !important">4.10%</span>
+                <span class="hf-dd-suffix">/ 5.00%</span>
+                <span class="hf-dd-warn" style="color:var(--amber) !important">⚠</span>
+              </div>`;
+            targetFill.style.setProperty('width', '42%', 'important');
+            targetFill.style.setProperty('background-color', 'var(--indigo)', 'important');
+            targetVal.style.setProperty('color', 'var(--indigo)', 'important');
+            targetVal.textContent = '4.2%';
+            disabledDiv.style.setProperty('display', 'none', 'important');
+            break;
+
+        case 'disabled':
+            banner.classList.add('hf-disabled');
+            ddStack.innerHTML = `
+              <div class="hf-dd-row">
+                <span class="hf-dd-label">DAILY</span>
+                <span class="hf-dd-value" id="hf-daily" style="color:var(--red) !important">5.12%</span>
+                <span class="hf-dd-suffix">/ 5.00%</span>
+                <span class="hf-dd-warn" style="color:var(--red) !important">⚠</span>
+              </div>
+              <div class="hf-dd-row">
+                <span class="hf-dd-label">TRAILING</span>
+                <span class="hf-dd-value" id="hf-trailing" style="color:var(--red) !important">5.00%</span>
+                <span class="hf-dd-suffix">/ 5.00%</span>
+                <span class="hf-dd-warn" style="color:var(--red) !important">⚠</span>
+              </div>`;
+            targetFill.style.setProperty('width', '42%', 'important');
+            targetFill.style.setProperty('background-color', 'var(--indigo)', 'important');
+            targetVal.style.setProperty('color', 'var(--indigo)', 'important');
+            targetVal.textContent = '4.2%';
+            disabledDiv.style.setProperty('display', 'block', 'important');
+            break;
+
+        case 'target-high':
+            ddStack.innerHTML = `
+              <div class="hf-dd-row">
+                <span class="hf-dd-label">DAILY</span>
+                <span class="hf-dd-value" id="hf-daily" style="color:var(--accent) !important">1.23%</span>
+                <span class="hf-dd-suffix">/ 5.00%</span>
+              </div>
+              <div class="hf-dd-row">
+                <span class="hf-dd-label">TRAILING</span>
+                <span class="hf-dd-value" id="hf-trailing" style="color:var(--accent) !important">2.10%</span>
+                <span class="hf-dd-suffix">/ 5.00%</span>
+              </div>`;
+            targetFill.style.setProperty('width', '100%', 'important');
+            targetFill.style.setProperty('background-color', 'var(--accent)', 'important');
+            targetVal.style.setProperty('color', 'var(--accent)', 'important');
+            targetVal.textContent = '10.5%';
+            disabledDiv.style.setProperty('display', 'none', 'important');
+            break;
+    }
+}
+
+// Wire DD panel toggle for preview
+const ddTrigger = document.getElementById('hf-dd-trigger');
+const ddPanel = document.getElementById('hf-dd-panel');
+if (ddTrigger && ddPanel) {
+  ddTrigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    ddPanel.classList.toggle('hf-dd-panel--open');
+    const rect = ddTrigger.getBoundingClientRect();
+    const bannerRect = document.getElementById('hf-banner').getBoundingClientRect();
+    ddPanel.style.left = (rect.left - bannerRect.left) + 'px';
+  });
+  document.addEventListener('click', (e) => {
+    if (!ddPanel.contains(e.target) && !ddTrigger.contains(e.target)) {
+      ddPanel.classList.remove('hf-dd-panel--open');
+    }
+  });
+}
+</script>
+</body>
+</html>

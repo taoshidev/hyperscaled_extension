@@ -14,7 +14,7 @@
     <div class="container">
         <!-- Header -->
         <div class="header">
-            <div class="logo">Hyper<b>scaled</b></div>
+            <div class="logo"><img src="images/hyperscaled-logo.svg" alt="Hyperscaled" class="logo-icon"></div>
             <div class="header-right">
                 <div id="walletCollapsed" class="wallet-inline" style="display: none;" title="Click to edit wallet address">
                     <span id="walletAddressDisplay" class="wallet-inline-address">0x00...0000</span>
@@ -24,16 +24,62 @@
             </div>
         </div>
 
-        <!-- Wallet Config (only shown on first run or when editing) -->
-        <div id="walletConfig" class="wallet-config">
-            <div class="wallet-config-header">
-                <span class="wallet-config-label">Wallet Address</span>
-                <span id="walletStatus" class="wallet-status"></span>
+        <!-- Not Registered Screen (shown when no wallet address saved) -->
+        <div id="walletConfig" class="screen-not-registered">
+            <div class="not-registered-hero">
+                <div class="not-registered-icon">⬡</div>
+                <div class="not-registered-title">Welcome to Hyperscaled</div>
+                <div class="not-registered-body">Enter your Hyperliquid wallet address to check your challenge status. No wallet connection required — address only.</div>
             </div>
-            <div class="wallet-input-row">
-                <input type="text" id="walletAddress" placeholder="0x..." class="wallet-input" spellcheck="false" />
-                <button id="walletSave" class="wallet-save-btn">Save</button>
+            <div class="not-registered-card">
+                <div class="not-registered-card-header">
+                    <span class="not-registered-label">Hyperliquid Wallet Address</span>
+                    <span id="walletStatus" class="wallet-status"></span>
+                </div>
+                <input type="text" id="walletAddress" placeholder="0x..." class="wallet-input wallet-input--full" spellcheck="false" />
+                <button id="walletSave" class="wallet-save-btn wallet-save-btn--full">Check</button>
+                <div class="not-registered-signup">
+                    <span class="not-registered-signup-text">Not registered yet?</span>
+                    <a href="https://hyperscaled.trade" target="_blank" class="not-registered-signup-link">Sign up at hyperscaled.trade →</a>
+                </div>
             </div>
+        </div>
+
+        <!-- Pending Screen (shown when address saved but no active challenge) -->
+        <div id="pendingScreen" class="screen-pending" style="display: none;">
+            <div class="pending-status-card">
+                <div class="pending-icon">⏳</div>
+                <div class="pending-title">Registration Pending</div>
+                <div class="pending-body">Your payment was received. Vanta Network validators are confirming your registration. This typically takes 2–5 minutes.</div>
+                <div class="pending-progress-bar">
+                    <div class="pending-progress-fill" style="width: 65%;"></div>
+                </div>
+                <div class="pending-sublabel">Awaiting validator confirmation...</div>
+            </div>
+            <div class="pending-details-card">
+                <div class="pending-details-title">Registration Details</div>
+                <div class="pending-detail-row">
+                    <span class="pending-detail-key">Account Size</span>
+                    <span class="pending-detail-value">--</span>
+                </div>
+                <div class="pending-detail-row">
+                    <span class="pending-detail-key">Profit Target</span>
+                    <span class="pending-detail-value">--</span>
+                </div>
+                <div class="pending-detail-row">
+                    <span class="pending-detail-key">Max Drawdown</span>
+                    <span class="pending-detail-value">--</span>
+                </div>
+                <div class="pending-detail-row">
+                    <span class="pending-detail-key">Profit Split</span>
+                    <span class="pending-detail-value">--</span>
+                </div>
+                <div class="pending-detail-row pending-detail-row--last">
+                    <span class="pending-detail-key">Entity Miner</span>
+                    <span class="pending-detail-value">--</span>
+                </div>
+            </div>
+            <div class="pending-footer-note">You'll receive an email confirmation once registration is complete.</div>
         </div>
 
         <!-- Low Balance Warning -->
@@ -45,60 +91,25 @@
             </div>
         </div>
 
-        <!-- Account Balance -->
-        <div class="balance-card balance-card--primary">
-            <div class="balance-left">
+        <!-- Section 1: Account Balances (2-column grid) -->
+        <div class="balance-grid">
+            <div class="balance-card">
                 <div class="balance-label">Funded Account</div>
                 <div class="balance-value"><span id="fundedBalance">--</span></div>
                 <div class="balance-change positive"><span id="fundedChange">--</span></div>
             </div>
-            <div class="balance-right">
+            <div class="balance-card">
                 <div class="balance-label">HL Account</div>
-                <div class="balance-value balance-value--sm"><span id="hlBalance">--</span></div>
-                <div class="balance-change neutral">Live equity</div>
+                <div class="balance-value"><span id="hlBalance">--</span></div>
+                <div class="balance-sublabel">Live equity</div>
             </div>
         </div>
 
-        <div class="section-divider"></div>
-
-        <!-- Trading Capacity -->
-        <div class="capacity-block">
-            <div class="capacity-header">
-                <span class="capacity-title">Trading Capacity</span>
-            </div>
-            <div class="capacity-rows">
-                <div class="capacity-row">
-                    <div class="capacity-row-top">
-                        <span class="capacity-label">Per Pair Limit</span>
-                        <span class="capacity-used"><span id="perPairUsed">--</span> <span class="capacity-of">of</span> <span id="perPairMax">--</span></span>
-                    </div>
-                    <div class="capacity-bar-wrap">
-                        <div class="capacity-bar">
-                            <div class="capacity-fill capacity-fill--total" id="perPairFill" style="width: 0%;"></div>
-                        </div>
-                        <span class="capacity-remaining"><span id="perPairRemaining">--</span> left</span>
-                    </div>
-                </div>
-                <div class="capacity-row">
-                    <div class="capacity-row-top">
-                        <span class="capacity-label">Portfolio Total</span>
-                        <span class="capacity-used"><span id="capacityUsed">--</span> <span class="capacity-of">of</span> <span id="capacityMax">--</span></span>
-                    </div>
-                    <div class="capacity-bar-wrap">
-                        <div class="capacity-bar">
-                            <div class="capacity-fill capacity-fill--total" id="capacityFill" style="width: 0%;"></div>
-                        </div>
-                        <span class="capacity-remaining"><span id="capacityRemaining">--</span> left</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Challenge Progress -->
+        <!-- Section 2: Challenge Progress -->
         <div class="section">
             <div class="section-header">
                 <div class="section-title">Challenge Progress</div>
-                <div class="section-value"><span id="challengeValue">--</span></div>
+                <div class="section-value challenge"><span id="challengeValue">--</span></div>
             </div>
             <div class="progress-bar">
                 <div class="progress-fill" id="challengeFill" style="width: 0%;"></div>
@@ -106,7 +117,7 @@
             <div class="progress-label"><span id="challengeLabel">--</span></div>
         </div>
 
-        <!-- Max Drawdown -->
+        <!-- Section 3: Current Drawdown -->
         <div class="section">
             <div class="section-header">
                 <div class="section-title">Current Drawdown</div>
@@ -118,16 +129,46 @@
             <div class="progress-label"><span id="drawdownLabel">--</span></div>
         </div>
 
-        <div class="section-divider"></div>
+        <!-- Section 4: Trading Capacity -->
+        <div class="capacity-block">
+            <div class="capacity-header">
+                <span class="capacity-title">Trading Capacity</span>
+                <span class="capacity-badge"><span id="perPairMax">--</span> / <span id="capacityMax">--</span></span>
+            </div>
+            <div class="capacity-bar">
+                <div class="capacity-fill capacity-fill--total" id="capacityFill" style="width: 0%;"></div>
+            </div>
+            <div class="capacity-footer">
+                <span class="capacity-used"><span id="capacityUsed">--</span> used</span>
+                <span class="capacity-remaining"><span id="capacityRemaining">--</span> left</span>
+            </div>
+            <!-- Per-pair data retained for JS compatibility -->
+            <div style="display:none;">
+                <span id="perPairUsed">--</span>
+                <div id="perPairFill" style="width: 0%;"></div>
+                <span id="perPairRemaining">--</span>
+            </div>
+        </div>
 
-        <!-- Open Positions -->
+        <!-- Section 5: Open Positions -->
         <div class="section">
             <div class="section-header section-header--positions">
-                <div class="section-title section-title--uppercase">Open Hyperscaled Positions</div>
-                <a href="#" class="view-link view-link--muted">View on HL →</a>
+                <div class="section-title section-title--uppercase">Open Positions</div>
+                <a href="#" class="view-link">View all →</a>
             </div>
             <div id="positionsContainer">
                 <div class="no-more-positions">Loading positions...</div>
+            </div>
+        </div>
+
+        <!-- Section 6: Next Payout -->
+        <div class="payout-card">
+            <div class="payout-content">
+                <div class="payout-left">
+                    <div class="payout-label">Next Payout</div>
+                    <div class="payout-value"><span id="payoutAmount">--</span></div>
+                </div>
+                <div class="payout-arrow">→</div>
             </div>
         </div>
 
@@ -157,12 +198,132 @@
             </a>
         </div>
 
+        <!-- ── Screen: Positions (full list) ────────────── -->
+        <div id="positionsScreen" class="screen-positions" style="display: none;">
+            <div class="positions-header">
+                <span class="positions-title">Open Positions</span>
+                <span id="positionsCountBadge" class="positions-count-badge">0</span>
+            </div>
+            <div class="positions-sublabel">Mirrored from Vanta Network validator</div>
+            <div id="positionsListContainer">
+                <div class="positions-empty">No open positions</div>
+            </div>
+            <div class="positions-capacity-reminder">
+                <div class="positions-capacity-header">
+                    <span class="positions-capacity-title">Trading Capacity</span>
+                    <span id="positionsCapacityPct" class="positions-capacity-pct">0%</span>
+                </div>
+                <div class="positions-capacity-bar">
+                    <div class="positions-capacity-fill" id="positionsCapacityFill" style="width: 0%;"></div>
+                </div>
+                <div class="positions-capacity-note">Max position size enforced in Hyperliquid UI.</div>
+            </div>
+        </div>
+
+        <!-- ── Screen: Payouts ─────────────────────────── -->
+        <div id="payoutsScreen" class="screen-payouts" style="display: none;">
+            <div class="payouts-claimable-card">
+                <div class="payouts-claimable-label">Claimable Payout</div>
+                <div class="payouts-claimable-value"><span id="payoutsClaimableAmount">$0.00</span></div>
+                <div class="payouts-claimable-wallet"><span id="payoutsWalletAddress">0x00...0000</span></div>
+                <button id="payoutsRequestBtn" class="payouts-request-btn">Request Payout</button>
+                <div class="payouts-kyc-note">
+                    <span class="payouts-kyc-text">KYC required for first payout — </span>
+                    <a href="#" id="payoutsKycLink" class="payouts-kyc-link">Set up via Privado ID →</a>
+                </div>
+            </div>
+            <div class="payouts-history-label">Payout History</div>
+            <div id="payoutsHistoryContainer">
+                <!-- Example payout row (JS will populate) -->
+                <div class="payouts-history-card">
+                    <div class="payouts-history-row">
+                        <div class="payouts-history-left">
+                            <div class="payouts-history-amount">$0.00</div>
+                            <div class="payouts-history-date">--</div>
+                        </div>
+                        <div class="payouts-history-right">
+                            <div class="payouts-history-badge">Paid</div>
+                            <div class="payouts-history-tx">0x00...0000</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Screen: Settings ────────────────────────── -->
+        <div id="settingsScreen" class="screen-settings" style="display: none;">
+            <div class="settings-back-row">
+                <span id="settingsBackBtn" class="settings-back-arrow">←</span>
+                <span class="settings-back-title">Settings</span>
+            </div>
+            <div class="settings-card">
+                <div class="settings-section-label">Wallet</div>
+                <div class="settings-field">
+                    <div class="settings-field-label">Hyperliquid Address</div>
+                    <div class="settings-input-row">
+                        <input type="text" id="settingsHlAddress" class="settings-input" placeholder="0x..." spellcheck="false" />
+                        <button id="settingsHlSave" class="settings-save-btn">Save</button>
+                    </div>
+                </div>
+                <div class="settings-field settings-field--second">
+                    <div class="settings-field-label">Payout Wallet</div>
+                    <div class="settings-input-row">
+                        <input type="text" id="settingsPayoutAddress" class="settings-input" placeholder="0x..." spellcheck="false" />
+                        <button id="settingsPayoutSave" class="settings-save-btn">Save</button>
+                    </div>
+                </div>
+            </div>
+            <div class="settings-card">
+                <div class="settings-section-label">Push Notifications</div>
+                <div class="settings-notif-desc">All on by default. Sent as Chrome push notifications even when the extension is closed.</div>
+                <div class="settings-toggle-list">
+                    <div class="settings-toggle-row">
+                        <span class="settings-toggle-label">Order mirrored successfully</span>
+                        <div class="settings-toggle" data-setting="orderMirrored" data-state="on">
+                            <div class="settings-toggle-knob"></div>
+                        </div>
+                    </div>
+                    <div class="settings-toggle-row">
+                        <span class="settings-toggle-label">Order rejected / error</span>
+                        <div class="settings-toggle" data-setting="orderRejected" data-state="on">
+                            <div class="settings-toggle-knob"></div>
+                        </div>
+                    </div>
+                    <div class="settings-toggle-row">
+                        <span class="settings-toggle-label">Unsupported pair detected</span>
+                        <div class="settings-toggle" data-setting="unsupportedPair" data-state="on">
+                            <div class="settings-toggle-knob"></div>
+                        </div>
+                    </div>
+                    <div class="settings-toggle-row">
+                        <span class="settings-toggle-label">Order size clamped</span>
+                        <div class="settings-toggle" data-setting="orderClamped" data-state="on">
+                            <div class="settings-toggle-knob"></div>
+                        </div>
+                    </div>
+                    <div class="settings-toggle-row">
+                        <span class="settings-toggle-label">Payout ready to claim</span>
+                        <div class="settings-toggle" data-setting="payoutReady" data-state="on">
+                            <div class="settings-toggle-knob"></div>
+                        </div>
+                    </div>
+                    <div class="settings-toggle-row settings-toggle-row--last">
+                        <span class="settings-toggle-label">Registration complete</span>
+                        <div class="settings-toggle" data-setting="registrationComplete" data-state="on">
+                            <div class="settings-toggle-knob"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="settings-card">
+                <div class="settings-section-label">Account</div>
+                <button id="settingsDisconnect" class="settings-disconnect-btn">Disconnect Wallet</button>
+            </div>
+            <div class="settings-footer">Powered by Vanta Network on Bittensor</div>
+        </div>
+
         <!-- Footer -->
         <div class="footer">
-            <button id="testNotification" class="test-btn">
-                🔔 Test Notification
-            </button>
-            <div id="notificationStatus" class="notification-status"></div>
             <div class="footer-text">Powered by Vanta Network on Bittensor</div>
         </div>
     </div>

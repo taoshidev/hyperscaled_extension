@@ -38,6 +38,12 @@
       "run_at": "document_idle"
     }
   ],
+  "web_accessible_resources": [
+    {
+      "resources": ["images/hyperscaled-logo.svg"],
+      "matches": ["https://app.hyperliquid.xyz/*", "https://app.hyperliquid-testnet.xyz/*"]
+    }
+  ],
   "background": {
     "service_worker": "background.js"
   }

@@ -650,10 +650,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         showPositionNotification();
     }, 1000);
 
-    const testBtn = document.getElementById('testNotification');
-    if (testBtn) {
-        testBtn.addEventListener('click', () => showPositionNotification());
-    }
 
     const analyticsLink = document.querySelector('.analytics-link');
     if (analyticsLink) {
