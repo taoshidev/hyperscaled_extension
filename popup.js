@@ -655,7 +655,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     if (analyticsLink) {
         analyticsLink.addEventListener('click', function(e) {
             e.preventDefault();
-            chrome.tabs.create({ url: 'https://vanta.network/dashboard' });
+            chrome.tabs.create({ url: 'https://hyperscaled.trade/dashboard' });
         });
     }
 
