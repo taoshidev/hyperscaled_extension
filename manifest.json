@@ -38,7 +38,7 @@
       "run_at": "document_idle"
     },
     {
-      "matches": ["https://hyperscaled.trade/*", "https://*.hyperscaled.trade/*", "http://localhost:4568/*"],
+      "matches": ["https://hyperscaled.trade/*", "https://*.hyperscaled.trade/*", "http://localhost/*"],
       "js": ["content-hyperscaled.js"],
       "run_at": "document_idle"
     }
