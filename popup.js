@@ -643,6 +643,21 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
     }
 
+    const testRegBtn = document.getElementById('testRegFlowBtn');
+    if (testRegBtn) {
+        testRegBtn.addEventListener('click', async () => {
+            // Send message to content script in active tab
+            chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+                if (tabs[0]) {
+                    chrome.tabs.sendMessage(tabs[0].id, { action: "forceRegistrationFlow" });
+                    updateStatus('Testing registration flow...', 'success');
+                } else {
+                    updateStatus('No active tab found', 'error');
+                }
+            });
+        });
+    }
+
     // ── Permissions & notifications ────────────────────────
     await checkNotificationPermission();
 

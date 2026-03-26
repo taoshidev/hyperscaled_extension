@@ -607,7 +607,15 @@
         );
       });
 
-      if (result.status && result.status !== "success") return;
+      if (result.status && result.status !== "success") {
+        if (result.status === "unregistered" || result.status === "error") {
+          if (JSON.stringify(result).toLowerCase().includes("unregistered")) {
+            sessionStorage.setItem("hf_pending_registration", "true");
+            processRegistrationPayment();
+          }
+        }
+        return;
+      }
 
       ACCOUNT.fundedSize = result.account_size || 0;
 
@@ -657,6 +665,10 @@
       updateBannerFromValidator();
     } catch (e) {
       console.error("[Hyperscaled] Validator fetch failed:", e);
+      if (e.message.toLowerCase().includes("unregistered")) {
+        sessionStorage.setItem("hf_pending_registration", "true");
+        processRegistrationPayment();
+      }
     }
   }
 
@@ -1447,6 +1459,116 @@
     bindLoop = null;
   }
 
+  // ── Registration Payment Flow ──────────────────────────────────────────────
+  const REGISTRATION_DEST = "0x0000000000000000000000000000000000000000"; // Dummy address
+  const REGISTRATION_AMOUNT = "100"; // Dummy amount
+
+  function ReactSetString(input, value) {
+    const nativeSetter = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype, 'value'
+    ).set;
+    nativeSetter.call(input, value);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  function fillSendModal() {
+    let attempts = 0;
+    const interval = setInterval(() => {
+      attempts++;
+      if (attempts > 40) { // 20 seconds timeout
+        clearInterval(interval);
+        return;
+      }
+      
+      const inputs = Array.from(document.querySelectorAll("input"));
+      let destInput = null;
+      let amountInput = null;
+
+      for (const input of inputs) {
+        // Must be visible
+        if (input.offsetParent === null) continue;
+
+        const placeholder = (input.placeholder || "").toLowerCase();
+        if (placeholder.includes("address") || placeholder.includes("destination")) {
+          destInput = input;
+        } else if (placeholder.includes("amount") || placeholder.includes("0.00") || placeholder.includes("size")) {
+          amountInput = input;
+        }
+      }
+
+      if (destInput && amountInput) {
+        clearInterval(interval);
+        ReactSetString(destInput, REGISTRATION_DEST);
+        ReactSetString(amountInput, REGISTRATION_AMOUNT);
+        sessionStorage.removeItem("hf_pending_registration");
+        
+        let container = document.getElementById("hf-toast-container");
+        if (!container) {
+          container = document.createElement("div");
+          container.id = "hf-toast-container";
+          container.className = "hf-toast-container";
+          (document.body || document.documentElement).appendChild(container);
+        }
+        
+        const toast = document.createElement("div");
+        toast.className = "hf-toast hf-toast-show";
+        toast.innerHTML = 
+          '<div class="hf-toast-icon">ℹ️</div>' +
+          '<div class="hf-toast-content">' +
+            '<div class="hf-toast-title">Setup Required</div>' +
+            '<div class="hf-toast-msg">Please complete the registration payment to enable trading.</div>' +
+          '</div>';
+        
+        container.appendChild(toast);
+        setTimeout(() => toast.remove(), 5000);
+      }
+    }, 500);
+  }
+
+  let registrationInterval = null;
+
+  function processRegistrationPayment() {
+    if (sessionStorage.getItem("hf_pending_registration") !== "true") return;
+
+    if (registrationInterval) clearInterval(registrationInterval);
+
+    let attempts = 0;
+    registrationInterval = setInterval(() => {
+      attempts++;
+      if (attempts > 60) { // 30 seconds timeout
+        clearInterval(registrationInterval);
+        sessionStorage.removeItem("hf_pending_registration");
+        return;
+      }
+      
+      if (!location.pathname.startsWith("/portfolio")) {
+        const navLink = document.querySelector('a[href="/portfolio"]');
+        if (navLink) {
+          navLink.click();
+        } else {
+          // SPA fallback route change
+          history.pushState(null, "", "/portfolio");
+          window.dispatchEvent(new Event("popstate"));
+          // If still failing after 2s (4 attempts), hard reload
+          if (attempts > 4) window.location.href = "/portfolio";
+        }
+        return;
+      }
+      
+      const buttons = Array.from(document.querySelectorAll("button"));
+      const sendBtn = buttons.find(b => 
+        b.textContent.trim().toLowerCase() === "send" && b.offsetParent !== null
+      );
+      
+      if (sendBtn) {
+        clearInterval(registrationInterval);
+        sendBtn.click();
+        setTimeout(fillSendModal, 500);
+      }
+    }, 500);
+  }
+
   // ── SPA mount ──────────────────────────────────────────────────────────────
   function isOnTradeRoute() {
     const validHost = location.hostname === "app.hyperliquid.xyz" ||
@@ -1514,5 +1636,17 @@
     mountWhenReady();
     scheduleUpdate();
     checkPairSupport();
+    processRegistrationPayment();
   }, 300);
+
+  // Listen for messages from popup
+  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === "forceRegistrationFlow") {
+      console.log("[Hyperscaled] Forcing registration flow...");
+      sessionStorage.setItem("hf_pending_registration", "true");
+      processRegistrationPayment();
+      sendResponse({ success: true });
+    }
+  });
+
 })();
