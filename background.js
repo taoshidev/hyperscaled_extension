@@ -84,6 +84,129 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     sendResponse({ success: true });
     return true;
   }
+
+  // ── Hyperliquid Registration Payment Flow ───────────────────────────────
+
+  if (request.action === 'initiateHLPayment') {
+    (async () => {
+      try {
+        const data = request.data;
+        // Store payment details + the tab that initiated it
+        await chrome.storage.local.set({
+          pendingHLPayment: {
+            destination: data.destination,
+            amount: data.amount,
+            tierName: data.tierName,
+            hlAddress: data.hlAddress,
+            payoutAddress: data.payoutAddress,
+            email: data.email,
+            initiatedAt: Date.now(),
+          },
+          hlPaymentSourceTabId: sender.tab?.id || null,
+        });
+
+        // Find or create a Hyperliquid tab
+        const hlTabs = await chrome.tabs.query({ url: [HL_APP_URL + '/*'] });
+        let hlTab;
+        if (hlTabs.length > 0) {
+          hlTab = hlTabs[0];
+          await chrome.tabs.update(hlTab.id, { active: true, url: HL_APP_URL + '/portfolio' });
+        } else {
+          hlTab = await chrome.tabs.create({ url: HL_APP_URL + '/portfolio' });
+        }
+
+        // Wait for the tab to load, then tell content.js to start the payment
+        const tabReadyPromise = new Promise((resolve) => {
+          function onUpdated(tabId, changeInfo) {
+            if (tabId === hlTab.id && changeInfo.status === 'complete') {
+              chrome.tabs.onUpdated.removeListener(onUpdated);
+              resolve();
+            }
+          }
+          chrome.tabs.onUpdated.addListener(onUpdated);
+          // Timeout after 15s in case the tab is already loaded
+          setTimeout(() => {
+            chrome.tabs.onUpdated.removeListener(onUpdated);
+            resolve();
+          }, 15000);
+        });
+
+        await tabReadyPromise;
+        // Give content script a moment to initialize
+        await new Promise(r => setTimeout(r, 1000));
+
+        // Tell the HL content script to start the payment flow
+        try {
+          await chrome.tabs.sendMessage(hlTab.id, { action: 'startRegistrationPayment' });
+        } catch (e) {
+          console.warn('[Hyperscaled BG] Failed to message HL tab, retrying...', e.message);
+          await new Promise(r => setTimeout(r, 2000));
+          await chrome.tabs.sendMessage(hlTab.id, { action: 'startRegistrationPayment' });
+        }
+
+        // Notify the Hyperscaled tab that we're navigating
+        const sourceTabId = sender.tab?.id;
+        if (sourceTabId) {
+          try {
+            await chrome.tabs.sendMessage(sourceTabId, {
+              action: 'hlPaymentUpdate',
+              status: 'navigating',
+            });
+          } catch (e) {
+            console.warn('[Hyperscaled BG] Could not notify source tab:', e.message);
+          }
+        }
+
+        sendResponse({ success: true });
+      } catch (err) {
+        console.error('[Hyperscaled BG] initiateHLPayment error:', err);
+        sendResponse({ success: false, error: err.message });
+      }
+    })();
+    return true; // async response
+  }
+
+  if (request.action === 'hlPaymentFormFilled') {
+    (async () => {
+      try {
+        const stored = await chrome.storage.local.get(['hlPaymentSourceTabId']);
+        const sourceTabId = stored.hlPaymentSourceTabId;
+        if (sourceTabId) {
+          await chrome.tabs.sendMessage(sourceTabId, {
+            action: 'hlPaymentUpdate',
+            status: 'awaiting_confirmation',
+          });
+        }
+        sendResponse({ success: true });
+      } catch (err) {
+        console.error('[Hyperscaled BG] hlPaymentFormFilled relay error:', err);
+        sendResponse({ success: false, error: err.message });
+      }
+    })();
+    return true;
+  }
+
+  if (request.action === 'hlPaymentSent') {
+    (async () => {
+      try {
+        const stored = await chrome.storage.local.get(['hlPaymentSourceTabId']);
+        const sourceTabId = stored.hlPaymentSourceTabId;
+        if (sourceTabId) {
+          await chrome.tabs.sendMessage(sourceTabId, {
+            action: 'hlPaymentUpdate',
+            status: 'sent',
+          });
+        }
+        // Clean up
+        await chrome.storage.local.remove(['pendingHLPayment', 'hlPaymentSourceTabId']);
+        sendResponse({ success: true });
+      } catch (err) {
+        console.error('[Hyperscaled BG] hlPaymentSent relay error:', err);
+        sendResponse({ success: false, error: err.message });
+      }
+    })();
+    return true;
+  }
 });
 
 // Resolve the entity miner endpoint URL for an HL address via the validator

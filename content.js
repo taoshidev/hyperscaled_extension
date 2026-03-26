@@ -1460,8 +1460,6 @@
   }
 
   // ── Registration Payment Flow ──────────────────────────────────────────────
-  const REGISTRATION_DEST = "0x0000000000000000000000000000000000000000"; // Dummy address
-  const REGISTRATION_AMOUNT = "100"; // Dummy amount
 
   function ReactSetString(input, value) {
     const nativeSetter = Object.getOwnPropertyDescriptor(
@@ -1472,7 +1470,7 @@
     input.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
-  function fillSendModal() {
+  function fillSendModal(destination, amount) {
     let attempts = 0;
     const interval = setInterval(() => {
       attempts++;
@@ -1480,7 +1478,7 @@
         clearInterval(interval);
         return;
       }
-      
+
       const inputs = Array.from(document.querySelectorAll("input"));
       let destInput = null;
       let amountInput = null;
@@ -1499,10 +1497,12 @@
 
       if (destInput && amountInput) {
         clearInterval(interval);
-        ReactSetString(destInput, REGISTRATION_DEST);
-        ReactSetString(amountInput, REGISTRATION_AMOUNT);
-        sessionStorage.removeItem("hf_pending_registration");
-        
+        ReactSetString(destInput, destination);
+        ReactSetString(amountInput, amount);
+
+        // Notify background that the form is filled
+        chrome.runtime.sendMessage({ action: "hlPaymentFormFilled" });
+
         let container = document.getElementById("hf-toast-container");
         if (!container) {
           container = document.createElement("div");
@@ -1510,26 +1510,62 @@
           container.className = "hf-toast-container";
           (document.body || document.documentElement).appendChild(container);
         }
-        
+
         const toast = document.createElement("div");
         toast.className = "hf-toast hf-toast-show";
-        toast.innerHTML = 
+        toast.innerHTML =
           '<div class="hf-toast-icon">ℹ️</div>' +
           '<div class="hf-toast-content">' +
-            '<div class="hf-toast-title">Setup Required</div>' +
-            '<div class="hf-toast-msg">Please complete the registration payment to enable trading.</div>' +
+            '<div class="hf-toast-title">Registration Payment</div>' +
+            '<div class="hf-toast-msg">Review the transfer details and confirm to complete your payment.</div>' +
           '</div>';
-        
+
         container.appendChild(toast);
-        setTimeout(() => toast.remove(), 5000);
+        setTimeout(() => toast.remove(), 8000);
+
+        // Watch for the send modal to close (user confirmed the transfer)
+        watchForSendCompletion(destInput);
+      }
+    }, 500);
+  }
+
+  // After the form is filled, poll to detect when the send modal closes
+  // (indicating the user clicked Send and the transfer was submitted)
+  function watchForSendCompletion(destInput) {
+    let watchAttempts = 0;
+    const watchInterval = setInterval(() => {
+      watchAttempts++;
+      if (watchAttempts > 120) { // 60 seconds timeout
+        clearInterval(watchInterval);
+        return;
+      }
+
+      // The modal is gone if the destination input is no longer in the DOM
+      // or is no longer visible
+      if (!document.body.contains(destInput) || destInput.offsetParent === null) {
+        clearInterval(watchInterval);
+        console.log("[Hyperscaled] Send modal closed — payment likely submitted");
+        chrome.runtime.sendMessage({ action: "hlPaymentSent" });
       }
     }, 500);
   }
 
   let registrationInterval = null;
 
-  function processRegistrationPayment() {
-    if (sessionStorage.getItem("hf_pending_registration") !== "true") return;
+  async function processRegistrationPayment() {
+    // Read payment details from storage (set by background.js)
+    const stored = await new Promise(resolve =>
+      chrome.storage.local.get(["pendingHLPayment"], resolve)
+    );
+    const payment = stored.pendingHLPayment;
+
+    // Fallback: also check legacy sessionStorage flag
+    const legacyPending = sessionStorage.getItem("hf_pending_registration") === "true";
+
+    if (!payment && !legacyPending) return;
+
+    const destination = payment?.destination || "0x0000000000000000000000000000000000000000";
+    const amount = payment?.amount || "100";
 
     if (registrationInterval) clearInterval(registrationInterval);
 
@@ -1541,7 +1577,7 @@
         sessionStorage.removeItem("hf_pending_registration");
         return;
       }
-      
+
       if (!location.pathname.startsWith("/portfolio")) {
         const navLink = document.querySelector('a[href="/portfolio"]');
         if (navLink) {
@@ -1555,16 +1591,17 @@
         }
         return;
       }
-      
+
       const buttons = Array.from(document.querySelectorAll("button"));
-      const sendBtn = buttons.find(b => 
+      const sendBtn = buttons.find(b =>
         b.textContent.trim().toLowerCase() === "send" && b.offsetParent !== null
       );
-      
+
       if (sendBtn) {
         clearInterval(registrationInterval);
+        sessionStorage.removeItem("hf_pending_registration");
         sendBtn.click();
-        setTimeout(fillSendModal, 500);
+        setTimeout(() => fillSendModal(destination, amount), 500);
       }
     }, 500);
   }
@@ -1639,11 +1676,17 @@
     processRegistrationPayment();
   }, 300);
 
-  // Listen for messages from popup
+  // Listen for messages from popup and background
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "forceRegistrationFlow") {
       console.log("[Hyperscaled] Forcing registration flow...");
       sessionStorage.setItem("hf_pending_registration", "true");
+      processRegistrationPayment();
+      sendResponse({ success: true });
+    }
+
+    if (request.action === "startRegistrationPayment") {
+      console.log("[Hyperscaled] Starting registration payment from website...");
       processRegistrationPayment();
       sendResponse({ success: true });
     }

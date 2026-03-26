@@ -36,6 +36,11 @@
       "js": ["content.js"],
       "css": ["content.css"],
       "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://hyperscaled.trade/*", "https://*.hyperscaled.trade/*", "http://localhost:4568/*"],
+      "js": ["content-hyperscaled.js"],
+      "run_at": "document_idle"
     }
   ],
   "web_accessible_resources": [
