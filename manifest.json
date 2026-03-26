@@ -45,7 +45,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["images/hyperscaled-logo.svg"],
+      "resources": ["images/hyperscaled-logo.svg", "icon16.png", "icon48.png", "icon128.png"],
       "matches": ["https://app.hyperliquid.xyz/*", "https://app.hyperliquid-testnet.xyz/*"]
     }
   ],

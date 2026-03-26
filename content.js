@@ -1043,18 +1043,20 @@
     }
 
     const toast = document.createElement("div");
-    toast.className = "hf-toast";
+    toast.className = allowed === 0 ? "hf-toast hf-toast--warning" : "hf-toast hf-toast--alert";
     
     let messageHtml = "Order exceeds your <b>" + constraint + " margin limit</b> (with " + leverage + "x leverage).";
     let titleHtml = "Hyperscaled: Reduced to " + fmt(allowed);
+    let iconHtml = "⚠️";
     
     if (allowed === 0) {
        titleHtml = "Hyperscaled: Order Prevented";
        messageHtml = "Available margin cannot support the minimum order size (with " + leverage + "x leverage).";
+       iconHtml = "⛔";
     }
 
     toast.innerHTML = 
-      '<div class="hf-toast-icon">⚠️</div>' +
+      '<div class="hf-toast-icon">' + iconHtml + '</div>' +
       '<div class="hf-toast-content">' +
         '<div class="hf-toast-title">' + titleHtml + '</div>' +
         '<div class="hf-toast-msg">' + messageHtml + '</div>' +
@@ -1512,9 +1514,9 @@
         }
 
         const toast = document.createElement("div");
-        toast.className = "hf-toast hf-toast-show";
+        toast.className = "hf-toast hf-toast--info hf-toast-show";
         toast.innerHTML =
-          '<div class="hf-toast-icon">ℹ️</div>' +
+          '<div class="hf-toast-icon"><img src="' + chrome.runtime.getURL("icon48.png") + '" style="height: 16px; width: 16px; margin-top: 2px; opacity: 0.9;" alt="Hyperscaled" /></div>' +
           '<div class="hf-toast-content">' +
             '<div class="hf-toast-title">Registration Payment</div>' +
             '<div class="hf-toast-msg">Review the transfer details and confirm to complete your payment.</div>' +
