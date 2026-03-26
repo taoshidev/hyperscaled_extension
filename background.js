@@ -1,10 +1,11 @@
 // Background service worker for Hyperfunded extension
 
-const LOW_BALANCE_THRESHOLD = 1;
+const LOW_BALANCE_THRESHOLD = 1000;
 const VALIDATOR_URL = 'http://34.187.154.219:48888';
 const EVENT_POLL_INTERVAL_MINUTES = 1;
 
-const TEST_MODE = true;
+const FAKE_MONEY = false;
+const TEST_MODE = false;
 const HL_API_URL = TEST_MODE ? "https://api.hyperliquid-testnet.xyz" : "https://api.hyperliquid.xyz";
 const HL_APP_URL = TEST_MODE ? "https://app.hyperliquid-testnet.xyz" : "https://app.hyperliquid.xyz";
 
@@ -66,6 +67,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
   if (request.action === 'fetchTradePairs') {
     fetchTradePairs()
+      .then(data => sendResponse({ success: true, data }))
+      .catch(err => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
+  if (request.action === 'fetchMidPrices') {
+    fetchMidPrices()
       .then(data => sendResponse({ success: true, data }))
       .catch(err => sendResponse({ success: false, error: err.message }));
     return true;
@@ -262,8 +270,15 @@ async function fetchHLBalance(address) {
   }
   console.log('[Hyperscaled BG] spotUSDC:', spotUSDC);
 
-  const accountValue = perpsWithdrawable + spotUSDC;
-  const perpsValue = perpsWithdrawable;
+  let accountValue = perpsWithdrawable + spotUSDC;
+  let perpsValue = perpsWithdrawable;
+
+  if (FAKE_MONEY) {
+    accountValue = 1000;
+    perpsValue = 1000;
+    spotUSDC = 0;
+  }
+
   console.log('[Hyperscaled BG] total accountValue:', accountValue);
 
   return {
@@ -273,6 +288,17 @@ async function fetchHLBalance(address) {
     totalMarginUsed: parseFloat(perpsData?.marginSummary?.totalMarginUsed) || 0,
     totalNtlPos: parseFloat(perpsData?.marginSummary?.totalNtlPos) || 0,
   };
+}
+
+// Fetch mid prices for all assets from Hyperliquid
+async function fetchMidPrices() {
+  const res = await fetch(HL_API_URL + '/info', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type: 'allMids' })
+  });
+  if (!res.ok) throw new Error(`Mid prices API error ${res.status}`);
+  return res.json();
 }
 
 // Show a Chrome notification when balance drops below threshold

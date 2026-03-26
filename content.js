@@ -37,6 +37,8 @@
     notionalByPair: {},
   };
 
+  let midPrices = {}; // { BTC: 87000, ETH: 3400, ... }
+
   let validatorDataLoaded = false;
   let limitsLoaded = false;
 
@@ -44,8 +46,8 @@
   const LAYOUT_STYLE_ID = "hf-layout-fix";
   const BANNER_HEIGHT = 38;
 
-  const MAX_SINGLE = () => ACCOUNT.maxPositionPerPair || (ACCOUNT.hlBalance * 0.625);
-  const MAX_TOTAL = () => ACCOUNT.maxPortfolio || (ACCOUNT.hlBalance * 1.25);
+  const MAX_SINGLE = () => Math.min(ACCOUNT.maxPositionPerPair || ACCOUNT.fundedSize, ACCOUNT.fundedSize);
+  const MAX_TOTAL = () => Math.min(ACCOUNT.maxPortfolio || ACCOUNT.fundedSize, ACCOUNT.fundedSize);
 
   const fmt = (n) =>
     "$" +
@@ -262,19 +264,21 @@
 
         <!-- Disabled inline message (hidden unless .hf-disabled) -->
         <span class="hf-divider" style="display:${isDisabled ? 'block' : 'none'} !important"></span>
-        <span class="hf-disabled-msg" id="hf-disabled-msg"><svg class="hf-icon-disabled" width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="2"/><line x1="3.5" y1="3.5" x2="12.5" y2="12.5" stroke="currentColor" stroke-width="2"/></svg> Daily loss limit hit — trading paused</span>
+        <span class="hf-disabled-msg" id="hf-disabled-msg"><svg class="hf-icon-disabled" width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="2"/><line x1="3.5" y1="3.5" x2="12.5" y2="12.5" stroke="currentColor" stroke-width="2"/></svg> Position limit reached — trade blocked</span>
 
         <!-- 11. Spacer -->
         <span class="hf-spacer"></span>
       </div>
 
-      <!-- Disabled sub-strip -->
+      <!-- Disabled sub-strip (only rendered when trading is blocked) -->
+      ${isDisabled ? `
       <div class="hf-sub-strip">
         <span class="hf-sub-strip-title">Hyperscaled Extension</span>
-        <span class="hf-sub-strip-body">Your daily loss limit of 5% has been reached. New trade submissions are blocked until the next trading day (resets 00:00 UTC).</span>
+        <span class="hf-sub-strip-body">This order would exceed your position size limit. Reduce the order size to place the trade.</span>
         <a class="hf-sub-strip-btn" id="hf-dashboard-link">View Dashboard →</a>
         <span class="hf-sub-strip-via">via Hyperscaled extension</span>
       </div>
+      ` : ''}
     `;
   }
 
@@ -283,7 +287,7 @@
     if (document.getElementById(LAYOUT_STYLE_ID)) return;
     const st = document.createElement("style");
     st.id = LAYOUT_STYLE_ID;
-    st.textContent = `html, body { padding-top: ${BANNER_HEIGHT}px !important; background-color: #18181b !important; }`;
+    st.textContent = `body { padding-top: ${BANNER_HEIGHT}px !important; background-color: #18181b !important; }`;
     (document.head || document.documentElement).appendChild(st);
   }
   function removeLayoutFix() {
@@ -558,6 +562,32 @@
     }
   }
 
+  async function fetchMidPrices() {
+    try {
+      const result = await new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage(
+          { action: 'fetchMidPrices' },
+          (response) => {
+            if (chrome.runtime.lastError) {
+              reject(new Error(chrome.runtime.lastError.message));
+              return;
+            }
+            if (response?.success) resolve(response.data);
+            else reject(new Error(response?.error || 'Unknown error'));
+          }
+        );
+      });
+      for (const [key, val] of Object.entries(result)) {
+        const price = parseFloat(val);
+        if (price > 0 && /^[A-Z]/.test(key)) {
+          midPrices[key.toUpperCase()] = price;
+        }
+      }
+    } catch (e) {
+      console.error('[Hyperscaled] Mid prices fetch failed:', e);
+    }
+  }
+
   async function fetchValidatorData() {
     const address = await getUserAddress();
     if (!address) return;
@@ -720,11 +750,13 @@
     fetchValidatorData();
     fetchTraderLimits();
     fetchTradePairs();
+    fetchMidPrices();
     if (balanceCheckTimer) clearInterval(balanceCheckTimer);
     balanceCheckTimer = setInterval(() => {
       checkBalance();
       fetchValidatorData();
       fetchTraderLimits();
+      fetchMidPrices();
     }, BALANCE_CHECK_INTERVAL);
   }
 
@@ -740,6 +772,7 @@
       checkBalance();
       fetchValidatorData();
       fetchTraderLimits();
+      fetchMidPrices();
     }
   });
 
@@ -771,11 +804,80 @@
     return Number.isFinite(v) ? v : 0;
   }
 
+  // ── HL page scraping helpers ─────────────────────────────────────────────
+  function getHLLeverage() {
+    const buttons = document.querySelectorAll('button');
+    for (const btn of buttons) {
+      if (btn.closest('#' + BANNER_ID)) continue;
+      const text = (btn.textContent || '').trim();
+      const match = text.match(/^(\d+(?:\.\d+)?)x$/i);
+      if (match) return parseFloat(match[1]);
+    }
+    return 1;
+  }
+
+  function getSizeUnit() {
+    const container = document.querySelector('[data-testid="sz-input"]');
+    if (!container) return 'USD';
+    const divs = [...container.querySelectorAll('div')].filter(d => {
+      if (d.children.length > 1) return false;
+      if (d.children.length === 1 && d.children[0].tagName.toLowerCase() !== 'svg') return false;
+      return true;
+    });
+    for (const d of divs) {
+      const t = (d.textContent || '').trim().toUpperCase();
+      if (!t || t === 'SIZE') continue;
+      if (t === 'USD' || t === 'USDC') return 'USD';
+      if (/^[A-Z]{2,10}$/.test(t)) return t;
+    }
+    return 'USD';
+  }
+
+  function inputToNotional(inputValue) {
+    if (inputValue <= 0) return 0;
+    const unit = getSizeUnit();
+    if (unit === 'USD' || unit === 'USDC') return inputValue;
+    const symbol = getCurrentSymbol();
+    const price = symbol ? (midPrices[symbol] || 0) : 0;
+    return price > 0 ? inputValue * price : 0;
+  }
+
+  function notionalToInput(notional) {
+    if (notional <= 0) return 0;
+    const unit = getSizeUnit();
+    if (unit === 'USD' || unit === 'USDC') return notional;
+    const symbol = getCurrentSymbol();
+    const price = symbol ? (midPrices[symbol] || 0) : 0;
+    return price > 0 ? notional / price : 0;
+  }
+
+  // Read HL's computed Order Value from the order summary (most reliable notional source)
+  function readOrderValueFromDOM() {
+    const allDivs = document.querySelectorAll('div');
+    for (const div of allDivs) {
+      if (div.children.length > 0) continue;
+      if ((div.textContent || '').trim() !== 'Order Value') continue;
+      const row = div.parentElement;
+      if (!row) continue;
+      for (const sibling of row.children) {
+        if (sibling === div) continue;
+        const text = (sibling.textContent || '').trim();
+        if (text === 'N/A' || !text) return 0;
+        return parseNumber(text);
+      }
+    }
+    return 0;
+  }
+
+  function isSizeInput(input) {
+    return !!input.closest('[data-testid="sz-input"]');
+  }
+
   // Track the input the user is actively editing
   let lastEditedInput = null;
 
   // If we have an actively edited input, treat it as the “size” being typed.
-  // This is the most reliable way to respond instantly.
+  // Converts to USD notional using mid price when input is in asset units.
   function pendingFromLastEditedInput() {
     const el = lastEditedInput;
     if (!el) return 0;
@@ -785,9 +887,7 @@
     const v = parseNumber(el.value);
     if (v <= 0) return 0;
 
-    // In HL, the size field (in USDC mode) is directly the notional.
-    // Even without labels, this is the best real-time UX.
-    return v;
+    return inputToNotional(v);
   }
 
   // Fallback: scan other visible inputs (for qty+price setups)
@@ -816,6 +916,9 @@
   }
 
   function getPendingNotional() {
+    // Prefer HL's own Order Value (accounts for leverage, unit, price correctly)
+    const orderValue = readOrderValueFromDOM();
+    if (orderValue > 0) return orderValue;
     return pendingFromLastEditedInput() || pendingFromScan() || 0;
   }
 
@@ -836,35 +939,177 @@
     const nativeSetter = Object.getOwnPropertyDescriptor(
       window.HTMLInputElement.prototype, 'value'
     ).set;
-    nativeSetter.call(input, value > 0 ? value.toFixed(2) : '');
+    let formatted;
+    if (value <= 0) {
+      formatted = '';
+    } else {
+      const unit = getSizeUnit();
+      if (unit === 'USD' || unit === 'USDC') {
+        formatted = value.toFixed(2);
+      } else {
+        // Asset units — preserve precision, trim trailing zeros
+        formatted = parseFloat(value.toFixed(6)).toString();
+      }
+    }
+    nativeSetter.call(input, formatted);
     input.dispatchEvent(new Event('input', { bubbles: true }));
   }
 
   // ── Input clamping ──────────────────────────────────────────────────────────
   let isClampingInProgress = false;
+  const VANTA_MIN_POSITION_USD = 10;
 
   function clampInputIfNeeded(input) {
-    // Clamping works even if API limits aren't loaded yet (uses balance-based fallbacks)
-    // But we need balance to be verified first
-    if (!balanceVerified || ACCOUNT.hlBalance <= 0) return;
+    if (!balanceVerified || ACCOUNT.hlBalance < 1000) return;
     if (isClampingInProgress) return;
+    if (!isSizeInput(input)) return; // only clamp the size input
 
     const v = parseNumber(input.value);
     if (v <= 0) return;
 
+    // Determine notional from multiple sources (most reliable first)
+    // 1. HL's own Order Value — accounts for leverage, unit, price correctly
+    let notional = readOrderValueFromDOM();
+    // 2. Our own computation from input + mid price
+    if (notional <= 0) notional = inputToNotional(v);
+    if (notional <= 0) return;
+
     const symbol = getCurrentSymbol();
     const currentPairNotional = (symbol && ACCOUNT.notionalByPair[symbol]) || 0;
+    const hlLev = getHLLeverage();
 
-    const leftSingle = MAX_SINGLE() - currentPairNotional;
-    const leftTotal = MAX_TOTAL() - ACCOUNT.openTotalUsed;
+    const maxNotionalPerPair = MAX_SINGLE();
+    const maxNotionalTotal = MAX_TOTAL();
+
+    const leftSingle = maxNotionalPerPair - currentPairNotional;
+    const leftTotal = maxNotionalTotal - ACCOUNT.openTotalUsed;
+    const maxAllowedNotional = Math.max(Math.min(leftSingle, leftTotal), 0);
+
+    // Add a 1 cent tolerance to prevent infinite loops from rounding precision
+    if (notional > maxAllowedNotional + 0.01 && notional > 0) {
+      const constraint = leftSingle <= leftTotal ? 'per-pair' : 'portfolio';
+
+      if (maxAllowedNotional < VANTA_MIN_POSITION_USD) {
+        isClampingInProgress = true;
+        setInputValue(input, 0);
+        isClampingInProgress = false;
+        console.log(
+          `[Hyperscaled] Order rejected — clamped notional ${fmt(maxAllowedNotional)} ` +
+          `below $${VANTA_MIN_POSITION_USD} minimum (${constraint} limit, HL ${hlLev}x)`
+        );
+        showClampToast(notional, 0, hlLev, constraint);
+        return;
+      }
+
+      // Ratio-based clamping: unit-agnostic (works for BTC, USD, any unit)
+      const ratio = maxAllowedNotional / notional;
+      const clampedInput = v * ratio;
+
+      isClampingInProgress = true;
+      setInputValue(input, clampedInput);
+      isClampingInProgress = false;
+      console.log(
+        `[Hyperscaled] Clamped: requested ${fmt(notional)} → allowed ${fmt(maxAllowedNotional)} ` +
+        `(${constraint} limit). HL leverage: ${hlLev}x`
+      );
+      showClampToast(notional, maxAllowedNotional, hlLev, constraint);
+    }
+  }
+
+  let lastToastTime = 0;
+  function showClampToast(requested, allowed, leverage, constraint) {
+    const now = Date.now();
+    if (now - lastToastTime < 3000) return; // Prevent spam
+    lastToastTime = now;
+
+    let container = document.getElementById("hf-toast-container");
+    if (!container) {
+      container = document.createElement("div");
+      container.id = "hf-toast-container";
+      container.className = "hf-toast-container";
+      (document.body || document.documentElement).appendChild(container);
+    }
+
+    const toast = document.createElement("div");
+    toast.className = "hf-toast";
+    
+    let messageHtml = "Order exceeds your <b>" + constraint + " margin limit</b> (with " + leverage + "x leverage).";
+    let titleHtml = "Hyperscaled: Reduced to " + fmt(allowed);
+    
+    if (allowed === 0) {
+       titleHtml = "Hyperscaled: Order Prevented";
+       messageHtml = "Available margin cannot support the minimum order size (with " + leverage + "x leverage).";
+    }
+
+    toast.innerHTML = 
+      '<div class="hf-toast-icon">⚠️</div>' +
+      '<div class="hf-toast-content">' +
+        '<div class="hf-toast-title">' + titleHtml + '</div>' +
+        '<div class="hf-toast-msg">' + messageHtml + '</div>' +
+      '</div>';
+
+    container.appendChild(toast);
+
+    // Trigger reflow for transition
+    void toast.offsetWidth;
+    toast.classList.add("hf-toast-show");
+
+    setTimeout(() => {
+      toast.classList.remove("hf-toast-show");
+      setTimeout(() => {
+        if (toast.parentNode) {
+          toast.parentNode.removeChild(toast);
+        }
+      }, 300);
+    }, 4500);
+  }
+
+  // Backstop: periodically check HL's Order Value and clamp if over limit.
+  // Catches anything the real-time input handler misses (e.g. mid prices not
+  // loaded when user first typed, or React re-rendered the value).
+  function checkAndClampOrderValue() {
+    if (!balanceVerified || ACCOUNT.hlBalance < 1000) return;
+    if (isClampingInProgress) return;
+
+    const orderValue = readOrderValueFromDOM();
+    if (orderValue <= 0) return;
+
+    const symbol = getCurrentSymbol();
+    const currentPairNotional = (symbol && ACCOUNT.notionalByPair[symbol]) || 0;
+    const hlLev = getHLLeverage();
+    
+    const maxNotionalPerPair = MAX_SINGLE();
+    const maxNotionalTotal = MAX_TOTAL();
+
+    const leftSingle = maxNotionalPerPair - currentPairNotional;
+    const leftTotal = maxNotionalTotal - ACCOUNT.openTotalUsed;
     const maxAllowed = Math.max(Math.min(leftSingle, leftTotal), 0);
 
-    if (v > maxAllowed) {
-      isClampingInProgress = true;
-      setInputValue(input, maxAllowed);
-      isClampingInProgress = false;
-      console.log(`[Hyperscaled] Clamped to ${fmt(maxAllowed)} — position limit reached`);
-    }
+    // Add a 1 cent tolerance to prevent infinite loops from rounding precision
+    if (orderValue <= maxAllowed + 0.01) return;
+
+    const sizeContainer = document.querySelector('[data-testid="sz-input"]');
+    if (!sizeContainer) return;
+    const input = sizeContainer.querySelector('input');
+    if (!input) return;
+
+    const v = parseNumber(input.value);
+    if (v <= 0) return;
+
+    const ratio = maxAllowed / orderValue;
+    let clampedInput = v * ratio;
+    if (maxAllowed < VANTA_MIN_POSITION_USD) clampedInput = 0;
+
+    isClampingInProgress = true;
+    setInputValue(input, clampedInput);
+    isClampingInProgress = false;
+
+    const constraint = leftSingle <= leftTotal ? 'per-pair' : 'portfolio';
+    console.log(
+      `[Hyperscaled] Order Value backstop: ${fmt(orderValue)} → ${fmt(maxAllowed)} ` +
+      `(${constraint}). HL leverage: ${hlLev}x`
+    );
+    showClampToast(orderValue, maxAllowed < VANTA_MIN_POSITION_USD ? 0 : maxAllowed, hlLev, constraint);
   }
 
   // ── Submit button blocking ──────────────────────────────────────────────────
@@ -1125,18 +1370,22 @@
   function checkAndBlockButtons() {
     // Blocking works even if API limits aren't loaded yet (uses balance-based fallbacks)
     // But we need balance to be verified first
-    if (!balanceVerified || ACCOUNT.hlBalance <= 0) return;
+    if (!balanceVerified || ACCOUNT.hlBalance < 1000) return;
 
+    const hlLev = getHLLeverage();
     const pending = getPendingNotional();
     const symbol = getCurrentSymbol();
     const currentPairNotional = (symbol && ACCOUNT.notionalByPair[symbol]) || 0;
 
-    const leftSingle = MAX_SINGLE() - currentPairNotional;
-    const leftTotal = MAX_TOTAL() - ACCOUNT.openTotalUsed;
+    const maxNotionalPerPair = MAX_SINGLE();
+    const maxNotionalTotal = MAX_TOTAL();
+
+    const leftSingle = maxNotionalPerPair - currentPairNotional;
+    const leftTotal = maxNotionalTotal - ACCOUNT.openTotalUsed;
 
     const alreadyAtLimit = leftSingle <= 0 || leftTotal <= 0;
-    const overSingle = pending > 0 && pending > leftSingle;
-    const overTotal = pending > 0 && pending > leftTotal;
+    const overSingle = pending > 0 && pending >= leftSingle;
+    const overTotal = pending > 0 && pending >= leftTotal;
 
     shouldBlockTrade = alreadyAtLimit || overSingle || overTotal;
     enforceTradeBlock();
@@ -1188,6 +1437,7 @@
       if (!document.getElementById(BANNER_ID)) return;
       bindInputsOnce();
       checkPairSupport();
+      checkAndClampOrderValue();
     }, 500);
   }
 

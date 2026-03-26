@@ -129,7 +129,6 @@ body {
     align-items: center;
     padding-bottom: 14px;
     margin-bottom: 14px;
-    border-bottom: 1px solid var(--border-card);
 }
 
 .header-right {

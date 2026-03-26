@@ -1,6 +1,6 @@
-const LOW_BALANCE_THRESHOLD = 1;
+const LOW_BALANCE_THRESHOLD = 1000;
 let storedAddress = null;
-const TEST_MODE = true;
+const TEST_MODE = false;
 let traderLimits = null;
 let refreshIntervalId = null;
 
