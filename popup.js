@@ -825,13 +825,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
     }
 
-    // ── Permissions & notifications (non-blocking) ─────────
-    checkNotificationPermission();
-
-    setTimeout(() => {
-        showPositionNotification();
-    }, 1000);
-
 
     const analyticsLink = document.querySelector('.analytics-link');
     if (analyticsLink) {
