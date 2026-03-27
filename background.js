@@ -1,6 +1,5 @@
 // Background service worker for Hyperfunded extension
 
-const LOW_BALANCE_THRESHOLD = 1000;
 const VALIDATOR_URL = 'http://34.187.154.219:48888';
 const EVENT_POLL_INTERVAL_MINUTES = 1;
 
@@ -79,12 +78,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     fetchMidPrices()
       .then(data => sendResponse({ success: true, data }))
       .catch(err => sendResponse({ success: false, error: err.message }));
-    return true;
-  }
-
-  if (request.action === 'lowBalanceWarning') {
-    showLowBalanceNotification(request.balance);
-    sendResponse({ success: true });
     return true;
   }
 
@@ -710,26 +703,6 @@ async function fetchMidPrices() {
   });
   if (!res.ok) throw new Error(`Mid prices API error ${res.status}`);
   return res.json();
-}
-
-// Show a Chrome notification when balance drops below threshold
-function showLowBalanceNotification(balance) {
-  const formatted = '$' + Number(balance).toLocaleString('en-US', {
-    minimumFractionDigits: 2, maximumFractionDigits: 2
-  });
-
-  chrome.notifications.create('hyperfunded-low-balance', {
-    type: 'basic',
-    iconUrl: 'icon128.png',
-    title: '⚠️ Low Balance — Trading Disabled',
-    message: `Your Hyperliquid balance is ${formatted}, below the $1,000 minimum. New trades are blocked until you deposit more funds.`,
-    priority: 2,
-    requireInteraction: true
-  }, (id) => {
-    if (chrome.runtime.lastError) {
-      console.error('Notification error:', chrome.runtime.lastError);
-    }
-  });
 }
 
 // Function to show position notification

@@ -1,4 +1,3 @@
-const LOW_BALANCE_THRESHOLD = 1000;
 let storedAddress = null;
 const TEST_MODE = false;
 let traderLimits = null;
@@ -53,15 +52,6 @@ async function refreshBalance() {
         const hlValueEl = document.getElementById('hlBalanceHeader');
         if (hlValueEl) hlValueEl.textContent = fmtUsd(balance);
 
-        const warningEl = document.getElementById('lowBalanceWarning');
-        const detailEl = document.getElementById('lowBalanceDetail');
-
-        if (balance < LOW_BALANCE_THRESHOLD) {
-            if (warningEl) warningEl.style.display = 'flex';
-            if (detailEl) detailEl.textContent = `Balance: ${fmtUsd(balance)} — minimum $1,000 required`;
-        } else {
-            if (warningEl) warningEl.style.display = 'none';
-        }
     } catch (e) {
         console.error('Balance fetch failed:', e);
     }

@@ -973,7 +973,7 @@
   const VANTA_MIN_POSITION_USD = 10;
 
   function clampInputIfNeeded(input) {
-    if (!balanceVerified || ACCOUNT.hlBalance < 1000) return;
+    if (!balanceVerified) return;
     if (isClampingInProgress) return;
     if (!isSizeInput(input)) return; // only clamp the size input
 
@@ -1083,7 +1083,7 @@
   // Catches anything the real-time input handler misses (e.g. mid prices not
   // loaded when user first typed, or React re-rendered the value).
   function checkAndClampOrderValue() {
-    if (!balanceVerified || ACCOUNT.hlBalance < 1000) return;
+    if (!balanceVerified) return;
     if (isClampingInProgress) return;
 
     const orderValue = readOrderValueFromDOM();
@@ -1385,7 +1385,7 @@
   function checkAndBlockButtons() {
     // Blocking works even if API limits aren't loaded yet (uses balance-based fallbacks)
     // But we need balance to be verified first
-    if (!balanceVerified || ACCOUNT.hlBalance < 1000) return;
+    if (!balanceVerified) return;
 
     const hlLev = getHLLeverage();
     const pending = getPendingNotional();
