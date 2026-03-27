@@ -15,7 +15,7 @@
   // ── Supported trading pairs (fetched from validator, fallback to defaults) ──
   let SUPPORTED_SYMBOLS = ["BTC", "ETH", "SOL", "XRP", "DOGE", "ADA"];
   const UNSUPPORTED_OVERLAY_ID = "hf-unsupported-overlay";
-  const BALANCE_CHECK_INTERVAL = 30000;
+  const BALANCE_CHECK_INTERVAL = 3000;
 
   let currentBalance = null;
   let balanceVerified = false;
