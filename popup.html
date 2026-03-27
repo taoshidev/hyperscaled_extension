@@ -82,6 +82,19 @@
             <div class="pending-footer-note">You'll receive an email confirmation once registration is complete.</div>
         </div>
 
+        <!-- Unregistered Screen (shown when wallet is saved but not registered) -->
+        <div id="unregisteredScreen" class="screen-unregistered" style="display: none;">
+            <div class="unregistered-status-card">
+                <div class="unregistered-icon">⊘</div>
+                <div class="unregistered-title">Not Registered</div>
+                <div class="unregistered-body">This wallet address isn't registered with Hyperscaled. Sign up to get a funded account and start trading.</div>
+            </div>
+            <div class="unregistered-action-card">
+                <a href="https://hyperscaled.trade" target="_blank" class="unregistered-signup-btn">Sign up at hyperscaled.trade →</a>
+                <button id="unregisteredChangeAddr" class="unregistered-change-btn">Try a different address</button>
+            </div>
+        </div>
+
         <!-- Dashboard Content (shown only when valid data is available) -->
         <div id="dashboardContent" style="display: none;">
 

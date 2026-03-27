@@ -41,6 +41,7 @@
     notionalByPair: {},
     inChallenge: false,
     isRegistered: false,
+    registrationChecked: false,
   };
 
   let midPrices = {}; // { BTC: 87000, ETH: 3400, ... }
@@ -179,7 +180,7 @@
         <span class="hf-brand"><img src="${chrome.runtime.getURL('images/hyperscaled-logo.svg')}" alt="Hyperscaled" class="hf-brand-logo"></span>
 
         <!-- 2. Status badge -->
-        ${ACCOUNT.isRegistered ? `<span class="hf-status-badge">● ${ACCOUNT.inChallenge ? 'In Challenge' : 'Funded'}</span>` : ''}
+        ${ACCOUNT.registrationChecked ? `<span class="hf-status-badge${ACCOUNT.isRegistered ? '' : ' hf-status-badge--unregistered'}">● ${ACCOUNT.isRegistered ? (ACCOUNT.inChallenge ? 'In Challenge' : 'Funded') : 'Unregistered'}</span>` : ''}
 
         <!-- 3. Divider -->
         <span class="hf-divider"></span>
@@ -623,6 +624,9 @@
             processRegistrationPayment();
           }
         }
+        ACCOUNT.isRegistered = false;
+        ACCOUNT.registrationChecked = true;
+        updateBannerFromValidator();
         return;
       }
 
@@ -659,6 +663,7 @@
       ACCOUNT.notionalByPair = notionalByPair;
 
       ACCOUNT.isRegistered = true;
+      ACCOUNT.registrationChecked = true;
 
       // Challenge status from API
       const cp = result.challenge_period || {};
@@ -819,6 +824,7 @@
       ACCOUNT.notionalByPair = {};
       ACCOUNT.inChallenge = false;
       ACCOUNT.isRegistered = false;
+      ACCOUNT.registrationChecked = false;
       validatorDataLoaded = false;
       updateBannerFromValidator();
 
@@ -1655,15 +1661,16 @@
         sessionStorage.removeItem("hf_pending_registration");
 
         // Report connected wallet to website BEFORE filling the form
-        // so verification polling uses the actual paying address
-        getUserAddress().then((addr) => {
-          if (addr) {
-            chrome.runtime.sendMessage({
-              action: "hlPaymentWalletDetected",
-              senderAddress: addr,
-            });
-          }
-        }).catch(() => {});
+        // so verification polling uses the actual paying address.
+        // Always read from the live Hyperliquid page (wagmi store / DOM),
+        // not the saved address — the user may be paying from a different wallet.
+        const connectedAddr = detectAddressFromPage();
+        if (connectedAddr) {
+          chrome.runtime.sendMessage({
+            action: "hlPaymentWalletDetected",
+            senderAddress: connectedAddr,
+          });
+        }
 
         sendBtn.click();
         setTimeout(() => fillSendModal(destination, amount), 500);

@@ -130,6 +130,13 @@
   flex-shrink: 0 !important;
 }
 
+/* ── Unregistered status badge override ─────────────────────────────────── */
+#hf-banner .hf-status-badge--unregistered {
+  color: var(--amber) !important;
+  border-color: rgba(255, 185, 0, 0.25) !important;
+  background: rgba(255, 185, 0, 0.08) !important;
+}
+
 /* ── Generic stat group ─────────────────────────────────────────────────── */
 #hf-banner .hf-stat-group {
   display: flex !important;

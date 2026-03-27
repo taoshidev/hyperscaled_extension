@@ -67,6 +67,7 @@ async function refreshValidatorData() {
         if (result.status !== 'success') {
             console.warn('[Hyperscaled Popup] Validator returned non-success status:', result.status);
             hideDashboard();
+            showUnregistered();
             return;
         }
 
@@ -197,6 +198,7 @@ async function refreshValidatorData() {
     } catch (e) {
         console.error('[Hyperscaled Popup] Validator data fetch failed:', e.message, e);
         hideDashboard();
+        showUnregistered();
     }
 }
 
@@ -413,6 +415,7 @@ async function saveAddress(address) {
 }
 
 function showDashboard() {
+    hideUnregistered();
     const el = document.getElementById('dashboardContent');
     if (el) el.style.display = '';
     const badge = document.querySelector('.status-badge');
@@ -427,6 +430,19 @@ function hideDashboard() {
     setPlaceholders();
 }
 
+function showUnregistered() {
+    hideUnregistered(); // ensure clean state
+    const el = document.getElementById('unregisteredScreen');
+    if (el) el.style.display = '';
+    const walletConfig = document.getElementById('walletConfig');
+    if (walletConfig) walletConfig.style.display = 'none';
+}
+
+function hideUnregistered() {
+    const el = document.getElementById('unregisteredScreen');
+    if (el) el.style.display = 'none';
+}
+
 function disconnectWallet() {
     chrome.storage.local.remove(['hlAddress', 'lastEventTimestampMs', 'recentEvents']);
     storedAddress = null;
@@ -436,6 +452,7 @@ function disconnectWallet() {
         refreshIntervalId = null;
     }
     hideDashboard();
+    hideUnregistered();
     // Clear address input and reset to welcome screen
     const addressInput = document.getElementById('walletAddress');
     if (addressInput) addressInput.value = '';
@@ -477,6 +494,7 @@ function showWalletCollapsed(address) {
 }
 
 function showWalletExpanded() {
+    hideUnregistered();
     const collapsed = document.getElementById('walletCollapsed');
     const config = document.getElementById('walletConfig');
     const addressInput = document.getElementById('walletAddress');
@@ -679,6 +697,15 @@ document.addEventListener('DOMContentLoaded', async function() {
             refreshBalance();
             refreshValidatorData();
             refreshTraderLimits();
+        });
+    }
+
+    // ── Unregistered: change address ───────────────────────
+    const unregisteredChangeBtn = document.getElementById('unregisteredChangeAddr');
+    if (unregisteredChangeBtn) {
+        unregisteredChangeBtn.addEventListener('click', () => {
+            hideUnregistered();
+            showWalletExpanded();
         });
     }
 
