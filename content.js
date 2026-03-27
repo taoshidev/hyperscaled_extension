@@ -320,23 +320,10 @@
         <span class="hf-divider"></span>
 
 
-        <!-- Disabled inline message (hidden unless .hf-disabled) -->
-        <span class="hf-divider" style="display:${isDisabled ? 'block' : 'none'} !important"></span>
-        <span class="hf-disabled-msg" id="hf-disabled-msg"><svg class="hf-icon-disabled" width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="2"/><line x1="3.5" y1="3.5" x2="12.5" y2="12.5" stroke="currentColor" stroke-width="2"/></svg> Position limit reached — trade blocked</span>
-
         <!-- 11. Spacer -->
         <span class="hf-spacer"></span>
       </div>
 
-      <!-- Disabled sub-strip (only rendered when trading is blocked) -->
-      ${isDisabled ? `
-      <div class="hf-sub-strip">
-        <span class="hf-sub-strip-title">Hyperscaled Extension</span>
-        <span class="hf-sub-strip-body">This order would exceed your position size limit. Reduce the order size to place the trade.</span>
-        <a class="hf-sub-strip-btn" id="hf-dashboard-link">View Dashboard →</a>
-        <span class="hf-sub-strip-via">via Hyperscaled extension</span>
-      </div>
-      ` : ''}
     `;
   }
 
@@ -1221,7 +1208,7 @@
     if (!banner) return;
 
     // Re-apply state classes (disabled / warning)
-    applyBannerStateClasses(banner);
+    // applyBannerStateClasses(banner);
 
     // Disable/enable trade buttons based on limit check
     checkAndBlockButtons();
@@ -1348,7 +1335,6 @@
 
   // ── Input clamping ──────────────────────────────────────────────────────────
   let isClampingInProgress = false;
-  const VANTA_MIN_POSITION_USD = 10;
 
   function clampInputIfNeeded(input) {
     if (!balanceVerified) return;
@@ -1387,23 +1373,6 @@
     // Add a 1 cent tolerance to prevent infinite loops from rounding precision
     if (notional > maxAllowedNotional + 0.01 && notional > 0) {
       forceBlockTrade("input-over-limit");
-
-      if (maxAllowedNotional < VANTA_MIN_POSITION_USD) {
-        console.log(
-          `[Hyperscaled] Order rejected — blocked over-limit notional ${fmt(maxAllowedNotional)} ` +
-          `below $${VANTA_MIN_POSITION_USD} minimum (${constraint} limit)`
-        );
-        showClampToast({
-          requestedNotional: notional,
-          allowedNotional: 0,
-          constraint,
-          requestedSize: v,
-          clampedSize: 0,
-          sizeUnit: getSizeUnit(),
-          blocked: true,
-        });
-        return;
-      }
 
       // Ratio-based clamping: unit-agnostic (works for BTC, USD, any unit)
       const ratio = maxAllowedNotional / notional;
@@ -1460,7 +1429,8 @@
 
     if (allowed === 0) {
        titleHtml = "Hyperscaled: Order Prevented";
-       messageHtml = "Available capacity is below the minimum order size.";
+       messageHtml =
+         "No remaining capacity within your <b>" + constraint + "</b> position limit.";
        iconHtml = "⛔";
     } else if (isBlockedOnly) {
        titleHtml = "Hyperscaled: Order Blocked";
@@ -1533,8 +1503,7 @@
     if (v <= 0) return;
 
     const ratio = maxAllowed / orderValue;
-    let clampedInput = v * ratio;
-    if (maxAllowed < VANTA_MIN_POSITION_USD) clampedInput = 0;
+    const clampedInput = v * ratio;
 
     forceBlockTrade("order-value-over-limit");
 
@@ -1550,7 +1519,7 @@
     );
     showClampToast({
       requestedNotional: orderValue,
-      allowedNotional: maxAllowed < VANTA_MIN_POSITION_USD ? 0 : maxAllowed,
+      allowedNotional: maxAllowed,
       constraint,
       requestedSize: v,
       clampedSize: clampedInput,

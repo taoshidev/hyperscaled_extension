@@ -792,7 +792,7 @@ A full settings view with wallet configuration, push notification toggles, and a
 
 ## Hyperliquid clamp toast (content script)
 
-Toast anchored top-right on the Hyperliquid site when the extension clamps order size or blocks an order below the exchange minimum. Rendered by `showClampToast()` in `content.js` into `#hf-toast-container`.
+Toast anchored top-right on the Hyperliquid site when the extension blocks or clamps order size against Hyperscaled limits. Rendered by `showClampToast()` in `content.js` into `#hf-toast-container`.
 
 ### HTML structure (JS-generated)
 
@@ -802,7 +802,7 @@ Toast anchored top-right on the Hyperliquid site when the extension clamps order
     <div class="hf-toast-icon">…</div>
     <div class="hf-toast-content">
       <div class="hf-toast-title">Hyperscaled: Order Prevented</div>
-      <div class="hf-toast-msg">Available margin cannot support the minimum order size (with 1x leverage).</div>
+      <div class="hf-toast-msg">No remaining capacity within your <b>per-pair</b> position limit.</div>
     </div>
   </div>
 </div>
@@ -812,7 +812,7 @@ Toast anchored top-right on the Hyperliquid site when the extension clamps order
 
 | Class | When |
 |-------|------|
-| `hf-toast--warning` | Clamped to zero — cannot meet minimum notional (`allowed === 0`). |
+| `hf-toast--warning` | Order prevented — no headroom left under the limit (`allowed === 0`). |
 | `hf-toast--alert` | Reduced to a positive allowed size. |
 | `hf-toast--info` | Registration / payment prompts. |
 

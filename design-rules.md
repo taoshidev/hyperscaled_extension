@@ -155,7 +155,7 @@ Fixed-position toasts injected on the Hyperliquid trading page (`content.css` �
 | Host isolation | Do **not** use `var(--bg)` / `var(--text-primary)` on toasts — Hyperliquid defines those on `:root`; a translucent `--bg` made injected toasts look “see-through.” Prefer **`#hf-toast-container`-scoped** rules in `content.css` so page `background` shorthands lose the cascade war; use literal `background: #hex none` (not only `background-color`) so host `background-image` layers are cleared. No `::before` glow on toasts — it read as transparency. |
 | Shown state | `opacity: 1` on `.hf-toast-show` — must stay fully opaque over HL’s busy UI. |
 | Default surface | Solid `#141416`, 14% white border, inset + outer shadow for separation from the chart. |
-| `--warning` (order prevented / below minimum) | Solid `#120f0f`, strong red border + 3px left `#f87171`, title `#fecaca`, body ~94% white, light text-shadow for legibility on busy pixels. |
+| `--warning` (order prevented / zero headroom) | Solid `#120f0f`, strong red border + 3px left `#f87171`, title `#fecaca`, body ~94% white, light text-shadow for legibility on busy pixels. |
 | `--alert` (clamped but non-zero) | Solid `#1a1712`, amber border + 3px left `#ffb900`, title `#fcd34d`. |
 | `--info` | Solid `#141416`, teal border + 3px left `#00c6a7` — no translucent “glass” fill. |
 
