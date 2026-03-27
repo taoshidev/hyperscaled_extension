@@ -683,7 +683,7 @@
         const notional = pos.net_leverage != null
           ? Math.abs(parseFloat(pos.net_leverage)) * ACCOUNT.fundedSize
           : (pos.filled_orders || []).reduce((s, o) => s + Math.abs(parseFloat(o.value) || 0), 0);
-        const pnl = (parseFloat(pos.current_return) || 0) * ACCOUNT.fundedSize;
+        const pnl = ((parseFloat(pos.current_return) || 1) - 1) * ACCOUNT.fundedSize;
 
         totalUnrealizedPnl += pnl;
         totalNotional += notional;

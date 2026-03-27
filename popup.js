@@ -85,7 +85,7 @@ async function refreshValidatorData() {
             const notional = pos.net_leverage != null
                 ? Math.abs(parseFloat(pos.net_leverage)) * accountSize
                 : (pos.filled_orders || []).reduce((s, o) => s + Math.abs(parseFloat(o.value) || 0), 0);
-            const pnl = (parseFloat(pos.current_return) || 0) * accountSize;
+            const pnl = ((parseFloat(pos.current_return) || 1) - 1) * accountSize;
 
             totalUnrealizedPnl += pnl;
             totalNotional += notional;
@@ -258,8 +258,8 @@ function renderPositions(positions, accountSize) {
         // Entry price from average_entry_price
         const entryPx = parseFloat(pos.average_entry_price) || 0;
 
-        // PnL from current_return (decimal) * accountSize
-        const pnl = (parseFloat(pos.current_return) || 0) * (accountSize || 0);
+        // PnL from current_return (multiplier where 1.0 = break even) * accountSize
+        const pnl = ((parseFloat(pos.current_return) || 1) - 1) * (accountSize || 0);
         const pnlSign = pnl >= 0 ? '+' : '';
         const pnlClass = pnl >= 0 ? 'positive' : 'negative';
 
