@@ -539,9 +539,10 @@
         // Only fall back to page detection when no address is stored yet
         const detected = detectAddressFromPage();
         if (detected) {
-          console.log("[Hyperscaled] Auto-detected address from page:", detected);
-          chrome.storage.local.set({ hlAddress: detected });
-          resolve(detected);
+          const normalizedDetected = detected.toLowerCase();
+          console.log("[Hyperscaled] Auto-detected address from page:", normalizedDetected);
+          chrome.storage.local.set({ hlAddress: normalizedDetected });
+          resolve(normalizedDetected);
         } else {
           resolve(null);
         }

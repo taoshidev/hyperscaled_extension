@@ -629,10 +629,20 @@ function transformTraderResponse(raw) {
 
 // Fetch trader data from validator endpoint
 async function fetchValidatorData(address) {
-  const res = await fetch(`${VALIDATOR_URL}/hl-traders/${address}`);
+  const normalizedAddress = address.toLowerCase();
+  const res = await fetch(`${VALIDATOR_URL}/hl-traders/${normalizedAddress}`);
   if (!res.ok) throw new Error(`Validator API error ${res.status}`);
   const raw = await res.json();
-  return transformTraderResponse(raw);
+  const result = transformTraderResponse(raw);
+
+  // Guard: if the returned account's address doesn't match what we queried,
+  // the validator mapped us to the wrong account — surface as unregistered.
+  if (result.hl_address && result.hl_address.toLowerCase() !== normalizedAddress) {
+    console.warn('[Hyperscaled BG] Address mismatch — queried:', normalizedAddress, 'got:', result.hl_address);
+    return { status: 'not_registered' };
+  }
+
+  return result;
 }
 
 // Fetch account state from Hyperliquid API (perps + spot)

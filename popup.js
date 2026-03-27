@@ -685,8 +685,8 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     if (saveBtn) {
         saveBtn.addEventListener('click', async () => {
-            const val = (addressInput?.value || '').trim();
-            if (!/^0x[a-fA-F0-9]{40}$/.test(val)) {
+            const val = (addressInput?.value || '').trim().toLowerCase();
+            if (!/^0x[a-f0-9]{40}$/.test(val)) {
                 if (walletStatus) {
                     walletStatus.textContent = 'Invalid address';
                     walletStatus.className = 'wallet-status wallet-status--err';
@@ -727,8 +727,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     if (settingsHlInput && storedAddress) settingsHlInput.value = storedAddress;
     if (settingsHlSaveBtn) {
         settingsHlSaveBtn.addEventListener('click', async () => {
-            const val = (settingsHlInput?.value || '').trim();
-            if (!/^0x[a-fA-F0-9]{40}$/.test(val)) {
+            const val = (settingsHlInput?.value || '').trim().toLowerCase();
+            if (!/^0x[a-f0-9]{40}$/.test(val)) {
                 settingsHlSaveBtn.textContent = 'Invalid';
                 setTimeout(() => { settingsHlSaveBtn.textContent = 'Save'; }, 1500);
                 return;
