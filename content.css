@@ -739,3 +739,66 @@ button.hf-trade-blocked:disabled {
   color: rgba(255, 255, 255, 0.94) !important;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85) !important;
 }
+
+/* ── Order Blocked — compact, dismissible variant ──────────────────────── */
+#hf-toast-container .hf-toast--blocked {
+  width: 240px !important;
+  padding: 10px 12px !important;
+  gap: 8px !important;
+  background: rgba(20, 16, 16, 0.95) none !important;
+  border: 1px solid rgba(248, 113, 113, 0.25) !important;
+  border-radius: 10px !important;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.5),
+    0 8px 24px rgba(0, 0, 0, 0.4),
+    0 0 0 0.5px rgba(248, 113, 113, 0.12) inset,
+    0 0 20px rgba(239, 68, 68, 0.06) !important;
+}
+#hf-toast-container .hf-toast--blocked .hf-toast-icon {
+  font-size: 14px !important;
+  padding-top: 1px !important;
+  display: flex !important;
+  align-items: center !important;
+}
+#hf-toast-container .hf-toast--blocked .hf-toast-content {
+  gap: 2px !important;
+}
+#hf-toast-container .hf-toast--blocked .hf-toast-title {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: #f87171 !important;
+  letter-spacing: 0.3px !important;
+  text-transform: uppercase !important;
+  text-shadow: none !important;
+}
+#hf-toast-container .hf-toast--blocked .hf-toast-msg {
+  font-size: 11px !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  line-height: 1.4 !important;
+  text-shadow: none !important;
+}
+#hf-toast-container .hf-toast--blocked .hf-toast-msg b {
+  color: rgba(255, 255, 255, 0.95) !important;
+  font-weight: 500 !important;
+}
+
+/* ── Toast close button ────────────────────────────────────────────────── */
+#hf-toast-container .hf-toast-close {
+  all: unset !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 20px !important;
+  height: 20px !important;
+  flex-shrink: 0 !important;
+  border-radius: 5px !important;
+  color: rgba(255, 255, 255, 0.35) !important;
+  cursor: pointer !important;
+  transition: color 0.15s ease, background 0.15s ease !important;
+  margin-top: -2px !important;
+  margin-right: -4px !important;
+}
+#hf-toast-container .hf-toast-close:hover {
+  color: rgba(255, 255, 255, 0.7) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+}

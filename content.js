@@ -1443,6 +1443,7 @@
   }
 
   let activeClampToast = null;
+  let blockedToastDismissed = false; // user clicked X on blocked toast
   function showClampToast(details) {
     const requested = Number(details?.requestedNotional) || 0;
     const allowed = Number(details?.allowedNotional) || 0;
@@ -1451,6 +1452,9 @@
     const clampedSize = Number(details?.clampedSize) || 0;
     const sizeUnit = details?.sizeUnit || getSizeUnit();
     const isBlockedOnly = details?.blocked === true;
+
+    // Once dismissed, keep blocked toast hidden until the user edits input again.
+    if (isBlockedOnly && blockedToastDismissed) return;
 
     let messageHtml = "Order exceeds your <b>" + constraint + " position size limit</b>.";
     let titleHtml = "Hyperscaled: Size clamped to " + formatSizeForToast(clampedSize, sizeUnit) + " " + sizeUnit;
@@ -1464,9 +1468,10 @@
        iconHtml = "⛔";
        variantClass = "hf-toast hf-toast--warning";
     } else if (isBlockedOnly) {
-       titleHtml = "Hyperscaled: Order Blocked";
-       messageHtml = "Reduce size to " + formatSizeForToast(clampedSize, sizeUnit) + " " + sizeUnit + " or less to place this order.";
-       iconHtml = "⛔";
+       titleHtml = "Order Blocked";
+       messageHtml = "Reduce to <b>" + formatSizeForToast(clampedSize, sizeUnit) + " " + sizeUnit + "</b> or less.";
+       iconHtml = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="#f87171" stroke-width="1.5"/><line x1="5" y1="5" x2="11" y2="11" stroke="#f87171" stroke-width="1.5" stroke-linecap="round"/></svg>';
+       variantClass = "hf-toast hf-toast--blocked";
     } else if (constraint === 'per-pair') {
        messageHtml = "Single-asset limit is <b>" + fmt(effectiveMaxSingleUsd()) + "</b>. Size " +
          formatSizeForToast(requestedSize, sizeUnit) + " " + sizeUnit + " should be reduced to " +
@@ -1477,12 +1482,19 @@
          formatSizeForToast(clampedSize, sizeUnit) + " " + sizeUnit + ".";
     }
 
+    const showClose = isBlockedOnly;
     const innerHtml =
       '<div class="hf-toast-icon">' + iconHtml + '</div>' +
       '<div class="hf-toast-content">' +
         '<div class="hf-toast-title">' + titleHtml + '</div>' +
         '<div class="hf-toast-msg">' + messageHtml + '</div>' +
-      '</div>';
+      '</div>' +
+      (showClose ? '<button class="hf-toast-close" type="button" aria-label="Dismiss">' +
+        '<svg width="10" height="10" viewBox="0 0 10 10" fill="none">' +
+          '<line x1="1" y1="1" x2="9" y2="9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>' +
+          '<line x1="9" y1="1" x2="1" y2="9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>' +
+        '</svg>' +
+      '</button>' : '');
 
     // If toast already visible, just update its content — no destroy/recreate
     if (activeClampToast && activeClampToast.parentNode) {
@@ -1505,6 +1517,15 @@
 
     container.appendChild(toast);
     activeClampToast = toast;
+
+    // Delegate close clicks on the toast itself so innerHTML replacements don't break it
+    toast.addEventListener("click", function(e) {
+      if (e.target.closest(".hf-toast-close")) {
+        e.stopPropagation();
+        blockedToastDismissed = true;
+        dismissClampToast();
+      }
+    });
 
     // Trigger reflow for transition
     void toast.offsetWidth;
@@ -1596,6 +1617,39 @@
   let tradeGuardsInstalled = false;
   let tradeGuardAbort = null;
   let forcedTradeBlock = false;
+  let forcedTradeBlockReason = null;
+
+  const TRADE_GATE_DEBUG = (() => {
+    try {
+      return (
+        window.HF_TRADE_GATE_DEBUG === true ||
+        localStorage.getItem("hf_trade_gate_debug") === "1"
+      );
+    } catch (_) {
+      return window.HF_TRADE_GATE_DEBUG === true;
+    }
+  })();
+
+  function logTradeGateDiagnostics({
+    source,
+    pendingNotional = null,
+    orderValue = null,
+    eventType = null,
+    details = {},
+    always = false,
+  } = {}) {
+    if (!always && !TRADE_GATE_DEBUG) return;
+    console.log("[Hyperscaled][TradeGate]", {
+      source: source || "unknown",
+      shouldBlockTrade,
+      forcedTradeBlock,
+      forcedTradeBlockReason,
+      pendingNotional,
+      orderValue,
+      eventType,
+      details,
+    });
+  }
 
   function normalizeTradeText(text) {
     return (text || "").replace(/\s+/g, " ").trim().toLowerCase();
@@ -1788,6 +1842,10 @@
 
   function shouldBlockTradeInteraction(target, submitter) {
     if (!shouldBlockTrade) return false;
+    // Never block interactions with extension-owned UI (toast/banner).
+    if (target?.closest?.("#hf-toast-container") || target?.closest?.("#hf-banner")) {
+      return false;
+    }
     const directButton = submitter || target?.closest?.("button");
     if (directButton && isTradeButton(directButton)) return true;
 
@@ -1823,6 +1881,7 @@
   function releaseForcedTradeBlock() {
     forcedTradeBlock = false;
     forcedTradeBlockReason = null;
+    // Keep blocked-toast dismissal sticky here; input edits reset it.
     dismissClampToast();
   }
 
@@ -1929,6 +1988,7 @@
       input.addEventListener("focus", () => { lastEditedInput = input; scheduleUpdate(); }, opts);
       input.addEventListener("input", () => {
         lastEditedInput = input;
+        blockedToastDismissed = false; // user is changing input — allow toast to re-show
         releaseForcedTradeBlock();
         scheduleUpdate();
         // Debounce clamp so it fires once after the user pauses, not on every keystroke
