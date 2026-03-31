@@ -609,6 +609,9 @@ function transformTraderResponse(raw) {
       close_ms: p.c || null,
       return_at_close: p.rc || null,
       is_closed_position: !!p.c,
+      total_fees: p.fh
+        ? Object.values(p.fh).reduce((sum, f) => sum + (f.a || 0), 0)
+        : 0,
       filled_orders: p.fo
         ? Object.entries(p.fo).map(([oid, o]) => ({
             order_uuid: oid,

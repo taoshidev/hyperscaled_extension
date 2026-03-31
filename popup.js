@@ -341,6 +341,11 @@ function renderPositions(positions, accountSize) {
                         <span class="detail-label">Leverage</span>
                         <span class="detail-value">${leverage}</span>
                     </div>
+                    ${pos.total_fees > 0 ? `
+                    <div class="detail-row">
+                        <span class="detail-label">Fees</span>
+                        <span class="detail-value negative">-${fmtUsd(pos.total_fees)}</span>
+                    </div>` : ''}
                 </div>
             </div>
         `;
