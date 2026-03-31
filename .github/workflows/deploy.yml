@@ -29,13 +29,19 @@ jobs:
 
       - name: Fail if version not bumped
         run: |
-          MANIFEST_VERSION="v${{ steps.manifest.outputs.version }}"
+          MANIFEST_VERSION="${{ steps.manifest.outputs.version }}"
           LATEST_TAG="${{ steps.latest_tag.outputs.tag }}"
-          if [ "$MANIFEST_VERSION" = "$LATEST_TAG" ]; then
-            echo "❌ manifest.json version ($MANIFEST_VERSION) matches the latest tag. Bump the version before merging."
+          if [ -z "$LATEST_TAG" ]; then
+            echo "✅ No previous tag found, first release: v$MANIFEST_VERSION"
+            exit 0
+          fi
+          LATEST_VERSION="${LATEST_TAG#v}"
+          HIGHEST=$(printf '%s\n' "$LATEST_VERSION" "$MANIFEST_VERSION" | sort -V | tail -n 1)
+          if [ "$HIGHEST" != "$MANIFEST_VERSION" ] || [ "$MANIFEST_VERSION" = "$LATEST_VERSION" ]; then
+            echo "❌ manifest.json version ($MANIFEST_VERSION) must be greater than latest tag ($LATEST_TAG). Bump the version before merging."
             exit 1
           fi
-          echo "✅ New version: $MANIFEST_VERSION (previous: ${LATEST_TAG:-none})"
+          echo "✅ New version: v$MANIFEST_VERSION (previous: $LATEST_TAG)"
 
       - name: Zip extension
         run: |
