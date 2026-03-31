@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - store-deployment-automation
 
 jobs:
   deploy:
