@@ -1,0 +1,276 @@
+// Banner HTML generation, updates, drawdown panel, state classes
+(() => {
+  const HF = window.__HF;
+  const { ACCOUNT } = HF.state;
+
+  function ddColor(usagePct) {
+    if (usagePct >= 100) return 'var(--red)';
+    if (usagePct > 80) return 'var(--amber)';
+    return 'var(--accent)';
+  }
+
+  function ddBadgeState(usagePct) {
+    if (usagePct >= 100) return { label: 'Breached', cls: 'hf-dd-panel-badge--red' };
+    if (usagePct > 80) return { label: 'Warning', cls: 'hf-dd-panel-badge--amber' };
+    return { label: 'Safe', cls: 'hf-dd-panel-badge--accent' };
+  }
+
+  function targetColor(val) {
+    if (val >= 10) return 'var(--accent)';
+    if (val >= 8) return 'var(--amber)';
+    return 'var(--indigo)';
+  }
+
+  function wireDdPanel(banner) {
+    const trigger = banner.querySelector('#hf-dd-trigger');
+    const panel = banner.querySelector('#hf-dd-panel');
+    if (!trigger || !panel) return;
+
+    trigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isOpen = panel.classList.contains('hf-dd-panel--open');
+      panel.classList.toggle('hf-dd-panel--open', !isOpen);
+      const triggerRect = trigger.getBoundingClientRect();
+      const bannerRect = banner.getBoundingClientRect();
+      panel.style.left = (triggerRect.left - bannerRect.left) + 'px';
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!panel.contains(e.target) && !trigger.contains(e.target)) {
+        panel.classList.remove('hf-dd-panel--open');
+      }
+    });
+  }
+
+  function updateDdPanel() {
+    const { fmt } = HF.utils;
+    const dailyUsage = ACCOUNT.intraday_usage_pct || 0;
+    const trailingUsage = ACCOUNT.eod_usage_pct || 0;
+    const daily = ACCOUNT.daily_loss_pct || 0;
+    const trailing = ACCOUNT.eod_trailing_loss_pct || 0;
+    const intradayLimit = ACCOUNT.intraday_threshold_pct || 5;
+    const eodLimit = ACCOUNT.eod_threshold_pct || 5;
+    const equity = ACCOUNT.validatorEquity || 0;
+
+    const dailyBadge = document.getElementById('hf-dd-daily-badge');
+    if (dailyBadge) {
+      const ds = ddBadgeState(dailyUsage);
+      dailyBadge.textContent = ds.label;
+      dailyBadge.className = 'hf-dd-panel-badge ' + ds.cls;
+    }
+
+    const trailingBadge = document.getElementById('hf-dd-trailing-badge');
+    if (trailingBadge) {
+      const ts = ddBadgeState(trailingUsage);
+      trailingBadge.textContent = ts.label;
+      trailingBadge.className = 'hf-dd-panel-badge ' + ts.cls;
+    }
+
+    const dayOpen = document.getElementById('hf-dd-day-open');
+    if (dayOpen) dayOpen.textContent = fmt(equity);
+    const dailyBreach = document.getElementById('hf-dd-daily-breach');
+    if (dailyBreach) dailyBreach.textContent = fmt(equity * (1 - intradayLimit / 100));
+    const dailyLoss = document.getElementById('hf-dd-daily-loss');
+    if (dailyLoss) dailyLoss.textContent = fmt(equity * daily / 100) + ' (' + daily.toFixed(2) + '%)';
+    const dailyBuffer = document.getElementById('hf-dd-daily-buffer');
+    if (dailyBuffer) dailyBuffer.textContent = fmt(equity * (intradayLimit - daily) / 100);
+
+    const hwm = document.getElementById('hf-dd-hwm');
+    if (hwm) hwm.textContent = fmt(equity);
+    const trailingBreach = document.getElementById('hf-dd-trailing-breach');
+    if (trailingBreach) trailingBreach.textContent = fmt(equity * (1 - eodLimit / 100));
+    const trailingLoss = document.getElementById('hf-dd-trailing-loss');
+    if (trailingLoss) trailingLoss.textContent = fmt(equity * trailing / 100) + ' (' + trailing.toFixed(2) + '%)';
+    const trailingBuffer = document.getElementById('hf-dd-trailing-buffer');
+    if (trailingBuffer) trailingBuffer.textContent = fmt(equity * (eodLimit - trailing) / 100);
+  }
+
+  function getBannerHTML() {
+    const { fmt } = HF.utils;
+    const dailyUsage = ACCOUNT.intraday_usage_pct || 0;
+    const trailingUsage = ACCOUNT.eod_usage_pct || 0;
+    const daily = ACCOUNT.daily_loss_pct || 0;
+    const trailing = ACCOUNT.eod_trailing_loss_pct || 0;
+    const intradayLimit = ACCOUNT.intraday_threshold_pct || 5;
+    const eodLimit = ACCOUNT.eod_threshold_pct || 5;
+    const target = ACCOUNT.challengeCurrent || 0;
+    const targetMax = ACCOUNT.challengeTarget || 10;
+    const targetPct = targetMax > 0 ? Math.max(0, Math.min((target / targetMax) * 100, 100)) : 0;
+    const equity = ACCOUNT.validatorEquity || 0;
+
+    return `
+      <div class="hf-bar">
+        <span class="hf-brand"><img src="${chrome.runtime.getURL('images/hyperscaled-logo.svg')}" alt="Hyperscaled" class="hf-brand-logo"></span>
+        ${ACCOUNT.registrationChecked ? `<span class="hf-status-badge${ACCOUNT.isRegistered ? '' : ' hf-status-badge--unregistered'}">● ${ACCOUNT.isRegistered ? (ACCOUNT.inChallenge ? 'In Challenge' : 'Funded') : 'Unregistered'}</span>` : ''}
+        <span class="hf-divider"></span>
+        <div class="hf-stat-group">
+          <span class="hf-stat-label">EQUITY</span>
+          <span class="hf-stat-value" id="hf-equity">${fmt(equity)}</span>
+        </div>
+        <span class="hf-divider"></span>
+        <div class="hf-dd-stack hf-dd-trigger" id="hf-dd-trigger">
+          <div class="hf-dd-row">
+            <span class="hf-dd-label">DAILY</span>
+            <span class="hf-dd-value" id="hf-daily" style="color:${ddColor(dailyUsage)} !important">${daily.toFixed(3)}%</span>
+            <span class="hf-dd-suffix">/ ${intradayLimit.toFixed(0)}%</span>
+            ${dailyUsage > 80 ? `<span class="hf-dd-warn" style="color:${ddColor(dailyUsage)} !important">\u26a0</span>` : ''}
+          </div>
+          <div class="hf-dd-row">
+            <span class="hf-dd-label">TRAILING</span>
+            <span class="hf-dd-value" id="hf-trailing" style="color:${ddColor(trailingUsage)} !important">${trailing.toFixed(3)}%</span>
+            <span class="hf-dd-suffix">/ ${eodLimit.toFixed(0)}%</span>
+            ${trailingUsage > 80 ? `<span class="hf-dd-warn" style="color:${ddColor(trailingUsage)} !important">\u26a0</span>` : ''}
+          </div>
+        </div>
+        <div class="hf-dd-panel" id="hf-dd-panel">
+          <div class="hf-dd-panel-header">
+            <div class="hf-dd-panel-title">Drawdown Rules</div>
+            <div class="hf-dd-panel-sub">Two independent drawdown rules — breaching either results in immediate disqualification.</div>
+          </div>
+          <div class="hf-dd-panel-grid">
+            <div class="hf-dd-panel-col">
+              <div class="hf-dd-panel-col-header">
+                <span class="hf-dd-panel-dot" style="background:var(--indigo) !important"></span>
+                <span class="hf-dd-panel-col-title">RULE 1 — DAILY LOSS LIMIT (${intradayLimit.toFixed(2)}%)</span>
+                <span class="hf-dd-panel-badge" id="hf-dd-daily-badge">Safe</span>
+              </div>
+              <div class="hf-dd-panel-rows">
+                <div class="hf-dd-panel-row"><span class="hf-dd-panel-key">Day open equity</span><span class="hf-dd-panel-val" id="hf-dd-day-open">${fmt(equity)}</span></div>
+                <div class="hf-dd-panel-row"><span class="hf-dd-panel-key">Breach level</span><span class="hf-dd-panel-val hf-dd-panel-val--red" id="hf-dd-daily-breach">${fmt(equity * (1 - intradayLimit / 100))}</span></div>
+                <div class="hf-dd-panel-row"><span class="hf-dd-panel-key">Current loss</span><span class="hf-dd-panel-val" id="hf-dd-daily-loss">${fmt(equity * daily / 100)} (${daily.toFixed(2)}%)</span></div>
+                <div class="hf-dd-panel-row"><span class="hf-dd-panel-key">Buffer remaining</span><span class="hf-dd-panel-val hf-dd-panel-val--accent" id="hf-dd-daily-buffer">${fmt(equity * (intradayLimit - daily) / 100)}</span></div>
+              </div>
+              <div class="hf-dd-panel-note">Checked intraday in real-time. Resets 00:00 UTC.</div>
+            </div>
+            <div class="hf-dd-panel-col">
+              <div class="hf-dd-panel-col-header">
+                <span class="hf-dd-panel-dot" style="background:var(--amber) !important"></span>
+                <span class="hf-dd-panel-col-title">RULE 2 — EOD TRAILING LOSS LIMIT (${eodLimit.toFixed(2)}%)</span>
+                <span class="hf-dd-panel-badge" id="hf-dd-trailing-badge">Safe</span>
+              </div>
+              <div class="hf-dd-panel-rows">
+                <div class="hf-dd-panel-row"><span class="hf-dd-panel-key">EOD high water mark</span><span class="hf-dd-panel-val" id="hf-dd-hwm">${fmt(equity)}</span></div>
+                <div class="hf-dd-panel-row"><span class="hf-dd-panel-key">Breach level</span><span class="hf-dd-panel-val hf-dd-panel-val--red" id="hf-dd-trailing-breach">${fmt(equity * (1 - eodLimit / 100))}</span></div>
+                <div class="hf-dd-panel-row"><span class="hf-dd-panel-key">Drawdown from HWM</span><span class="hf-dd-panel-val" id="hf-dd-trailing-loss">${fmt(equity * trailing / 100)} (${trailing.toFixed(2)}%)</span></div>
+                <div class="hf-dd-panel-row"><span class="hf-dd-panel-key">Buffer remaining</span><span class="hf-dd-panel-val hf-dd-panel-val--accent" id="hf-dd-trailing-buffer">${fmt(equity * (eodLimit - trailing) / 100)}</span></div>
+              </div>
+              <div class="hf-dd-panel-note">Checked at end of day. HWM trails upward with equity gains.</div>
+            </div>
+          </div>
+          <div class="hf-dd-panel-footer">
+            <span>Trading day resets 00:00 UTC</span>
+            <span class="hf-dd-panel-sep">|</span>
+            <span>Daily = intraday real-time</span>
+            <span class="hf-dd-panel-sep">|</span>
+            <span>Trailing = checked at EOD</span>
+          </div>
+        </div>
+        <span class="hf-divider"></span>
+        <div class="hf-stat-group">
+          <span class="hf-stat-label">TARGET</span>
+          <div class="hf-target-bar" style="--hf-target-pct:${targetPct}%">
+            <div class="hf-target-fill" id="hf-target-fill" style="background-color:${targetColor(target)} !important"></div>
+          </div>
+          <span class="hf-target-value" id="hf-target-val" style="color:${targetColor(target)} !important">${target.toFixed(2)}%</span>
+          <span class="hf-target-suffix">/ ${targetMax}%</span>
+        </div>
+        <span class="hf-divider"></span>
+        <span class="hf-spacer"></span>
+      </div>
+    `;
+  }
+
+  function ensureLayoutFix() {
+    if (document.getElementById(HF.state.LAYOUT_STYLE_ID)) return;
+    const st = document.createElement("style");
+    st.id = HF.state.LAYOUT_STYLE_ID;
+    st.textContent = `body { padding-top: ${HF.state.BANNER_HEIGHT}px !important; background-color: #18181b !important; }`;
+    (document.head || document.documentElement).appendChild(st);
+  }
+
+  function removeLayoutFix() {
+    document.getElementById(HF.state.LAYOUT_STYLE_ID)?.remove();
+  }
+
+  function applyBannerStateClasses(banner) {
+    const dailyUsage = ACCOUNT.intraday_usage_pct || 0;
+    const trailingUsage = ACCOUNT.eod_usage_pct || 0;
+    banner.classList.remove('hf-blocked', 'hf-warning');
+    if (HF.state.shouldBlockTrade) {
+      banner.classList.add('hf-blocked');
+    } else if (dailyUsage > 80 || trailingUsage > 80) {
+      banner.classList.add('hf-warning');
+    }
+  }
+
+  // Pending notional helpers
+  function pendingFromLastEditedInput() {
+    const el = HF.state.lastEditedInput;
+    if (!el) return 0;
+    if (!(el instanceof HTMLInputElement)) return 0;
+    if (el.offsetParent === null) return 0;
+    const v = HF.utils.parseNumber(el.value);
+    if (v <= 0) return 0;
+    return HF.utils.inputToNotional(v);
+  }
+
+  function pendingFromScan() {
+    const inputs = [...document.querySelectorAll("input")].filter(
+      (i) => i.offsetParent !== null && !i.disabled
+    );
+    let qty = 0;
+    let price = 0;
+    for (const input of inputs) {
+      const v = HF.utils.parseNumber(input.value);
+      if (v <= 0) continue;
+      const ph = (input.placeholder || "").toLowerCase();
+      const aria = (input.getAttribute("aria-label") || "").toLowerCase();
+      const hint = `${ph} ${aria}`;
+      if (hint.includes("price") || hint.includes("limit")) price = v;
+      else if (hint.includes("qty") || hint.includes("quantity") || hint.includes("size") || hint.includes("amount")) qty = v;
+    }
+    if (qty > 0 && price > 0) return qty * price;
+    return 0;
+  }
+
+  function getPendingNotional() {
+    const orderValue = HF.utils.readOrderValueFromDOM();
+    if (orderValue > 0) return orderValue;
+    return pendingFromLastEditedInput() || pendingFromScan() || 0;
+  }
+
+  function updateBannerFromValidator() {
+    const banner = document.getElementById(HF.state.BANNER_ID);
+    if (!banner) return;
+    banner.innerHTML = getBannerHTML();
+    applyBannerStateClasses(banner);
+
+    banner.querySelector("#hf-dashboard-link")?.addEventListener("click", (e) => {
+      e.preventDefault();
+      window.open("https://vanta.network/dashboard", "_blank");
+    });
+
+    wireDdPanel(banner);
+    updateDdPanel();
+    updateBanner(getPendingNotional());
+  }
+
+  function updateBanner(pendingNotional) {
+    const banner = document.getElementById(HF.state.BANNER_ID);
+    if (!banner) return;
+    HF.tradeGate.checkAndBlockButtons();
+  }
+
+  HF.banner = {
+    getBannerHTML,
+    wireDdPanel,
+    updateDdPanel,
+    ensureLayoutFix,
+    removeLayoutFix,
+    applyBannerStateClasses,
+    updateBannerFromValidator,
+    updateBanner,
+    getPendingNotional,
+    ddColor,
+  };
+})();

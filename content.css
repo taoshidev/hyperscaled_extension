@@ -742,7 +742,7 @@ button.hf-trade-blocked:disabled {
 
 /* ── Order Blocked — compact, dismissible variant ──────────────────────── */
 #hf-toast-container .hf-toast--blocked {
-  width: 240px !important;
+  width: 280px !important;
   padding: 10px 12px !important;
   gap: 8px !important;
   background: rgba(20, 16, 16, 0.95) none !important;
@@ -761,7 +761,7 @@ button.hf-trade-blocked:disabled {
   align-items: center !important;
 }
 #hf-toast-container .hf-toast--blocked .hf-toast-content {
-  gap: 2px !important;
+  gap: 4px !important;
 }
 #hf-toast-container .hf-toast--blocked .hf-toast-title {
   font-size: 11px !important;
@@ -780,6 +780,68 @@ button.hf-trade-blocked:disabled {
 #hf-toast-container .hf-toast--blocked .hf-toast-msg b {
   color: rgba(255, 255, 255, 0.95) !important;
   font-weight: 500 !important;
+}
+#hf-toast-container .hf-toast--blocked .hf-toast-details-toggle {
+  all: unset !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  align-self: flex-start !important;
+  margin-top: 2px !important;
+  padding: 2px 0 !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.2px !important;
+  color: rgba(248, 113, 113, 0.9) !important;
+  text-transform: uppercase !important;
+  cursor: pointer !important;
+  transition: color 0.15s ease !important;
+}
+#hf-toast-container .hf-toast--blocked .hf-toast-details-toggle:hover {
+  color: rgba(254, 202, 202, 0.95) !important;
+}
+#hf-toast-container .hf-toast--blocked .hf-toast-details-chevron {
+  transform: rotate(0deg) !important;
+  transition: transform 0.2s ease !important;
+}
+#hf-toast-container .hf-toast--blocked .hf-toast-details-toggle[aria-expanded="true"] .hf-toast-details-chevron {
+  transform: rotate(180deg) !important;
+}
+#hf-toast-container .hf-toast--blocked .hf-toast-details {
+  width: 100% !important;
+  margin-top: 2px !important;
+  padding: 8px !important;
+  border: 1px solid rgba(248, 113, 113, 0.2) !important;
+  border-radius: 8px !important;
+  background: rgba(248, 113, 113, 0.05) !important;
+}
+#hf-toast-container .hf-toast--blocked .hf-toast-details-head {
+  margin-bottom: 5px !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.25px !important;
+  color: rgba(254, 202, 202, 0.92) !important;
+}
+#hf-toast-container .hf-toast--blocked .hf-toast-details-list {
+  margin: 0 !important;
+  padding-left: 14px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 4px !important;
+}
+#hf-toast-container .hf-toast--blocked .hf-toast-details-list li {
+  color: rgba(255, 255, 255, 0.8) !important;
+  font-size: 10px !important;
+  line-height: 1.4 !important;
+}
+#hf-toast-container .hf-toast--blocked .hf-toast-details-list li span {
+  color: rgba(255, 255, 255, 0.94) !important;
+  font-weight: 600 !important;
+}
+#hf-toast-container .hf-toast--blocked .hf-toast-details-list b {
+  color: #ffffff !important;
+  font-weight: 600 !important;
 }
 
 /* ── Toast close button ────────────────────────────────────────────────── */

@@ -1,0 +1,298 @@
+// Popup entry point
+import { fmtUsd, truncateAddress } from './format.js';
+import { safeSendMessage, getCachedData, loadAddress, saveAddress } from './api.js';
+import { applyValidatorData, renderPositions } from './dashboard.js';
+import { refreshEvents, renderEvents, initEventsPagination } from './events.js';
+import { showDashboard, hideDashboard, showUnregistered, hideUnregistered, setPlaceholders } from './screens.js';
+import { showPositionNotification, setupNotificationClickHandler } from './notifications.js';
+import { initExplainers } from './explain.js';
+
+// ── Popup state ──────────────────────────────────────────────────────────────
+const state = {
+    storedAddress: null,
+    traderLimits: null,
+    hlBalance: 0,
+    openTotalUsed: 0,
+    openSingleUsed: 0,
+    notionalByPair: {},
+    refreshIntervalId: null,
+    dashboardShown: false,
+};
+
+// ── Data fetching ────────────────────────────────────────────────────────────
+
+async function restoreFromCache() {
+    if (!state.storedAddress) return;
+    const addr = state.storedAddress.toLowerCase();
+
+    const [balanceCache, validatorCache, limitsCache, eventsCache] = await Promise.all([
+        getCachedData(`cache_balance_${addr}`),
+        getCachedData(`cache_validator_${addr}`),
+        getCachedData(`cache_limits_${addr}`),
+        getCachedData(`cache_events_${addr}`),
+    ]);
+
+    if (balanceCache?.data) {
+        state.hlBalance = balanceCache.data.accountValue || balanceCache.data.perpAccountValue || 0;
+        state.openTotalUsed = Number(balanceCache.data.openTotalUsed) || 0;
+        state.openSingleUsed = Number(balanceCache.data.openSingleUsed) || 0;
+        state.notionalByPair = balanceCache.data.notionalByPair && typeof balanceCache.data.notionalByPair === 'object'
+            ? balanceCache.data.notionalByPair
+            : {};
+        const hlBalanceEl = document.getElementById('hlBalance');
+        if (hlBalanceEl) hlBalanceEl.textContent = fmtUsd(state.hlBalance);
+    }
+
+    if (validatorCache?.data && validatorCache.data.status === 'success') {
+        applyValidatorData(validatorCache.data, state);
+    }
+
+    if (limitsCache?.data) {
+        state.traderLimits = limitsCache.data;
+    }
+
+    if (eventsCache?.data) {
+        const events = eventsCache.data.events || [];
+        if (events.length > 0) renderEvents(events);
+    }
+}
+
+async function refreshBalance() {
+    if (!state.storedAddress) return;
+    try {
+        const response = await safeSendMessage({ action: 'fetchBalance', address: state.storedAddress });
+
+        state.hlBalance = response.accountValue || response.perpAccountValue || 0;
+        state.openTotalUsed = Number(response.openTotalUsed) || 0;
+        state.openSingleUsed = Number(response.openSingleUsed) || 0;
+        state.notionalByPair = response.notionalByPair && typeof response.notionalByPair === 'object'
+            ? response.notionalByPair
+            : {};
+        const hlBalanceEl = document.getElementById('hlBalance');
+        if (hlBalanceEl) hlBalanceEl.textContent = fmtUsd(state.hlBalance);
+    } catch (e) {
+        console.error('Balance fetch failed:', e);
+    }
+}
+
+async function refreshValidatorData() {
+    if (!state.storedAddress) return;
+    try {
+        const result = await safeSendMessage({ action: 'fetchValidatorData', address: state.storedAddress });
+        console.log('[Hyperscaled Popup] Validator data:', JSON.stringify(result).slice(0, 1000));
+
+        if (result.status !== 'success') {
+            console.warn('[Hyperscaled Popup] Validator returned non-success status:', result.status);
+            if (!state.dashboardShown) {
+                hideDashboard();
+                showUnregistered();
+            }
+            return;
+        }
+
+        applyValidatorData(result, state);
+    } catch (e) {
+        console.error('[Hyperscaled Popup] Validator data fetch failed:', e.message, e);
+        if (!state.dashboardShown) {
+            hideDashboard();
+            showUnregistered();
+        }
+    }
+}
+
+async function refreshTraderLimits() {
+    if (!state.storedAddress) return;
+    try {
+        const result = await safeSendMessage({ action: 'fetchTraderLimits', address: state.storedAddress });
+        console.log('[Hyperscaled Popup] Trader limits:', JSON.stringify(result).slice(0, 500));
+        state.traderLimits = result;
+    } catch (e) {
+        console.error('Trader limits fetch failed:', e);
+    }
+}
+
+function updateData() {
+    refreshBalance();
+    refreshValidatorData();
+    refreshTraderLimits();
+    refreshEvents(state.storedAddress);
+}
+
+// ── Wallet UI helpers ────────────────────────────────────────────────────────
+
+function showWalletCollapsed(address) {
+    const collapsed = document.getElementById('walletCollapsed');
+    const config = document.getElementById('walletConfig');
+    const display = document.getElementById('walletAddressDisplay');
+    if (display) display.textContent = truncateAddress(address);
+    if (collapsed) collapsed.style.display = 'flex';
+    if (config) config.style.display = 'none';
+}
+
+function showWalletExpanded() {
+    hideUnregistered();
+    const collapsed = document.getElementById('walletCollapsed');
+    const config = document.getElementById('walletConfig');
+    const addressInput = document.getElementById('walletAddress');
+    const disconnectBtn = document.getElementById('walletDisconnect');
+    if (collapsed) collapsed.style.display = 'none';
+    if (config) config.style.display = '';
+    if (disconnectBtn) disconnectBtn.style.display = state.storedAddress ? '' : 'none';
+    if (addressInput) { addressInput.focus(); addressInput.select(); }
+}
+
+function disconnectWallet() {
+    if (state.storedAddress) {
+        const addr = state.storedAddress.toLowerCase();
+        chrome.storage.local.remove([
+            `cache_balance_${addr}`, `cache_validator_${addr}`,
+            `cache_limits_${addr}`, `cache_events_${addr}`
+        ]);
+    }
+    chrome.storage.local.remove(['hlAddress', 'lastEventTimestampMs', 'recentEvents']);
+    state.storedAddress = null;
+    state.traderLimits = null;
+    state.openTotalUsed = 0;
+    state.openSingleUsed = 0;
+    state.notionalByPair = {};
+    if (state.refreshIntervalId) {
+        clearInterval(state.refreshIntervalId);
+        state.refreshIntervalId = null;
+    }
+    hideDashboard();
+    hideUnregistered();
+    const addressInput = document.getElementById('walletAddress');
+    if (addressInput) addressInput.value = '';
+    const walletStatus = document.getElementById('walletStatus');
+    if (walletStatus) { walletStatus.textContent = ''; walletStatus.className = 'wallet-status'; }
+    const disconnectBtn = document.getElementById('walletDisconnect');
+    if (disconnectBtn) disconnectBtn.style.display = 'none';
+    showWalletExpanded();
+    const settingsScreen = document.getElementById('settingsScreen');
+    if (settingsScreen) settingsScreen.style.display = 'none';
+    const hlBalanceHeader = document.getElementById('hlBalanceHeader');
+    if (hlBalanceHeader) hlBalanceHeader.textContent = '$0.00';
+}
+
+// ── Initialization ───────────────────────────────────────────────────────────
+
+document.addEventListener('DOMContentLoaded', async function() {
+    console.log('Hyperfunded extension loaded');
+    initExplainers();
+    initEventsPagination();
+
+    const addressInput = document.getElementById('walletAddress');
+    const saveBtn = document.getElementById('walletSave');
+    const walletStatus = document.getElementById('walletStatus');
+    const walletCollapsed = document.getElementById('walletCollapsed');
+
+    state.storedAddress = await loadAddress();
+    if (state.storedAddress) {
+        if (addressInput) addressInput.value = state.storedAddress;
+        showWalletCollapsed(state.storedAddress);
+    }
+
+    if (walletCollapsed) {
+        walletCollapsed.addEventListener('click', showWalletExpanded);
+    }
+
+    if (saveBtn) {
+        saveBtn.addEventListener('click', async () => {
+            const val = (addressInput?.value || '').trim().toLowerCase();
+            if (!/^0x[a-f0-9]{40}$/.test(val)) {
+                if (walletStatus) {
+                    walletStatus.textContent = 'Invalid address';
+                    walletStatus.className = 'wallet-status wallet-status--err';
+                }
+                return;
+            }
+            await saveAddress(val);
+            state.storedAddress = val;
+            showWalletCollapsed(val);
+            refreshBalance();
+            refreshValidatorData();
+            refreshTraderLimits();
+        });
+    }
+
+    const unregisteredChangeBtn = document.getElementById('unregisteredChangeAddr');
+    if (unregisteredChangeBtn) {
+        unregisteredChangeBtn.addEventListener('click', () => {
+            hideUnregistered();
+            showWalletExpanded();
+        });
+    }
+
+    const walletDisconnectBtn = document.getElementById('walletDisconnect');
+    if (walletDisconnectBtn) {
+        walletDisconnectBtn.addEventListener('click', disconnectWallet);
+    }
+    const settingsDisconnectBtn = document.getElementById('settingsDisconnect');
+    if (settingsDisconnectBtn) {
+        settingsDisconnectBtn.addEventListener('click', disconnectWallet);
+    }
+
+    const settingsHlSaveBtn = document.getElementById('settingsHlSave');
+    const settingsHlInput = document.getElementById('settingsHlAddress');
+    if (settingsHlInput && state.storedAddress) settingsHlInput.value = state.storedAddress;
+    if (settingsHlSaveBtn) {
+        settingsHlSaveBtn.addEventListener('click', async () => {
+            const val = (settingsHlInput?.value || '').trim().toLowerCase();
+            if (!/^0x[a-f0-9]{40}$/.test(val)) {
+                settingsHlSaveBtn.textContent = 'Invalid';
+                setTimeout(() => { settingsHlSaveBtn.textContent = 'Save'; }, 1500);
+                return;
+            }
+            await saveAddress(val);
+            state.storedAddress = val;
+            showWalletCollapsed(val);
+            refreshBalance();
+            refreshValidatorData();
+            refreshTraderLimits();
+            settingsHlSaveBtn.textContent = 'Saved';
+            setTimeout(() => { settingsHlSaveBtn.textContent = 'Save'; }, 1500);
+        });
+    }
+
+    const testRegBtn = document.getElementById('testRegFlowBtn');
+    if (testRegBtn) {
+        testRegBtn.addEventListener('click', async () => {
+            chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+                if (tabs[0]) {
+                    chrome.tabs.sendMessage(tabs[0].id, { action: "forceRegistrationFlow" });
+                } else {
+                    console.error('No active tab found');
+                }
+            });
+        });
+    }
+
+    const analyticsLink = document.querySelector('.analytics-link');
+    if (analyticsLink) {
+        analyticsLink.addEventListener('click', function(e) {
+            e.preventDefault();
+            chrome.tabs.create({ url: 'https://hyperscaled.trade/dashboard' });
+        });
+    }
+
+    // Restore cached data instantly, then refresh live
+    console.log('[Hyperscaled Popup] Starting data refresh, storedAddress:', state.storedAddress);
+    state.dashboardShown = false;
+    await restoreFromCache();
+    refreshBalance();
+    refreshValidatorData();
+    refreshTraderLimits();
+    refreshEvents(state.storedAddress);
+    state.refreshIntervalId = setInterval(updateData, 10000);
+});
+
+// Clean up interval when popup closes
+window.addEventListener('unload', () => {
+    if (state.refreshIntervalId) {
+        clearInterval(state.refreshIntervalId);
+        state.refreshIntervalId = null;
+    }
+});
+
+// Notification click handler
+setupNotificationClickHandler();

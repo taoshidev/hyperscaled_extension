@@ -4,9 +4,47 @@ Recurring UI patterns in `popup.html` / `popup.css`. Use these structures when a
 
 ---
 
+## Info Expand (Educational Tooltip)
+
+An inline expandable explanation panel paired with a section header. Users click the circle-i icon to reveal educational text about the metric.
+
+### HTML structure
+
+```html
+<!-- Inside a section header or label -->
+<div class="section-title">Challenge Progress <button class="info-toggle" aria-expanded="false" data-info="challengeProgress"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5.5v.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button></div>
+<div class="info-expand" id="info-challengeProgress" hidden>Explanation text goes here. Keep it to 2–3 sentences.</div>
+```
+
+For multi-item explanations (e.g. Trading Capacity):
+
+```html
+<div class="info-expand" id="info-tradingCapacity" hidden>Overview text.
+    <span class="info-expand-item"><strong>Per Asset</strong> — explanation of this sub-metric.</span>
+    <span class="info-expand-item"><strong>Total Portfolio</strong> — explanation of this sub-metric.</span>
+</div>
+```
+
+### CSS tokens consumed
+
+| Element | Tokens |
+|---------|--------|
+| `.info-toggle` rest | `color: --text-faint` |
+| `.info-toggle` hover | `color: --text-subtle` |
+| `.info-toggle[aria-expanded="true"]` | `color: --accent` |
+| `.info-expand` text | `--font-ui`, 11px, `--text-subtle`, line-height 1.6 |
+| `.info-expand-item strong` | `--text-body`, weight 600 |
+| Animation | `max-height 0.25s ease` |
+
+### JS wiring
+
+The `data-info` attribute on the button matches the `id="info-{key}"` on the panel. `popup/explain.js` handles all toggles via `initExplainers()` called on DOMContentLoaded.
+
+---
+
 ## Trading Capacity Block
 
-A header-bar-footer layout displaying the trader's used vs. remaining position capacity. Uses an indigo bar (distinct from teal/amber) to signal a neutral utilization metric.
+A header-bar-footer layout displaying the trader's used vs. remaining position capacity. Uses an indigo bar (distinct from teal/amber) to signal a neutral utilization metric. The "Per Asset" row can include compact per-asset sub-bars for open exposures.
 
 ### HTML structure
 
@@ -20,13 +58,21 @@ A header-bar-footer layout displaying the trader's used vs. remaining position c
     <div class="capacity-row">
         <div class="capacity-row-header">
             <span class="capacity-row-label">Per Asset</span>
-            <span class="capacity-row-value">$234.50 / $1,250.00</span>
         </div>
-        <div class="capacity-bar">
-            <div class="capacity-fill capacity-fill--pair" style="width: 18.8%;"></div>
+        <div class="capacity-asset-list">
+            <div class="capacity-asset-row">
+                <span class="capacity-asset-symbol">BTC</span>
+                <div class="capacity-asset-track"><div class="capacity-asset-fill" style="width: 18.8%;"></div></div>
+                <span class="capacity-asset-value">$234.50 / $1,250.00</span>
+            </div>
+            <div class="capacity-asset-row">
+                <span class="capacity-asset-symbol">ETH</span>
+                <div class="capacity-asset-track"><div class="capacity-asset-fill" style="width: 9.6%;"></div></div>
+                <span class="capacity-asset-value">$120.00 / $1,250.00</span>
+            </div>
         </div>
         <div class="capacity-footer">
-            <span class="capacity-used">Largest position</span>
+            <span class="capacity-used">2 assets with open exposure</span>
             <span class="capacity-remaining">$1,015.50 left</span>
         </div>
     </div>
@@ -57,14 +103,15 @@ A header-bar-footer layout displaying the trader's used vs. remaining position c
 | Row label | Font size / weight | `11px / 500` |
 | Row label | Color | `--text-faint` |
 | Row label | Text transform | `uppercase`, `letter-spacing: 0.03em` |
-| Row value | Font size | `11px` |
-| Row value | Font family | `--font-mono` |
-| Row value | Color | `--text-secondary` |
 | Bar track | Background | `--indigo-bg` |
 | Bar fill | Background | `--indigo` (flat, no gradient) |
 | Bar height | — | `10px` |
 | Bar radius | — | `5px` |
 | Bar spacing | — | `margin-top: --space-1`, `margin-bottom: --space-1` |
+| Asset sub-bar track | Background | `rgba(100, 102, 241, 0.16)` |
+| Asset sub-bar fill | Background | `--indigo` |
+| Asset sub-bar height | — | `6px` |
+| Asset labels | Font | `10px`, Menlo |
 | Footer labels | Color | `--text-faint` |
 | Footer labels | Font size | `11px` |
 
@@ -72,14 +119,15 @@ A header-bar-footer layout displaying the trader's used vs. remaining position c
 
 - Never use teal or amber for this bar — indigo keeps capacity visually separate from P&L and challenge indicators.
 - Two rows: "Per Asset" (largest single position vs per-pair max) and "Total Portfolio" (all positions vs portfolio max).
-- Row value format is `$used / $max`. Footer left describes what's measured, footer right shows `$X left`.
+- When open positions exist, render one sub-bar per asset in the "Per Asset" row; each sub-bar scales against per-asset max capacity and is sorted descending by notional.
+- Per Asset header is label-only (no right value). Each asset sub-row right value is `$used / $max` for that same per-asset cap.
 - Bar fill width is set inline via `style="width: XX%;"` calculated from JS.
 
 ---
 
 ## Metric Section
 
-A self-contained section displaying a single tracked metric with a title/value header, a progress bar, and a sublabel. Used by Challenge Progress and Current Drawdown.
+A self-contained section displaying a tracked metric with a title and optional right-hand header value, one or more progress bars, and a sublabel. Challenge Progress uses a title/value header; Current Drawdown is title-only in the header (details live in Daily/Trailing rows).
 
 ### HTML structure
 
@@ -101,7 +149,9 @@ A self-contained section displaying a single tracked metric with a title/value h
 | Property | Token | Notes |
 |----------|-------|-------|
 | Section title | `--text-strong` | 12px / 600 (UI font) |
-| Section value | varies | 12px / 700 (Menlo, tabular-nums); `.challenge` = `--accent`, `.drawdown` = `--amber` |
+| Section value | varies | 12px / 700 (Menlo, tabular-nums); challenge header = `--accent` |
+| Drawdown row labels | `--text-faint` | 10px / 600, UI font, uppercase |
+| Drawdown row values | `--amber` | 11px / 400, Menlo, tabular-nums |
 | Bar height | — | `10px` — uniform bar height |
 | Bar radius | — | `5px` track + fill (must match) |
 | Bar spacing | — | `margin-top: --space-1`, `margin-bottom: --space-1` |
@@ -111,17 +161,32 @@ A self-contained section displaying a single tracked metric with a title/value h
 
 ### Variants
 
-**Drawdown variant** — amber fill and amber-tinted bar background:
+**Drawdown variant** — section header is title-only; two stacked bars (Daily + Trailing) with amber fill and amber-tinted tracks:
 ```html
-<div class="section-value drawdown">2.3% / 5%</div>   <!-- amber color -->
-<div class="progress-bar drawdown-bar">               <!-- amber bg tint -->
-  <div class="progress-fill drawdown-fill" style="width: 46%;"></div>
+<div class="drawdown-row">
+  <div class="drawdown-row-header">
+    <span class="drawdown-row-label">Daily</span>
+    <span class="drawdown-row-value">2.3% / 5%</span>
+  </div>
+  <div class="progress-bar drawdown-bar">
+    <div class="progress-fill drawdown-fill" style="width: 46%;"></div>
+  </div>
+</div>
+
+<div class="drawdown-row">
+  <div class="drawdown-row-header">
+    <span class="drawdown-row-label">Trailing</span>
+    <span class="drawdown-row-value">2.9% / 5%</span>
+  </div>
+  <div class="progress-bar drawdown-bar">
+    <div class="progress-fill drawdown-fill" style="width: 58%;"></div>
+  </div>
 </div>
 ```
 
 | Property | Token / value |
 |----------|--------------|
-| Section value color | `--amber` |
+| Row value color | `--amber` |
 | Bar background | `rgba(251, 191, 36, 0.1)` (amber tint) |
 | Fill gradient | `linear-gradient(90deg, #fbbf24, #f59e0b)` |
 
@@ -487,6 +552,46 @@ New components must use tokens from this scale. If a value falls between two tok
 
 ---
 
+## Order Events (dashboard section)
+
+Recent order activity with optional pagination when the filtered list exceeds one page.
+
+### HTML structure
+
+```html
+<div class="section">
+    <div class="section-header">
+        <div class="section-title">Order Events <!-- info-toggle --></div>
+        <span class="events-count" id="eventsCount"></span>
+    </div>
+    <div class="info-expand" id="info-orderEvents" hidden>...</div>
+    <div id="eventsContainer">
+        <div class="no-more-positions">Loading events...</div>
+    </div>
+    <div class="events-pagination" id="eventsPagination" hidden>
+        <button type="button" id="eventsPagePrev" class="events-page-btn" disabled aria-label="Previous page">‹</button>
+        <span class="events-page-label" id="eventsPageLabel" aria-live="polite"></span>
+        <button type="button" id="eventsPageNext" class="events-page-btn" disabled aria-label="Next page">›</button>
+    </div>
+</div>
+```
+
+### Tokens used
+
+| Element | Property | Token / Value |
+|---------|----------|---------------|
+| Event cards | — | `.event-card`, `.event-accepted` / `.event-rejected` (existing) |
+| Pagination bar | Border-top / spacing | `var(--border-card)`, `--space-2`, `--space-3` |
+| Page label | Font / color | 11px tabular-nums / `var(--text-faint)` |
+| Page buttons | Border / hover | `var(--border-card)` → `var(--accent-border)`; `var(--text-subtle)` → `var(--accent)` |
+
+### Rules
+
+- `eventsContainer`, `eventsCount`, `eventsPagination`, `eventsPagePrev`, `eventsPageNext`, `eventsPageLabel` IDs are bound in `popup/events.js`.
+- JS shows at most 8 events per page; the full filtered list is sorted newest first.
+
+---
+
 ## Not Registered Screen
 
 A welcome/onboarding screen shown when no wallet address is saved. Contains a centered hero block and a wallet input card. Replaces the simpler wallet-config form with a more guided experience.
@@ -610,7 +715,7 @@ A status screen shown when the wallet address is saved but no active challenge i
 
 ## Positions Screen
 
-A full-list view of all open positions, accessed when the user taps "View all →" from the dashboard. Includes a header with active count badge, position cards (reused from the dashboard), and a Trading Capacity reminder block.
+A full-list view of all open positions (`#positionsScreen` markup). Includes a header with active count badge, position cards (reused from the dashboard), and a Trading Capacity reminder block.
 
 ### HTML structure
 
@@ -816,17 +921,28 @@ A full settings view with wallet configuration, push notification toggles, and a
 
 ## Hyperliquid clamp toast (content script)
 
-Toast anchored top-right on the Hyperliquid site when the extension blocks or clamps order size against Hyperscaled limits. Rendered by `showClampToast()` in `content.js` into `#hf-toast-container`.
+Toast anchored top-right on the Hyperliquid site when the extension blocks or clamps order size against Hyperscaled limits. Rendered by `showClampToast()` in `content/toast.js` into `#hf-toast-container`.
 
 ### HTML structure (JS-generated)
 
 ```html
 <div id="hf-toast-container" class="hf-toast-container">
-  <div class="hf-toast hf-toast--warning hf-toast-show">
+  <div class="hf-toast hf-toast--blocked hf-toast-show">
     <div class="hf-toast-icon">…</div>
     <div class="hf-toast-content">
-      <div class="hf-toast-title">Hyperscaled: Order Prevented</div>
-      <div class="hf-toast-msg">No remaining capacity within your <b>per-pair</b> position limit.</div>
+      <div class="hf-toast-title">Order Blocked</div>
+      <div class="hf-toast-msg">Requested size is above your active per-pair limit.</div>
+      <button class="hf-toast-details-toggle" type="button" aria-expanded="false" aria-controls="hf-toast-blocked-details">
+        <span>Why blocked?</span>
+      </button>
+      <div id="hf-toast-blocked-details" class="hf-toast-details" hidden>
+        <div class="hf-toast-details-head">Why this was blocked</div>
+        <ul class="hf-toast-details-list">
+          <li><span>What:</span> attempted order exceeds current capacity.</li>
+          <li><span>Why:</span> guardrail keeps account inside challenge limits.</li>
+          <li><span>How to avoid:</span> reduce size or free capacity first.</li>
+        </ul>
+      </div>
     </div>
   </div>
 </div>
@@ -838,6 +954,7 @@ Toast anchored top-right on the Hyperliquid site when the extension blocks or cl
 |-------|------|
 | `hf-toast--warning` | Order prevented — no headroom left under the limit (`allowed === 0`). |
 | `hf-toast--alert` | Reduced to a positive allowed size. |
+| `hf-toast--blocked` | User-entered order exceeds current capacity; includes a click-to-expand explainer panel. |
 | `hf-toast--info` | Registration / payment prompts. |
 
 ### Tokens used
@@ -847,7 +964,8 @@ See **Hyperliquid page toasts** in `design-rules.md` — all variants (`--alert`
 ### Rules
 
 - Throttle repeated toasts (3s) in JS to avoid spam.
-- Icon column is emoji today; copy may use `<b>` inside `.hf-toast-msg` for limits.
+- Icon column is emoji/SVG today; copy may use `<b>` inside `.hf-toast-msg` and details panel bullets.
+- For `hf-toast--blocked`, keep default state collapsed and reveal context through `.hf-toast-details-toggle` so dense explanatory text never crowds the first glance.
 
 ---
 

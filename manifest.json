@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Hyperscaled",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Track your Hyperfunded account and Hyperliquid positions",
   "action": {
     "default_popup": "popup.html",
@@ -31,7 +31,21 @@
   "content_scripts": [
     {
       "matches": ["https://app.hyperliquid.xyz/*", "https://app.hyperliquid-testnet.xyz/*"],
-      "js": ["content.js"],
+      "js": [
+        "content/namespace.js",
+        "content/state.js",
+        "content/utils.js",
+        "content/api.js",
+        "content/toast.js",
+        "content/banner.js",
+        "content/pair-support.js",
+        "content/clamping.js",
+        "content/trade-gate.js",
+        "content/input-binding.js",
+        "content/payment.js",
+        "content/navigation.js",
+        "content/main.js"
+      ],
       "css": ["content.css"],
       "run_at": "document_idle"
     },
@@ -48,6 +62,7 @@
     }
   ],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background/main.js",
+    "type": "module"
   }
 }

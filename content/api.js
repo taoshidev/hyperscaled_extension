@@ -1,0 +1,326 @@
+// Data fetching via background service worker messages
+(() => {
+  const HF = window.__HF;
+  const { ACCOUNT } = HF.state;
+
+  function detectAddressFromPage() {
+    try {
+      const wagmiRaw = localStorage.getItem("wagmi.store");
+      if (wagmiRaw) {
+        try {
+          const wagmi = JSON.parse(wagmiRaw);
+          const connections = wagmi?.state?.connections;
+          const entries = connections?.value || connections;
+          if (Array.isArray(entries)) {
+            for (const entry of entries) {
+              const conn = Array.isArray(entry) ? entry[1] : entry;
+              const accounts = conn?.accounts || [];
+              for (const a of accounts) {
+                if (/^0x[a-fA-F0-9]{40}$/.test(a)) return a;
+              }
+            }
+          }
+          const v1Addr = wagmi?.state?.data?.account;
+          if (v1Addr && /^0x[a-fA-F0-9]{40}$/.test(v1Addr)) return v1Addr;
+        } catch {}
+      }
+
+      const candidates = document.querySelectorAll(
+        'button, [class*="account"], [class*="address"], [class*="wallet"], header *'
+      );
+      for (const el of candidates) {
+        if (el.children && el.children.length > 0) continue;
+        const txt = (el.textContent || "").trim();
+        const full = txt.match(/0x[a-fA-F0-9]{40}/);
+        if (full) return full[0];
+        const trunc = txt.match(/^(0x[a-fA-F0-9]{4,6})[.\u2026]{2,3}([a-fA-F0-9]{3,6})$/);
+        if (trunc) {
+          for (let i = 0; i < localStorage.length; i++) {
+            const val = localStorage.getItem(localStorage.key(i)) || "";
+            const m = val.match(/0x[a-fA-F0-9]{40}/g);
+            if (!m) continue;
+            for (const addr of m) {
+              if (addr.toLowerCase().startsWith(trunc[1].toLowerCase()) &&
+                  addr.toLowerCase().endsWith(trunc[2].toLowerCase())) {
+                return addr;
+              }
+            }
+          }
+        }
+      }
+    } catch {}
+    return null;
+  }
+
+  async function getUserAddress() {
+    return new Promise((resolve) => {
+      chrome.storage.local.get(["hlAddress"], (result) => {
+        if (result.hlAddress) {
+          resolve(result.hlAddress);
+          return;
+        }
+        const detected = detectAddressFromPage();
+        if (detected) {
+          const normalizedDetected = detected.toLowerCase();
+          console.log("[Hyperscaled] Auto-detected address from page:", normalizedDetected);
+          chrome.storage.local.set({ hlAddress: normalizedDetected });
+          resolve(normalizedDetected);
+        } else {
+          resolve(null);
+        }
+      });
+    });
+  }
+
+  function sendToBackground(msg) {
+    return new Promise((resolve, reject) => {
+      chrome.runtime.sendMessage(msg, (response) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+          return;
+        }
+        if (response?.success) resolve(response.data);
+        else reject(new Error(response?.error || "Unknown error"));
+      });
+    });
+  }
+
+  async function fetchTraderLimits(overrideAddress = null) {
+    const address = overrideAddress || await getUserAddress();
+    if (!address) return;
+
+    try {
+      const result = await sendToBackground({ action: "fetchTraderLimits", address });
+
+      if (result.max_position_per_pair_usd != null) {
+        ACCOUNT.maxPositionPerPair = parseFloat(result.max_position_per_pair_usd) || 0;
+      }
+      if (result.max_portfolio_usd != null) {
+        ACCOUNT.maxPortfolio = parseFloat(result.max_portfolio_usd) || 0;
+      }
+      HF.state.limitsLoaded = true;
+    } catch (e) {
+      console.error("[Hyperscaled] Trader limits fetch failed:", e);
+    }
+  }
+
+  async function fetchTradePairs() {
+    try {
+      const result = await sendToBackground({ action: "fetchTradePairs" });
+
+      const pairs = result.allowed_trade_pairs || [];
+      if (pairs.length > 0) {
+        HF.state.SUPPORTED_SYMBOLS = pairs.map(p => p.trade_pair_id.replace(/USD[CT]?$/, ""));
+        console.log("[Hyperscaled] Loaded", HF.state.SUPPORTED_SYMBOLS.length, "supported symbols from validator");
+      }
+    } catch (e) {
+      console.error("[Hyperscaled] Trade pairs fetch failed, using defaults:", e);
+    }
+  }
+
+  async function fetchMidPrices() {
+    try {
+      const result = await sendToBackground({ action: 'fetchMidPrices' });
+      for (const [key, val] of Object.entries(result)) {
+        const price = parseFloat(val);
+        if (price > 0 && /^[A-Z]/.test(key)) {
+          HF.state.midPrices[key.toUpperCase()] = price;
+        }
+      }
+    } catch (e) {
+      console.error('[Hyperscaled] Mid prices fetch failed:', e);
+    }
+  }
+
+  async function fetchValidatorData(overrideAddress = null) {
+    const address = overrideAddress || await getUserAddress();
+    if (!address) return;
+
+    try {
+      const result = await sendToBackground({ action: "fetchValidatorData", address });
+
+      if (result.status && result.status !== "success") {
+        if (result.status === "unregistered" || result.status === "error") {
+          if (JSON.stringify(result).toLowerCase().includes("unregistered")) {
+            sessionStorage.setItem("hf_pending_registration", "true");
+            HF.payment.processRegistrationPayment();
+          }
+        }
+        ACCOUNT.isRegistered = false;
+        ACCOUNT.registrationChecked = true;
+        HF.banner.updateBannerFromValidator();
+        return;
+      }
+
+      ACCOUNT.fundedSize = result.account_size || 0;
+
+      const positionsRaw = result.positions;
+      const positions = Array.isArray(positionsRaw) ? positionsRaw : (positionsRaw?.positions || []);
+      console.log("[Hyperscaled] Validator data loaded, account_size:", ACCOUNT.fundedSize, "positions total:", positions.length);
+      const openPositions = positions.filter(p => !p.is_closed_position && !p.close_ms);
+      let totalUnrealizedPnl = 0;
+      let totalNotional = 0;
+      let maxSingleNotional = 0;
+
+      const notionalByPair = {};
+      for (const pos of openPositions) {
+        const notional = pos.net_leverage != null
+          ? Math.abs(parseFloat(pos.net_leverage)) * ACCOUNT.fundedSize
+          : (pos.filled_orders || []).reduce((s, o) => s + Math.abs(parseFloat(o.value) || 0), 0);
+        const pnl = ((parseFloat(pos.current_return) || 1) - 1) * ACCOUNT.fundedSize;
+
+        totalUnrealizedPnl += pnl;
+        totalNotional += notional;
+        if (notional > maxSingleNotional) maxSingleNotional = notional;
+
+        const tp = pos.trade_pair || "";
+        const coin = (typeof tp === "string" ? tp : (tp[0] || "")).replace(/\/.*$/, "").replace(/USD[CT]?$/, "").toUpperCase();
+        if (coin) {
+          notionalByPair[coin] = (notionalByPair[coin] || 0) + notional;
+        }
+      }
+
+      ACCOUNT.isRegistered = true;
+      ACCOUNT.registrationChecked = true;
+      ACCOUNT.inChallenge = HF.utils.resolveChallengeModeFromValidator(result);
+
+      const dd = result.drawdown || {};
+      const currentEquity = parseFloat(dd.current_equity) || 1;
+      ACCOUNT.validatorEquity = ACCOUNT.fundedSize * currentEquity;
+      ACCOUNT.challengeCurrent = (currentEquity - 1) * 100;
+      ACCOUNT.drawdownCurrent = parseFloat(dd.intraday_drawdown_pct) || 0;
+      ACCOUNT.drawdownMax = parseFloat(dd.intraday_threshold_pct) || ACCOUNT.drawdownMax;
+      ACCOUNT.daily_loss_pct = parseFloat(dd.intraday_drawdown_pct) || 0;
+      ACCOUNT.eod_trailing_loss_pct = parseFloat(dd.eod_drawdown_pct) || 0;
+      ACCOUNT.intraday_usage_pct = parseFloat(dd.intraday_usage_pct) || 0;
+      ACCOUNT.eod_usage_pct = parseFloat(dd.eod_usage_pct) || 0;
+      ACCOUNT.intraday_threshold_pct = parseFloat(dd.intraday_threshold_pct) || ACCOUNT.intraday_threshold_pct;
+      ACCOUNT.eod_threshold_pct = parseFloat(dd.eod_threshold_pct) || ACCOUNT.eod_threshold_pct;
+
+      if (ACCOUNT.exposureSource !== "hyperliquid-assetPositions") {
+        ACCOUNT.notionalByPair = notionalByPair;
+        ACCOUNT.openTotalUsed = totalNotional;
+        ACCOUNT.openSingleUsed = maxSingleNotional;
+        ACCOUNT.exposureSource = "validator-net-leverage";
+      }
+
+      HF.state.validatorDataLoaded = true;
+      HF.banner.updateBannerFromValidator();
+    } catch (e) {
+      console.error("[Hyperscaled] Validator fetch failed:", e);
+      if (e.message.toLowerCase().includes("unregistered")) {
+        sessionStorage.setItem("hf_pending_registration", "true");
+        HF.payment.processRegistrationPayment();
+      }
+    }
+  }
+
+  async function checkBalance(overrideAddress = null) {
+    const address = overrideAddress || await getUserAddress();
+    console.log("[Hyperscaled] checkBalance address:", address);
+    if (!address) {
+      console.warn("[Hyperscaled] No address found");
+      HF.state.balanceVerified = false;
+      return;
+    }
+
+    try {
+      const result = await sendToBackground({ action: "fetchBalance", address });
+
+      console.log("[Hyperscaled] Balance result:", result);
+      HF.state.currentBalance = Number(result.accountValue) || 0;
+      ACCOUNT.hlBalance = HF.state.currentBalance;
+      ACCOUNT.hlEquity = HF.state.currentBalance;
+      if (result && typeof result === "object") {
+        const mappedExposure = result.notionalByPair && typeof result.notionalByPair === "object"
+          ? result.notionalByPair
+          : {};
+        const openTotalFromHL = Number(result.openTotalUsed) || 0;
+        const openSingleFromHL = Number(result.openSingleUsed) || 0;
+        ACCOUNT.notionalByPair = mappedExposure;
+        ACCOUNT.openTotalUsed = openTotalFromHL;
+        ACCOUNT.openSingleUsed = openSingleFromHL;
+        ACCOUNT.exposureSource = typeof result.exposureSource === "string" && result.exposureSource
+          ? result.exposureSource
+          : "hyperliquid-balance";
+      }
+      HF.state.balanceVerified = true;
+
+      updateBannerBalance();
+      HF.inputBinding.scheduleUpdate();
+    } catch (e) {
+      console.error("[Hyperscaled] Balance check failed:", e);
+    }
+  }
+
+  function updateBannerBalance() {
+    const banner = document.getElementById(HF.state.BANNER_ID);
+    if (banner) HF.banner.applyBannerStateClasses(banner);
+  }
+
+  function startBalanceChecking() {
+    checkBalance();
+    fetchValidatorData();
+    fetchTraderLimits();
+    fetchTradePairs();
+    fetchMidPrices();
+    if (HF.state.balanceCheckTimer) clearInterval(HF.state.balanceCheckTimer);
+    HF.state.balanceCheckTimer = setInterval(() => {
+      checkBalance();
+      fetchValidatorData();
+      fetchTraderLimits();
+      fetchMidPrices();
+    }, HF.state.BALANCE_CHECK_INTERVAL);
+  }
+
+  function stopBalanceChecking() {
+    if (HF.state.balanceCheckTimer) {
+      clearInterval(HF.state.balanceCheckTimer);
+      HF.state.balanceCheckTimer = null;
+    }
+  }
+
+  // Address change listener
+  chrome.storage.onChanged.addListener((changes, namespace) => {
+    if (namespace === "local" && changes.hlAddress) {
+      const newAddress = changes.hlAddress.newValue;
+      if (!newAddress) return;
+
+      ACCOUNT.hlBalance = 0;
+      ACCOUNT.hlEquity = 0;
+      ACCOUNT.fundedSize = 0;
+      ACCOUNT.challengeCurrent = 0;
+      ACCOUNT.drawdownCurrent = 0;
+      ACCOUNT.daily_loss_pct = 0;
+      ACCOUNT.eod_trailing_loss_pct = 0;
+      ACCOUNT.intraday_usage_pct = 0;
+      ACCOUNT.eod_usage_pct = 0;
+      ACCOUNT.openSingleUsed = 0;
+      ACCOUNT.openTotalUsed = 0;
+      ACCOUNT.exposureSource = "none";
+      ACCOUNT.notionalByPair = {};
+      ACCOUNT.inChallenge = false;
+      ACCOUNT.isRegistered = false;
+      ACCOUNT.registrationChecked = false;
+      HF.state.validatorDataLoaded = false;
+      HF.banner.updateBannerFromValidator();
+
+      checkBalance(newAddress);
+      fetchValidatorData(newAddress);
+      fetchTraderLimits(newAddress);
+      fetchMidPrices();
+    }
+  });
+
+  HF.api = {
+    detectAddressFromPage,
+    getUserAddress,
+    fetchTraderLimits,
+    fetchTradePairs,
+    fetchMidPrices,
+    fetchValidatorData,
+    checkBalance,
+    startBalanceChecking,
+    stopBalanceChecking,
+  };
+})();
