@@ -4,6 +4,26 @@
 
   let activeClampToast = null;
   let blockedToastDismissed = false;
+  let blockedToastDetailsExpanded = false;
+
+  function buildBlockedDetails(constraint, allowed, clampedSize, sizeUnit, formatSizeForToast) {
+    const limitScope = constraint === "per-pair" ? "single-asset" : "portfolio";
+    const heading = "Why this was blocked";
+    const what = "You tried to place a size above your current " + limitScope + " capacity.";
+    const why = "Hyperscaled enforces this cap to keep your account inside funded-challenge risk limits.";
+    const how = "Lower size to <b>" + formatSizeForToast(clampedSize, sizeUnit) + " " + sizeUnit +
+      "</b> or less, or close/reduce existing positions to free " + limitScope + " capacity.";
+    const capacity = "Remaining capacity right now: <b>" + formatSizeForToast(allowed, sizeUnit) + " " + sizeUnit + "</b>.";
+
+    return (
+      '<div class="hf-toast-details-head">' + heading + "</div>" +
+      '<ul class="hf-toast-details-list">' +
+        '<li><span>What:</span> ' + what + "</li>" +
+        '<li><span>Why:</span> ' + why + "</li>" +
+        '<li><span>How to avoid:</span> ' + how + " " + capacity + "</li>" +
+      "</ul>"
+    );
+  }
 
   function showClampToast(details) {
     const { fmt, effectiveMaxSingleUsd, formatSizeForToast, getSizeUnit } = HF.utils;
@@ -16,6 +36,7 @@
     const isBlockedOnly = details?.blocked === true;
 
     if (isBlockedOnly && blockedToastDismissed) return;
+    if (!isBlockedOnly) blockedToastDetailsExpanded = false;
 
     let messageHtml = "Order exceeds your <b>" + constraint + " position size limit</b>.";
     let titleHtml = "Hyperscaled: Size clamped to " + formatSizeForToast(clampedSize, sizeUnit) + " " + sizeUnit;
@@ -30,7 +51,7 @@
        variantClass = "hf-toast hf-toast--warning";
     } else if (isBlockedOnly) {
        titleHtml = "Order Blocked";
-       messageHtml = "Reduce to <b>" + formatSizeForToast(clampedSize, sizeUnit) + " " + sizeUnit + "</b> or less.";
+       messageHtml = "Requested size is above your active " + constraint + " limit.";
        iconHtml = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="#f87171" stroke-width="1.5"/><line x1="5" y1="5" x2="11" y2="11" stroke="#f87171" stroke-width="1.5" stroke-linecap="round"/></svg>';
        variantClass = "hf-toast hf-toast--blocked";
     } else if (constraint === 'per-pair') {
@@ -44,11 +65,28 @@
     }
 
     const showClose = isBlockedOnly;
+    const detailsId = "hf-toast-blocked-details";
+    const detailsHtml = isBlockedOnly ? buildBlockedDetails(constraint, allowed, clampedSize, sizeUnit, formatSizeForToast) : "";
+    const detailsToggleHtml = isBlockedOnly
+      ? '<button class="hf-toast-details-toggle" type="button" aria-expanded="' + (blockedToastDetailsExpanded ? "true" : "false") + '" aria-controls="' + detailsId + '">' +
+          '<span>Why blocked?</span>' +
+          '<svg class="hf-toast-details-chevron" width="10" height="10" viewBox="0 0 10 10" fill="none">' +
+            '<path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>' +
+          "</svg>" +
+        "</button>"
+      : "";
+    const detailsPanelHtml = isBlockedOnly
+      ? '<div id="' + detailsId + '" class="hf-toast-details' + (blockedToastDetailsExpanded ? " hf-toast-details-open" : "") + '" ' + (blockedToastDetailsExpanded ? "" : "hidden") + ">" +
+          detailsHtml +
+        "</div>"
+      : "";
     const innerHtml =
       '<div class="hf-toast-icon">' + iconHtml + '</div>' +
       '<div class="hf-toast-content">' +
         '<div class="hf-toast-title">' + titleHtml + '</div>' +
         '<div class="hf-toast-msg">' + messageHtml + '</div>' +
+        detailsToggleHtml +
+        detailsPanelHtml +
       '</div>' +
       (showClose ? '<button class="hf-toast-close" type="button" aria-label="Dismiss">' +
         '<svg width="10" height="10" viewBox="0 0 10 10" fill="none">' +
@@ -78,11 +116,37 @@
     container.appendChild(toast);
     activeClampToast = toast;
 
-    toast.addEventListener("click", function(e) {
+    toast.addEventListener("mousedown", function(e) {
+      const detailsToggle = e.target.closest(".hf-toast-details-toggle");
+      if (detailsToggle) {
+        e.preventDefault();
+        e.stopPropagation();
+        blockedToastDetailsExpanded = !blockedToastDetailsExpanded;
+        const detailsPanel = toast.querySelector(".hf-toast-details");
+        if (detailsPanel) {
+          detailsPanel.hidden = !blockedToastDetailsExpanded;
+          detailsPanel.classList.toggle("hf-toast-details-open", blockedToastDetailsExpanded);
+        }
+        detailsToggle.setAttribute("aria-expanded", blockedToastDetailsExpanded ? "true" : "false");
+        return;
+      }
+
       if (e.target.closest(".hf-toast-close")) {
+        e.preventDefault();
         e.stopPropagation();
         blockedToastDismissed = true;
         dismissClampToast();
+      }
+    });
+
+    toast.addEventListener("click", function(e) {
+      const detailsToggle = e.target.closest(".hf-toast-details-toggle");
+      if (detailsToggle) {
+        return;
+      }
+
+      if (e.target.closest(".hf-toast-close")) {
+        return;
       }
     });
 
@@ -94,6 +158,7 @@
     if (!activeClampToast) return;
     const toast = activeClampToast;
     activeClampToast = null;
+    blockedToastDetailsExpanded = false;
     toast.classList.remove("hf-toast-show");
     setTimeout(() => {
       if (toast.parentNode) toast.parentNode.removeChild(toast);

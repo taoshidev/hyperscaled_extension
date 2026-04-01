@@ -816,17 +816,28 @@ A full settings view with wallet configuration, push notification toggles, and a
 
 ## Hyperliquid clamp toast (content script)
 
-Toast anchored top-right on the Hyperliquid site when the extension blocks or clamps order size against Hyperscaled limits. Rendered by `showClampToast()` in `content.js` into `#hf-toast-container`.
+Toast anchored top-right on the Hyperliquid site when the extension blocks or clamps order size against Hyperscaled limits. Rendered by `showClampToast()` in `content/toast.js` into `#hf-toast-container`.
 
 ### HTML structure (JS-generated)
 
 ```html
 <div id="hf-toast-container" class="hf-toast-container">
-  <div class="hf-toast hf-toast--warning hf-toast-show">
+  <div class="hf-toast hf-toast--blocked hf-toast-show">
     <div class="hf-toast-icon">…</div>
     <div class="hf-toast-content">
-      <div class="hf-toast-title">Hyperscaled: Order Prevented</div>
-      <div class="hf-toast-msg">No remaining capacity within your <b>per-pair</b> position limit.</div>
+      <div class="hf-toast-title">Order Blocked</div>
+      <div class="hf-toast-msg">Requested size is above your active per-pair limit.</div>
+      <button class="hf-toast-details-toggle" type="button" aria-expanded="false" aria-controls="hf-toast-blocked-details">
+        <span>Why blocked?</span>
+      </button>
+      <div id="hf-toast-blocked-details" class="hf-toast-details" hidden>
+        <div class="hf-toast-details-head">Why this was blocked</div>
+        <ul class="hf-toast-details-list">
+          <li><span>What:</span> attempted order exceeds current capacity.</li>
+          <li><span>Why:</span> guardrail keeps account inside challenge limits.</li>
+          <li><span>How to avoid:</span> reduce size or free capacity first.</li>
+        </ul>
+      </div>
     </div>
   </div>
 </div>
@@ -838,6 +849,7 @@ Toast anchored top-right on the Hyperliquid site when the extension blocks or cl
 |-------|------|
 | `hf-toast--warning` | Order prevented — no headroom left under the limit (`allowed === 0`). |
 | `hf-toast--alert` | Reduced to a positive allowed size. |
+| `hf-toast--blocked` | User-entered order exceeds current capacity; includes a click-to-expand explainer panel. |
 | `hf-toast--info` | Registration / payment prompts. |
 
 ### Tokens used
@@ -847,7 +859,8 @@ See **Hyperliquid page toasts** in `design-rules.md` — all variants (`--alert`
 ### Rules
 
 - Throttle repeated toasts (3s) in JS to avoid spam.
-- Icon column is emoji today; copy may use `<b>` inside `.hf-toast-msg` for limits.
+- Icon column is emoji/SVG today; copy may use `<b>` inside `.hf-toast-msg` and details panel bullets.
+- For `hf-toast--blocked`, keep default state collapsed and reveal context through `.hf-toast-details-toggle` so dense explanatory text never crowds the first glance.
 
 ---
 

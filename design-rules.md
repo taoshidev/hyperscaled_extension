@@ -158,6 +158,9 @@ Fixed-position toasts injected on the Hyperliquid trading page (`content.css` �
 | `--warning` (order prevented / zero headroom) | Solid `#120f0f`, strong red border + 3px left `#f87171`, title `#fecaca`, body ~94% white, light text-shadow for legibility on busy pixels. |
 | `--alert` (clamped but non-zero) | Solid `#1a1712`, amber border + 3px left `#ffb900`, title `#fcd34d`. |
 | `--info` | Solid `#141416`, teal border + 3px left `#00c6a7` — no translucent “glass” fill. |
+| `--blocked` (manual over-limit attempt) | Compact red-leaning toast (`280px` width) with title `#f87171`, concise reason line, and a click-to-expand helper panel (`.hf-toast-details`) that explicitly answers **what is happening, why it is blocked, and how to avoid it**. |
+
+**Expandable blocked helper rule:** Keep the first line brief and actionable; put explanatory copy behind a button (`.hf-toast-details-toggle`, label "Why blocked?"). The expanded panel uses a low-contrast red tint (`rgba(248,113,113,0.05)`), 10px text, and three structured bullets (`What`, `Why`, `How to avoid`) so traders can skim under pressure.
 
 ---
 
