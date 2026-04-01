@@ -1,12 +1,18 @@
 // Toast notification system for order clamping/blocking
 (() => {
   const HF = window.__HF;
+  const { ACCOUNT } = HF.state;
 
   let activeClampToast = null;
   let blockedToastDismissed = false;
   let blockedToastDetailsExpanded = false;
 
-  function buildBlockedDetails(constraint, allowed, clampedSize, sizeUnit, formatSizeForToast) {
+  function formatLeverageForToast(value) {
+    if (!Number.isFinite(value) || value <= 0) return "0x";
+    return parseFloat(value.toFixed(2)).toString() + "x";
+  }
+
+  function buildBlockedDetails(constraint, allowed, clampedSize, sizeUnit, formatSizeForToast, pairContext) {
     const limitScope = constraint === "per-pair" ? "single-asset" : "portfolio";
     const heading = "Why this was blocked";
     const what = "You tried to place a size above your current " + limitScope + " capacity.";
@@ -14,6 +20,10 @@
     const how = "Lower size to <b>" + formatSizeForToast(clampedSize, sizeUnit) + " " + sizeUnit +
       "</b> or less, or close/reduce existing positions to free " + limitScope + " capacity.";
     const capacity = "Remaining capacity right now: <b>" + formatSizeForToast(allowed, sizeUnit) + " " + sizeUnit + "</b>.";
+    const pairLimit = "Per-pair limit (" + pairContext.symbolLabel + "): <b>" + pairContext.limitUsd + "</b> " +
+      "(used " + pairContext.usedUsd + ", remaining " + pairContext.remainingUsd + ").";
+    const availableLeverage = "Available leverage on " + pairContext.symbolLabel + ": <b>" +
+      pairContext.remainingLeverage + "</b> remaining (max " + pairContext.maxLeverage + " per pair).";
 
     return (
       '<div class="hf-toast-details-head">' + heading + "</div>" +
@@ -21,12 +31,14 @@
         '<li><span>What:</span> ' + what + "</li>" +
         '<li><span>Why:</span> ' + why + "</li>" +
         '<li><span>How to avoid:</span> ' + how + " " + capacity + "</li>" +
+        '<li><span>Per-pair cap:</span> ' + pairLimit + "</li>" +
+        '<li><span>Leverage left:</span> ' + availableLeverage + "</li>" +
       "</ul>"
     );
   }
 
   function showClampToast(details) {
-    const { fmt, effectiveMaxSingleUsd, formatSizeForToast, getSizeUnit } = HF.utils;
+    const { fmt, effectiveMaxSingleUsd, formatSizeForToast, getSizeUnit, getCurrentSymbol, marginLimitBasisUsd } = HF.utils;
     const requested = Number(details?.requestedNotional) || 0;
     const allowed = Number(details?.allowedNotional) || 0;
     const constraint = details?.constraint || "portfolio";
@@ -34,6 +46,22 @@
     const clampedSize = Number(details?.clampedSize) || 0;
     const sizeUnit = details?.sizeUnit || getSizeUnit();
     const isBlockedOnly = details?.blocked === true;
+    const symbol = getCurrentSymbol();
+    const symbolLabel = symbol || "this asset";
+    const perPairLimitUsd = effectiveMaxSingleUsd();
+    const usedPerPairUsd = (symbol && ACCOUNT.notionalByPair[symbol]) || 0;
+    const remainingPerPairUsd = Math.max(perPairLimitUsd - usedPerPairUsd, 0);
+    const leverageBasisUsd = marginLimitBasisUsd();
+    const maxPairLeverage = leverageBasisUsd > 0 ? perPairLimitUsd / leverageBasisUsd : 0;
+    const remainingPairLeverage = leverageBasisUsd > 0 ? remainingPerPairUsd / leverageBasisUsd : 0;
+    const pairContext = {
+      symbolLabel,
+      limitUsd: fmt(perPairLimitUsd),
+      usedUsd: fmt(usedPerPairUsd),
+      remainingUsd: fmt(remainingPerPairUsd),
+      maxLeverage: formatLeverageForToast(maxPairLeverage),
+      remainingLeverage: formatLeverageForToast(remainingPairLeverage),
+    };
 
     if (isBlockedOnly && blockedToastDismissed) return;
     if (!isBlockedOnly) blockedToastDetailsExpanded = false;
@@ -51,7 +79,8 @@
        variantClass = "hf-toast hf-toast--warning";
     } else if (isBlockedOnly) {
        titleHtml = "Order Blocked";
-       messageHtml = "Requested size is above your active " + constraint + " limit.";
+       messageHtml = "Requested size is above your active " + constraint + " limit. " +
+         "Per-pair remaining: <b>" + pairContext.remainingUsd + "</b> (" + pairContext.remainingLeverage + " available).";
        iconHtml = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="#f87171" stroke-width="1.5"/><line x1="5" y1="5" x2="11" y2="11" stroke="#f87171" stroke-width="1.5" stroke-linecap="round"/></svg>';
        variantClass = "hf-toast hf-toast--blocked";
     } else if (constraint === 'per-pair') {
@@ -66,7 +95,9 @@
 
     const showClose = isBlockedOnly;
     const detailsId = "hf-toast-blocked-details";
-    const detailsHtml = isBlockedOnly ? buildBlockedDetails(constraint, allowed, clampedSize, sizeUnit, formatSizeForToast) : "";
+    const detailsHtml = isBlockedOnly
+      ? buildBlockedDetails(constraint, allowed, clampedSize, sizeUnit, formatSizeForToast, pairContext)
+      : "";
     const detailsToggleHtml = isBlockedOnly
       ? '<button class="hf-toast-details-toggle" type="button" aria-expanded="' + (blockedToastDetailsExpanded ? "true" : "false") + '" aria-controls="' + detailsId + '">' +
           '<span>Why blocked?</span>' +
