@@ -1646,6 +1646,55 @@ body {
     margin-top: var(--space-3);
 }
 
+/* ── Info Expand (educational tooltips) ────────────── */
+.info-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    margin-left: 4px;
+    background: none;
+    border: none;
+    color: var(--text-faint);
+    cursor: pointer;
+    transition: color 0.15s ease;
+    vertical-align: middle;
+    line-height: 1;
+}
+
+.info-toggle:hover {
+    color: var(--text-subtle);
+}
+
+.info-toggle[aria-expanded="true"] {
+    color: var(--accent);
+}
+
+.info-expand {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.25s ease;
+    font-family: var(--font-ui);
+    font-size: 11px;
+    line-height: 1.6;
+    color: var(--text-subtle);
+    padding: 0;
+}
+
+.info-expand:not([hidden]) {
+    padding: 6px 0 8px;
+}
+
+.info-expand-item {
+    display: block;
+    margin-top: 4px;
+}
+
+.info-expand-item strong {
+    color: var(--text-body);
+    font-weight: 600;
+}
+
 /* ── Scrollbar ──────────────────────────────────────── */
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }

@@ -5,6 +5,7 @@ import { applyValidatorData, renderPositions } from './dashboard.js';
 import { refreshEvents, renderEvents } from './events.js';
 import { showDashboard, hideDashboard, showUnregistered, hideUnregistered, setPlaceholders } from './screens.js';
 import { showPositionNotification, setupNotificationClickHandler } from './notifications.js';
+import { initExplainers } from './explain.js';
 
 // ── Popup state ──────────────────────────────────────────────────────────────
 const state = {
@@ -161,6 +162,7 @@ function disconnectWallet() {
 
 document.addEventListener('DOMContentLoaded', async function() {
     console.log('Hyperfunded extension loaded');
+    initExplainers();
 
     const addressInput = document.getElementById('walletAddress');
     const saveBtn = document.getElementById('walletSave');

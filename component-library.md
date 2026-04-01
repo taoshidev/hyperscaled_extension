@@ -4,6 +4,44 @@ Recurring UI patterns in `popup.html` / `popup.css`. Use these structures when a
 
 ---
 
+## Info Expand (Educational Tooltip)
+
+An inline expandable explanation panel paired with a section header. Users click the circle-i icon to reveal educational text about the metric.
+
+### HTML structure
+
+```html
+<!-- Inside a section header or label -->
+<div class="section-title">Challenge Progress <button class="info-toggle" aria-expanded="false" data-info="challengeProgress"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5.5v.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button></div>
+<div class="info-expand" id="info-challengeProgress" hidden>Explanation text goes here. Keep it to 2–3 sentences.</div>
+```
+
+For multi-item explanations (e.g. Trading Capacity):
+
+```html
+<div class="info-expand" id="info-tradingCapacity" hidden>Overview text.
+    <span class="info-expand-item"><strong>Per Asset</strong> — explanation of this sub-metric.</span>
+    <span class="info-expand-item"><strong>Total Portfolio</strong> — explanation of this sub-metric.</span>
+</div>
+```
+
+### CSS tokens consumed
+
+| Element | Tokens |
+|---------|--------|
+| `.info-toggle` rest | `color: --text-faint` |
+| `.info-toggle` hover | `color: --text-subtle` |
+| `.info-toggle[aria-expanded="true"]` | `color: --accent` |
+| `.info-expand` text | `--font-ui`, 11px, `--text-subtle`, line-height 1.6 |
+| `.info-expand-item strong` | `--text-body`, weight 600 |
+| Animation | `max-height 0.25s ease` |
+
+### JS wiring
+
+The `data-info` attribute on the button matches the `id="info-{key}"` on the panel. `popup/explain.js` handles all toggles via `initExplainers()` called on DOMContentLoaded.
+
+---
+
 ## Trading Capacity Block
 
 A header-bar-footer layout displaying the trader's used vs. remaining position capacity. Uses an indigo bar (distinct from teal/amber) to signal a neutral utilization metric.

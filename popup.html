@@ -101,12 +101,14 @@
         <!-- Section 1: Account Balances (2-column grid) -->
         <div class="balance-grid">
             <div class="balance-card">
-                <div class="balance-label">Funded Account</div>
+                <div class="balance-label">Funded Account <button class="info-toggle" aria-expanded="false" data-info="fundedAccount"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5.5v.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button></div>
+                <div class="info-expand" id="info-fundedAccount" hidden>Your account balance as tracked by the Vanta Network validator. This reflects your starting capital plus or minus unrealized P&L from open positions. This balance determines your challenge progress and drawdown calculations.</div>
                 <div class="balance-value"><span id="fundedBalance">--</span></div>
                 <div class="balance-change positive"><span id="fundedChange">--</span></div>
             </div>
             <div class="balance-card">
-                <div class="balance-label">HL Account</div>
+                <div class="balance-label">HL Account <button class="info-toggle" aria-expanded="false" data-info="hlAccount"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5.5v.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button></div>
+                <div class="info-expand" id="info-hlAccount" hidden>Your live equity on Hyperliquid. This is your actual wallet balance on the exchange. It may differ slightly from the funded account value due to sync timing between the validator and the exchange.</div>
                 <div class="balance-value"><span id="hlBalance">--</span></div>
                 <div class="balance-sublabel">Live equity</div>
             </div>
@@ -115,9 +117,10 @@
         <!-- Section 2: Challenge Progress -->
         <div class="section">
             <div class="section-header">
-                <div class="section-title">Challenge Progress</div>
+                <div class="section-title">Challenge Progress <button class="info-toggle" aria-expanded="false" data-info="challengeProgress"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5.5v.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button></div>
                 <div class="section-value challenge"><span id="challengeValue">--</span></div>
             </div>
+            <div class="info-expand" id="info-challengeProgress" hidden>Shows how close you are to hitting your profit target. You need to reach a 10% return on your funded account to pass the challenge. The bar fills as your return approaches the target. Once it reaches 100%, you've passed and move to a funded account.</div>
             <div class="progress-bar">
                 <div class="progress-fill" id="challengeFill" style="width: 0%;"></div>
             </div>
@@ -127,9 +130,10 @@
         <!-- Section 3: Current Drawdown -->
         <div class="section">
             <div class="section-header">
-                <div class="section-title">Current Drawdown</div>
+                <div class="section-title">Current Drawdown <button class="info-toggle" aria-expanded="false" data-info="currentDrawdown"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5.5v.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button></div>
                 <div class="section-value drawdown"><span id="drawdownValue">--</span></div>
             </div>
+            <div class="info-expand" id="info-currentDrawdown" hidden>Drawdown measures how much your account has dropped from its starting equity during the day. If your intraday drawdown exceeds the limit (typically 5%), your challenge is breached. The bar shows how much of your allowed drawdown you've used — amber means caution, red means danger. Keep this as low as possible.</div>
             <div class="progress-bar drawdown-bar">
                 <div class="progress-fill drawdown-fill" id="drawdownFill" style="width: 0%;"></div>
             </div>
@@ -139,7 +143,11 @@
         <!-- Section 4: Trading Capacity -->
         <div class="capacity-block">
             <div class="capacity-header">
-                <span class="capacity-title">Trading Capacity</span>
+                <span class="capacity-title">Trading Capacity <button class="info-toggle" aria-expanded="false" data-info="tradingCapacity"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5.5v.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button></span>
+            </div>
+            <div class="info-expand" id="info-tradingCapacity" hidden>These limits control how much notional exposure you can take. They're enforced automatically when you place orders on Hyperliquid.
+                <span class="info-expand-item"><strong>Per Asset</strong> — max value in any single position. Challenge: 0.625x equity. Funded: 2.5x equity. Prevents over-concentration in one trade.</span>
+                <span class="info-expand-item"><strong>Total Portfolio</strong> — combined value of all positions. Challenge: 1.25x equity. Funded: 5x equity. This is your overall leverage cap.</span>
             </div>
 
             <!-- Per-asset row -->
@@ -176,9 +184,10 @@
         <!-- Section 5: Open Positions -->
         <div class="section">
             <div class="section-header section-header--positions">
-                <div class="section-title section-title--uppercase">Open Positions</div>
+                <div class="section-title section-title--uppercase">Open Positions <button class="info-toggle" aria-expanded="false" data-info="openPositions"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5.5v.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button></div>
                 <a href="#" class="view-link">View all →</a>
             </div>
+            <div class="info-expand" id="info-openPositions" hidden>Your currently open trades as reported by the Vanta Network validator, mirrored from your Hyperliquid account. P&L shown is unrealized (the position hasn't been closed yet). Value is the notional size of the position. Entry is the average price you entered at.</div>
             <div id="positionsContainer">
                 <div class="no-more-positions">Loading positions...</div>
             </div>
@@ -188,7 +197,8 @@
         <div class="payout-card">
             <div class="payout-content">
                 <div class="payout-left">
-                    <div class="payout-label">Next Payout</div>
+                    <div class="payout-label">Next Payout <button class="info-toggle" aria-expanded="false" data-info="nextPayout"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5.5v.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button></div>
+                    <div class="info-expand" id="info-nextPayout" hidden>Your estimated next payout from profitable trading, based on your profit split agreement with Hyperscaled. Once funded, profits are split between you and the platform. Click this card to view full payout details and request withdrawals. KYC is required for your first payout.</div>
                     <div class="payout-value"><span id="payoutAmount">--</span></div>
                 </div>
                 <div class="payout-arrow">→</div>
@@ -198,9 +208,10 @@
         <!-- Order Events -->
         <div class="section">
             <div class="section-header">
-                <div class="section-title">Order Events</div>
+                <div class="section-title">Order Events <button class="info-toggle" aria-expanded="false" data-info="orderEvents"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5.5v.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button></div>
                 <span class="events-count" id="eventsCount"></span>
             </div>
+            <div class="info-expand" id="info-orderEvents" hidden>Recent order activity on your account. Green-bordered events were accepted and filled. Red-bordered events were rejected — typically due to exceeding capacity limits, trading unsupported pairs, or other risk constraints enforced by the validator.</div>
             <div id="eventsContainer">
                 <div class="no-more-positions">Loading events...</div>
             </div>

@@ -339,6 +339,35 @@ When orders are blocked due to insufficient remaining capacity, the banner uses 
 
 ---
 
+## Info Expand (Educational Tooltips)
+
+Inline expandable explanations that educate users about trading concepts and metrics. A small circle-i icon next to section headers toggles a collapsible text panel.
+
+### Toggle button (`.info-toggle`)
+| Property | Value |
+|----------|-------|
+| Size | Inline, 12×12px SVG icon |
+| Color (rest) | `--text-faint` (40%) |
+| Color (hover) | `--text-subtle` (50%) |
+| Color (expanded) | `--accent` |
+| Margin-left | `4px` from label text |
+| Transition | `0.15s ease` on color |
+
+### Expand panel (`.info-expand`)
+| Property | Value |
+|----------|-------|
+| Font | `--font-ui`, 11px, weight 400, line-height 1.6 |
+| Color | `--text-subtle` (50%) |
+| Padding | `6px 0 8px` when visible |
+| Animation | `max-height` transition, `0.25s ease` |
+| Item labels | `--text-body` (70%), weight 600 via `<strong>` |
+
+**Rule:** Explanations are educational only — they should describe what a metric means and how it affects the user. Never use info-expand for error messages or warnings.
+
+**Rule:** Keep explanation text concise (2–3 sentences max). Traders glance, they don't read paragraphs.
+
+---
+
 ## What This UI Should Never Have
 
 - Gradients used decoratively (the teal glow in `.container::before` is the only allowed ambient gradient)
