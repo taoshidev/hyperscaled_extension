@@ -203,7 +203,7 @@
 
       const dd = result.drawdown || {};
       const currentEquity = parseFloat(dd.current_equity) || 1;
-      ACCOUNT.validatorEquity = ACCOUNT.fundedSize * currentEquity + totalUnrealizedPnl;
+      ACCOUNT.validatorEquity = accountSizeData?.balance ?? (ACCOUNT.fundedSize * currentEquity);
       ACCOUNT.challengeCurrent = (currentEquity - 1) * 100;
       ACCOUNT.drawdownCurrent = parseFloat(dd.intraday_drawdown_pct) || 0;
       ACCOUNT.drawdownMax = parseFloat(dd.intraday_threshold_pct) || ACCOUNT.drawdownMax;
