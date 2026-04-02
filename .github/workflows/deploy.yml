@@ -1,0 +1,69 @@
+name: Deploy to Chrome Web Store
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read manifest version
+        id: manifest
+        run: |
+          VERSION=$(jq -r '.version' manifest.json)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Get latest tag
+        id: latest_tag
+        run: |
+          LATEST=$(git tag --list 'v*' --sort=-version:refname | head -n 1)
+          echo "tag=$LATEST" >> $GITHUB_OUTPUT
+
+      - name: Fail if version not bumped
+        run: |
+          MANIFEST_VERSION="${{ steps.manifest.outputs.version }}"
+          LATEST_TAG="${{ steps.latest_tag.outputs.tag }}"
+          if [ -z "$LATEST_TAG" ]; then
+            echo "✅ No previous tag found, first release: v$MANIFEST_VERSION"
+            exit 0
+          fi
+          LATEST_VERSION="${LATEST_TAG#v}"
+          HIGHEST=$(printf '%s\n' "$LATEST_VERSION" "$MANIFEST_VERSION" | sort -V | tail -n 1)
+          if [ "$HIGHEST" != "$MANIFEST_VERSION" ] || [ "$MANIFEST_VERSION" = "$LATEST_VERSION" ]; then
+            echo "❌ manifest.json version ($MANIFEST_VERSION) must be greater than latest tag ($LATEST_TAG). Bump the version before merging."
+            exit 1
+          fi
+          echo "✅ New version: v$MANIFEST_VERSION (previous: $LATEST_TAG)"
+
+      - name: Zip extension
+        run: |
+          zip -r extension.zip . \
+            --exclude "*.git*" \
+            --exclude ".github/*"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "v${{ steps.manifest.outputs.version }}" \
+            extension.zip \
+            --title "v${{ steps.manifest.outputs.version }}" \
+            --generate-notes
+
+      - name: Upload and publish to Chrome Web Store
+        uses: mnao305/chrome-extension-upload@v4.0.1
+        with:
+          file-path: extension.zip
+          extension-id: ${{ secrets.EXTENSION_ID }}
+          client-id: ${{ secrets.CLIENT_ID }}
+          client-secret: ${{ secrets.CLIENT_SECRET }}
+          refresh-token: ${{ secrets.REFRESH_TOKEN }}
+          publish: true

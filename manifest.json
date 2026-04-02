@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Hyperscaled",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "Track your Hyperfunded account and Hyperliquid positions",
   "action": {
     "default_popup": "popup.html",
