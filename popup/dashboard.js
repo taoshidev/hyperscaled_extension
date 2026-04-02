@@ -38,7 +38,7 @@ export function applyValidatorData(result, state) {
     const cp = result.challenge_period || {};
     const dd = result.drawdown || {};
     const currentEquity = parseFloat(dd.current_equity) || 1;
-    const validatorEquity = accountSize * currentEquity + totalUnrealizedPnl;
+    const validatorEquity = result.account_size_data?.balance ?? (accountSize * currentEquity);
     const returnsPct = (currentEquity - 1) * 100;
     const targetPct = CHALLENGE_TARGET;
     const challengeCompletionPct = targetPct > 0 ? Math.min((returnsPct / targetPct) * 100, 100) : 0;
