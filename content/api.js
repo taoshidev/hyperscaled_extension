@@ -158,6 +158,12 @@
       const positions = Array.isArray(positionsRaw) ? positionsRaw : (positionsRaw?.positions || []);
       console.log("[Hyperscaled] Validator data loaded, account_size:", ACCOUNT.fundedSize, "positions total:", positions.length);
       const openPositions = positions.filter(p => !p.is_closed_position && !p.close_ms);
+      const accountSizeData = result.account_size_data;
+      const capUsed = accountSizeData?.capital_used;
+      const levSum = openPositions.reduce((s, p) => {
+        return s + Math.abs(parseFloat(p.net_leverage ?? p.leverage) || 0);
+      }, 0);
+
       let totalUnrealizedPnl = 0;
       let totalNotional = 0;
       let maxSingleNotional = 0;
@@ -167,7 +173,18 @@
         const notional = pos.net_leverage != null
           ? Math.abs(parseFloat(pos.net_leverage)) * ACCOUNT.fundedSize
           : (pos.filled_orders || []).reduce((s, o) => s + Math.abs(parseFloat(o.value) || 0), 0);
-        const pnl = ((parseFloat(pos.current_return) || 1) - 1) * ACCOUNT.fundedSize;
+
+        const r = parseFloat(pos.current_return) || 1;
+        let pnl;
+        if (capUsed != null && capUsed > 0 && levSum > 0) {
+          const lev = Math.abs(parseFloat(pos.net_leverage ?? pos.leverage) || 0);
+          const share = lev / levSum;
+          pnl = (r - 1) * capUsed * share;
+        } else if (capUsed != null && capUsed > 0 && openPositions.length > 0) {
+          pnl = (r - 1) * (capUsed / openPositions.length);
+        } else {
+          pnl = (r - 1) * ACCOUNT.fundedSize;
+        }
 
         totalUnrealizedPnl += pnl;
         totalNotional += notional;

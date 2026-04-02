@@ -10,6 +10,14 @@ export function applyValidatorData(result, state) {
     const positions = Array.isArray(positionsRaw) ? positionsRaw : (positionsRaw?.positions || []);
     const openPositions = positions.filter(p => !p.is_closed_position && !p.close_ms);
 
+    const accountSizeData = result.account_size_data;
+    const capUsed = accountSizeData?.capital_used;
+
+    // Leverage-weighted unrealized PnL (matches dashboard calculation)
+    const levSum = openPositions.reduce((s, p) => {
+        return s + Math.abs(parseFloat(p.net_leverage ?? p.leverage) || 0);
+    }, 0);
+
     let totalUnrealizedPnl = 0;
     let totalNotional = 0;
     let maxSingleNotional = 0;
@@ -19,7 +27,18 @@ export function applyValidatorData(result, state) {
         const notional = pos.net_leverage != null
             ? Math.abs(parseFloat(pos.net_leverage)) * accountSize
             : (pos.filled_orders || []).reduce((s, o) => s + Math.abs(parseFloat(o.value) || 0), 0);
-        const pnl = ((parseFloat(pos.current_return) || 1) - 1) * accountSize;
+
+        const r = parseFloat(pos.current_return) || 1;
+        let pnl;
+        if (capUsed != null && capUsed > 0 && levSum > 0) {
+            const lev = Math.abs(parseFloat(pos.net_leverage ?? pos.leverage) || 0);
+            const share = lev / levSum;
+            pnl = (r - 1) * capUsed * share;
+        } else if (capUsed != null && capUsed > 0 && openPositions.length > 0) {
+            pnl = (r - 1) * (capUsed / openPositions.length);
+        } else {
+            pnl = (r - 1) * accountSize;
+        }
 
         totalUnrealizedPnl += pnl;
         totalNotional += notional;
@@ -191,12 +210,12 @@ export function applyValidatorData(result, state) {
     }
     if (capacityRemainingEl) capacityRemainingEl.textContent = fmtUsd(Math.max(maxTotal - totalCapacityUsed, 0));
 
-    renderPositions(openPositions, accountSize);
+    renderPositions(openPositions, accountSize, accountSizeData);
     showDashboard();
     state.dashboardShown = true;
 }
 
-export function renderPositions(positions, accountSize) {
+export function renderPositions(positions, accountSize, accountSizeData) {
     const container = document.getElementById('positionsContainer');
     if (!container) return;
 
@@ -204,6 +223,9 @@ export function renderPositions(positions, accountSize) {
         container.innerHTML = '<div class="no-more-positions">No open positions</div>';
         return;
     }
+
+    const capUsedRender = accountSizeData?.capital_used;
+    const levSumRender = positions.reduce((s, p) => s + Math.abs(parseFloat(p.net_leverage ?? p.leverage) || 0), 0);
 
     container.innerHTML = positions.map(pos => {
         const tp = pos.trade_pair || '';
@@ -222,7 +244,17 @@ export function renderPositions(positions, accountSize) {
 
         const entryPx = parseFloat(pos.average_entry_price) || 0;
 
-        const pnl = ((parseFloat(pos.current_return) || 1) - 1) * (accountSize || 0);
+        const r = parseFloat(pos.current_return) || 1;
+        let pnl;
+        if (capUsedRender != null && capUsedRender > 0 && levSumRender > 0) {
+            const lev = Math.abs(parseFloat(pos.net_leverage ?? pos.leverage) || 0);
+            const share = lev / levSumRender;
+            pnl = (r - 1) * capUsedRender * share;
+        } else if (capUsedRender != null && capUsedRender > 0 && positions.length > 0) {
+            pnl = (r - 1) * (capUsedRender / positions.length);
+        } else {
+            pnl = (r - 1) * (accountSize || 0);
+        }
         const pnlSign = pnl >= 0 ? '+' : '';
         const pnlClass = pnl >= 0 ? 'positive' : 'negative';
 
