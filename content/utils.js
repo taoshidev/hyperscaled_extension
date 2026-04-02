@@ -58,12 +58,57 @@
   const pct = (used, max) => max > 0 ? Math.min((used / max) * 100, 100).toFixed(1) : "0.0";
   const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
 
+  // Detect once at load time — which character this locale uses as decimal separator
+  const _localeDecimal = (() => {
+    try {
+      return new Intl.NumberFormat(navigator.language)
+        .formatToParts(1.1)
+        .find(p => p.type === 'decimal')?.value ?? '.';
+    } catch (_) {
+      return '.';
+    }
+  })();
+
   function parseNumber(raw) {
     if (!raw) return 0;
-    const s = raw.toString().trim();
+    const s = raw.toString().trim().replace(/[$\s]/g, "");
     if (!s) return 0;
-    const cleaned = s.replace(/,/g, "").replace(/\$/g, "");
-    const v = parseFloat(cleaned);
+
+    const lastComma = s.lastIndexOf(",");
+    const lastDot   = s.lastIndexOf(".");
+
+    let normalized;
+    if (lastComma < 0 && lastDot < 0) {
+      // plain integer
+      normalized = s;
+    } else if (lastComma < 0) {
+      // only dots → standard decimal (e.g. "1234.56")
+      normalized = s;
+    } else if (lastDot < 0) {
+      // only commas
+      const afterComma  = s.length - lastComma - 1;
+      const commaCount  = (s.match(/,/g) || []).length;
+      const beforeComma = s.slice(0, lastComma);
+      if (commaCount > 1) {
+        // multiple commas → EN thousands separator: "1,234,567"
+        normalized = s.replace(/,/g, "");
+      } else if (afterComma === 3 && !/^-?0$/.test(beforeComma)) {
+        // single comma, exactly 3 trailing digits, non-zero integer part — ambiguous.
+        // use locale: EU decimal ("1,500" = 1.5) vs EN thousands ("1,500" = 1500)
+        normalized = _localeDecimal === ',' ? s.replace(",", ".") : s.replace(",", "");
+      } else {
+        // unambiguous decimal comma: "1,5" or "0,001" or "12,34"
+        normalized = s.replace(",", ".");
+      }
+    } else if (lastComma > lastDot) {
+      // comma comes after dot → EU format: "1.234,56"
+      normalized = s.replace(/\./g, "").replace(",", ".");
+    } else {
+      // dot comes after comma → US format: "1,234.56"
+      normalized = s.replace(/,/g, "");
+    }
+
+    const v = parseFloat(normalized);
     return Number.isFinite(v) ? v : 0;
   }
 
