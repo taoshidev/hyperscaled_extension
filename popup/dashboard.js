@@ -143,7 +143,7 @@ export function applyValidatorData(result, state) {
         if (inChallenge) return isHighLev ? 2.5 : 0.5;
         return isHighLev ? 5 : 1;
     };
-    const totalLevCap   = inChallenge ? 2.5  : 5;
+    const totalLevCap   = inChallenge ? 2  : 5;
     // Match content-script enforcement basis: live equity + deployed open exposure.
     const basisUsd = (Number(state.hlBalance) || 0) + (Number(state.openTotalUsed) || 0);
 

@@ -18,7 +18,7 @@
   }
 
   function totalPositionLeverageCap() {
-    return ACCOUNT.inChallenge ? 2.5 : 5;
+    return ACCOUNT.inChallenge ? 2 : 5;
   }
 
   function resolveChallengeModeFromValidator(result) {
