@@ -137,18 +137,28 @@ export function applyValidatorData(result, state) {
             `Trailing ${fmtUsd(Math.max(trailingBufferDollar, 0))} (${trailingBufferPct.toFixed(2)}%) buffer`;
     }
 
-    const perPairLevCap = inChallenge ? 0.625 : 2.5;
-    const totalLevCap   = inChallenge ? 1.25  : 5;
+    const HIGH_LEV_SYMBOLS = new Set(["EUR", "JPY", "SP500"]);
+    const perPairLevCap = (symbol) => {
+        const isHighLev = symbol && HIGH_LEV_SYMBOLS.has(symbol.toUpperCase());
+        if (inChallenge) return isHighLev ? 2.5 : 0.5;
+        return isHighLev ? 5 : 1;
+    };
+    const totalLevCap   = inChallenge ? 2.5  : 5;
     // Match content-script enforcement basis: live equity + deployed open exposure.
     const basisUsd = (Number(state.hlBalance) || 0) + (Number(state.openTotalUsed) || 0);
 
-    let maxPerPair = basisUsd * perPairLevCap;
+    let maxPerPair = basisUsd * perPairLevCap();
     let maxTotal   = basisUsd * totalLevCap;
 
+    const backendPairLimit = state.traderLimits ? (parseFloat(state.traderLimits.max_position_per_pair_usd) || 0) : 0;
+    const effectiveMaxPerPair = (symbol) => {
+        let cap = basisUsd * perPairLevCap(symbol);
+        if (backendPairLimit > 0) cap = Math.min(cap, backendPairLimit);
+        return cap;
+    };
+    if (backendPairLimit > 0) maxPerPair = Math.min(maxPerPair, backendPairLimit);
     if (state.traderLimits) {
-        const backendPair = parseFloat(state.traderLimits.max_position_per_pair_usd) || 0;
         const backendTotal = parseFloat(state.traderLimits.max_portfolio_usd) || 0;
-        if (backendPair > 0) maxPerPair = Math.min(maxPerPair, backendPair);
         if (backendTotal > 0) maxTotal = Math.min(maxTotal, backendTotal);
     }
 
@@ -166,13 +176,16 @@ export function applyValidatorData(result, state) {
         .map(([symbol, value]) => [String(symbol).toUpperCase(), Number(value) || 0])
         .filter(([, value]) => value > 0)
         .sort((a, b) => b[1] - a[1]);
-    if (perPairRemainingEl) perPairRemainingEl.textContent = fmtUsd(Math.max(maxPerPair - largestPairNotional, 0));
+    const largestPairSymbol = perAssetEntries.length > 0 ? perAssetEntries[0][0] : null;
+    const largestPairMax = effectiveMaxPerPair(largestPairSymbol);
+    if (perPairRemainingEl) perPairRemainingEl.textContent = fmtUsd(Math.max(largestPairMax - largestPairNotional, 0));
     if (perPairSubBarsEl) {
         if (perAssetEntries.length === 0) {
             perPairSubBarsEl.innerHTML = '';
         } else {
             perPairSubBarsEl.innerHTML = perAssetEntries.map(([symbol, value]) => {
-                const usedPct = maxPerPair > 0 ? Math.min((value / maxPerPair) * 100, 100) : 0;
+                const symbolMax = effectiveMaxPerPair(symbol);
+                const usedPct = symbolMax > 0 ? Math.min((value / symbolMax) * 100, 100) : 0;
                 const safeSymbol = symbol.replace(/[^A-Z0-9._-]/g, '');
                 return `
                     <div class="capacity-asset-row">
@@ -180,7 +193,7 @@ export function applyValidatorData(result, state) {
                         <div class="capacity-asset-track">
                             <div class="capacity-asset-fill" style="width: ${usedPct.toFixed(1)}%;"></div>
                         </div>
-                        <span class="capacity-asset-value">${fmtUsd(value)} / ${fmtUsd(maxPerPair)}</span>
+                        <span class="capacity-asset-value">${fmtUsd(value)} / ${fmtUsd(symbolMax)}</span>
                     </div>
                 `;
             }).join('');

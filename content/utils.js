@@ -9,12 +9,16 @@
     return walletEquity + openNotional;
   }
 
-  function perPositionLeverageCap() {
-    return ACCOUNT.inChallenge ? 0.625 : 2.5;
+  const HIGH_LEV_SYMBOLS = new Set(["EUR", "JPY", "SP500"]);
+
+  function perPositionLeverageCap(symbol) {
+    const isHighLev = symbol && HIGH_LEV_SYMBOLS.has(symbol.toUpperCase());
+    if (ACCOUNT.inChallenge) return isHighLev ? 2.5 : 0.5;
+    return isHighLev ? 5 : 1;
   }
 
   function totalPositionLeverageCap() {
-    return ACCOUNT.inChallenge ? 1.25 : 5;
+    return ACCOUNT.inChallenge ? 2.5 : 5;
   }
 
   function resolveChallengeModeFromValidator(result) {
@@ -32,8 +36,8 @@
     return ACCOUNT.inChallenge;
   }
 
-  function effectiveMaxSingleUsd() {
-    const modeCap = marginLimitBasisUsd() * perPositionLeverageCap();
+  function effectiveMaxSingleUsd(symbol) {
+    const modeCap = marginLimitBasisUsd() * perPositionLeverageCap(symbol);
     if (HF.state.limitsLoaded && ACCOUNT.maxPositionPerPair > 0) {
       return Math.min(modeCap, ACCOUNT.maxPositionPerPair);
     }
