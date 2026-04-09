@@ -864,3 +864,191 @@ button.hf-trade-blocked:disabled {
   color: rgba(255, 255, 255, 0.7) !important;
   background: rgba(255, 255, 255, 0.08) !important;
 }
+
+/* ── Mirror Preview Card ───────────────────────────────────────────────── */
+#hf-mirror-preview.hf-mirror-preview {
+  display: none;
+  position: relative;
+  width: 100%;
+  padding: 8px 10px;
+  margin: 6px 0 0 0;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  box-sizing: border-box;
+  box-shadow: none;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.85);
+  line-height: 1.4;
+  text-align: left;
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: normal;
+  overflow: visible;
+  float: none;
+  clear: none;
+  visibility: visible;
+}
+#hf-mirror-preview.hf-mirror-preview.hf-mirror-show {
+  display: block;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ── Header ── */
+#hf-mirror-preview .hf-mp-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 0 0 6px 0;
+  padding: 0 0 6px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+#hf-mirror-preview .hf-mp-symbol {
+  display: inline;
+  font-size: 11px;
+  font-family: 'Menlo', monospace;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+  letter-spacing: 0.3px;
+  margin: 0; padding: 0;
+}
+#hf-mirror-preview .hf-mp-mode {
+  display: inline;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.3);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  margin: 0; padding: 0;
+}
+
+/* ── Rows ── */
+#hf-mirror-preview .hf-mp-rows {
+  display: block;
+  margin: 0 0 8px 0;
+  padding: 0 0 8px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+#hf-mirror-preview .hf-mp-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 0 0 4px 0;
+  padding: 0;
+}
+#hf-mirror-preview .hf-mp-row:last-child {
+  margin-bottom: 0;
+}
+#hf-mirror-preview .hf-mp-label {
+  display: inline;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.45);
+  font-weight: 400;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  margin: 0; padding: 0;
+}
+#hf-mirror-preview .hf-mp-val {
+  display: inline;
+  font-size: 12px;
+  font-family: 'Menlo', monospace;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.85);
+  font-variant-numeric: tabular-nums;
+  margin: 0; padding: 0;
+}
+#hf-mirror-preview .hf-mp-val--accent {
+  color: #00c6a7;
+  font-weight: 600;
+}
+#hf-mirror-preview .hf-mp-val-group {
+  display: flex;
+  align-items: baseline;
+  margin: 0; padding: 0;
+}
+#hf-mirror-preview .hf-mp-ratio {
+  display: inline;
+  font-size: 10px;
+  font-family: 'Menlo', monospace;
+  color: rgba(255, 255, 255, 0.3);
+  margin: 0 0 0 5px; padding: 0;
+}
+
+/* ── Capacity sections ── */
+#hf-mirror-preview .hf-mp-capacity {
+  display: block;
+  margin: 0; padding: 0;
+}
+#hf-mirror-preview .hf-mp-capacity--pair {
+  margin: 0 0 8px 0;
+  padding: 0 0 8px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+#hf-mirror-preview .hf-mp-cap-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 0 0 5px 0;
+  padding: 0;
+}
+#hf-mirror-preview .hf-mp-cap-title {
+  display: inline;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.3);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  margin: 0; padding: 0;
+}
+#hf-mirror-preview .hf-mp-cap-pct {
+  display: inline;
+  font-size: 11px;
+  font-family: 'Menlo', monospace;
+  font-weight: 600;
+  color: #6466f1;
+  font-variant-numeric: tabular-nums;
+  margin: 0; padding: 0;
+}
+#hf-mirror-preview .hf-mp-bar {
+  display: flex;
+  width: 100%;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 3px;
+  overflow: hidden;
+  margin: 0 0 4px 0;
+  padding: 0;
+}
+#hf-mirror-preview .hf-mp-bar-current {
+  display: block;
+  height: 100%;
+  background: #6466f1;
+  transition: width 0.2s ease;
+  min-width: 0;
+  margin: 0; padding: 0;
+  border-radius: 0;
+}
+#hf-mirror-preview .hf-mp-bar-pending {
+  display: block;
+  height: 100%;
+  background: rgba(100, 102, 241, 0.4);
+  transition: width 0.2s ease, background 0.2s ease;
+  min-width: 0;
+  margin: 0; padding: 0;
+  border-radius: 0;
+}
+#hf-mirror-preview .hf-mp-cap-detail {
+  display: block;
+  font-size: 10px;
+  font-family: 'Menlo', monospace;
+  color: rgba(255, 255, 255, 0.35);
+  font-variant-numeric: tabular-nums;
+  margin: 0; padding: 0;
+}

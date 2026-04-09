@@ -19,8 +19,12 @@
   "permissions": [
     "notifications",
     "storage",
-    "alarms"
+    "alarms",
+    "sidePanel"
   ],
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
   "host_permissions": [
     "https://app.hyperliquid.xyz/trade/*",
     "https://api.hyperliquid.xyz/*",
@@ -42,6 +46,7 @@
         "content/pair-support.js",
         "content/clamping.js",
         "content/trade-gate.js",
+        "content/mirror-preview.js",
         "content/input-binding.js",
         "content/payment.js",
         "content/navigation.js",

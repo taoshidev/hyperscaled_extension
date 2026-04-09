@@ -137,28 +137,35 @@ export function applyValidatorData(result, state) {
             `Trailing ${fmtUsd(Math.max(trailingBufferDollar, 0))} (${trailingBufferPct.toFixed(2)}%) buffer`;
     }
 
-    const HIGH_LEV_SYMBOLS = new Set(["EUR", "JPY", "SP500"]);
-    const perPairLevCap = (symbol) => {
-        const isHighLev = symbol && HIGH_LEV_SYMBOLS.has(symbol.toUpperCase());
-        if (inChallenge) return isHighLev ? 2.5 : 0.5;
-        return isHighLev ? 5 : 1;
-    };
-    const totalLevCap   = inChallenge ? 2  : 5;
-    // Match content-script enforcement basis: live equity + deployed open exposure.
+    // ── Mirror ratio (used by HS capacity block) ───────────────────────────────
+    const hlBal = Number(state.hlBalance) || 0;
+    const mirrorRatio = hlBal > 0 ? accountSize / hlBal : 0;
+
+    // ── Trading Capacity ────────────────────────────────────────────────────────
+    const perPairLevCap = inChallenge ? 0.625 : 2.5;
+    const totalLevCap   = inChallenge ? 1.25  : 5;
+    // Capacity is calculated from HL balance (not Hyperscaled account size).
     const basisUsd = (Number(state.hlBalance) || 0) + (Number(state.openTotalUsed) || 0);
 
-    let maxPerPair = basisUsd * perPairLevCap();
+    // Populate multiplier and basis labels
+    const perAssetMultiplierEl = document.getElementById('perAssetMultiplier');
+    const totalMultiplierEl = document.getElementById('totalMultiplier');
+    const capacityBasisValueEl = document.getElementById('capacityBasisValue');
+    const infoPerAssetMultEl = document.getElementById('infoPerAssetMultiplier');
+    const infoTotalMultEl = document.getElementById('infoTotalMultiplier');
+    if (perAssetMultiplierEl) perAssetMultiplierEl.textContent = `(${perPairLevCap}x HL bal)`;
+    if (totalMultiplierEl) totalMultiplierEl.textContent = `(${totalLevCap}x HL bal)`;
+    if (capacityBasisValueEl) capacityBasisValueEl.textContent = fmtUsd(basisUsd);
+    if (infoPerAssetMultEl) infoPerAssetMultEl.textContent = `${perPairLevCap}x`;
+    if (infoTotalMultEl) infoTotalMultEl.textContent = `${totalLevCap}x`;
+
+    let maxPerPair = basisUsd * perPairLevCap;
     let maxTotal   = basisUsd * totalLevCap;
 
-    const backendPairLimit = state.traderLimits ? (parseFloat(state.traderLimits.max_position_per_pair_usd) || 0) : 0;
-    const effectiveMaxPerPair = (symbol) => {
-        let cap = basisUsd * perPairLevCap(symbol);
-        if (backendPairLimit > 0) cap = Math.min(cap, backendPairLimit);
-        return cap;
-    };
-    if (backendPairLimit > 0) maxPerPair = Math.min(maxPerPair, backendPairLimit);
     if (state.traderLimits) {
+        const backendPair = parseFloat(state.traderLimits.max_position_per_pair_usd) || 0;
         const backendTotal = parseFloat(state.traderLimits.max_portfolio_usd) || 0;
+        if (backendPair > 0) maxPerPair = Math.min(maxPerPair, backendPair);
         if (backendTotal > 0) maxTotal = Math.min(maxTotal, backendTotal);
     }
 
@@ -176,16 +183,13 @@ export function applyValidatorData(result, state) {
         .map(([symbol, value]) => [String(symbol).toUpperCase(), Number(value) || 0])
         .filter(([, value]) => value > 0)
         .sort((a, b) => b[1] - a[1]);
-    const largestPairSymbol = perAssetEntries.length > 0 ? perAssetEntries[0][0] : null;
-    const largestPairMax = effectiveMaxPerPair(largestPairSymbol);
-    if (perPairRemainingEl) perPairRemainingEl.textContent = fmtUsd(Math.max(largestPairMax - largestPairNotional, 0));
+    if (perPairRemainingEl) perPairRemainingEl.textContent = fmtUsd(Math.max(maxPerPair - largestPairNotional, 0));
     if (perPairSubBarsEl) {
         if (perAssetEntries.length === 0) {
             perPairSubBarsEl.innerHTML = '';
         } else {
             perPairSubBarsEl.innerHTML = perAssetEntries.map(([symbol, value]) => {
-                const symbolMax = effectiveMaxPerPair(symbol);
-                const usedPct = symbolMax > 0 ? Math.min((value / symbolMax) * 100, 100) : 0;
+                const usedPct = maxPerPair > 0 ? Math.min((value / maxPerPair) * 100, 100) : 0;
                 const safeSymbol = symbol.replace(/[^A-Z0-9._-]/g, '');
                 return `
                     <div class="capacity-asset-row">
@@ -193,7 +197,7 @@ export function applyValidatorData(result, state) {
                         <div class="capacity-asset-track">
                             <div class="capacity-asset-fill" style="width: ${usedPct.toFixed(1)}%;"></div>
                         </div>
-                        <span class="capacity-asset-value">${fmtUsd(value)} / ${fmtUsd(symbolMax)}</span>
+                        <span class="capacity-asset-value">${fmtUsd(value)} / ${fmtUsd(maxPerPair)}</span>
                     </div>
                 `;
             }).join('');
@@ -222,6 +226,64 @@ export function applyValidatorData(result, state) {
         capacityFillEl.style.width = capPct + '%';
     }
     if (capacityRemainingEl) capacityRemainingEl.textContent = fmtUsd(Math.max(maxTotal - totalCapacityUsed, 0));
+
+    // ── Trading Capacity (Hyperscaled) — mirrored proportionally ────────────
+    const r = mirrorRatio;  // accountSize / hlBalance, already computed above
+    const hsMaxPerPair = maxPerPair * r;
+    const hsMaxTotal   = maxTotal * r;
+    const hsLargestPairNotional = largestPairNotional * r;
+    const hsTotalCapacityUsed   = totalCapacityUsed * r;
+
+    const hsBasisRatioEl = document.getElementById('hsBasisRatio');
+    const hsBasisValueEl = document.getElementById('hsBasisValue');
+    if (hsBasisRatioEl) hsBasisRatioEl.textContent = r > 0 ? r.toFixed(1) + 'x' : '--';
+    if (hsBasisValueEl) hsBasisValueEl.textContent = fmtUsd(accountSize);
+
+    const hsPerPairRemainingEl = document.getElementById('hsPerPairRemaining');
+    if (hsPerPairRemainingEl) hsPerPairRemainingEl.textContent = fmtUsd(Math.max(hsMaxPerPair - hsLargestPairNotional, 0));
+
+    const hsPerPairSubBarsEl = document.getElementById('hsPerPairSubBars');
+    if (hsPerPairSubBarsEl) {
+        if (perAssetEntries.length === 0) {
+            hsPerPairSubBarsEl.innerHTML = '';
+        } else {
+            hsPerPairSubBarsEl.innerHTML = perAssetEntries.map(([symbol, value]) => {
+                const hsValue = value * r;
+                const usedPct = hsMaxPerPair > 0 ? Math.min((hsValue / hsMaxPerPair) * 100, 100) : 0;
+                const safeSymbol = symbol.replace(/[^A-Z0-9._-]/g, '');
+                return `
+                    <div class="capacity-asset-row">
+                        <span class="capacity-asset-symbol">${safeSymbol}</span>
+                        <div class="capacity-asset-track">
+                            <div class="capacity-asset-fill" style="width: ${usedPct.toFixed(1)}%;"></div>
+                        </div>
+                        <span class="capacity-asset-value">${fmtUsd(hsValue)} / ${fmtUsd(hsMaxPerPair)}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+    }
+
+    const hsPerPairBreakdownEl = document.getElementById('hsPerPairBreakdown');
+    if (hsPerPairBreakdownEl) {
+        if (perAssetEntries.length === 0) {
+            hsPerPairBreakdownEl.textContent = 'No open positions';
+        } else {
+            hsPerPairBreakdownEl.textContent = `${perAssetEntries.length} asset${perAssetEntries.length > 1 ? 's' : ''} with open exposure`;
+        }
+    }
+
+    const hsCapacityUsedEl = document.getElementById('hsCapacityUsed');
+    const hsCapacityMaxEl = document.getElementById('hsCapacityMax');
+    const hsCapacityFillEl = document.getElementById('hsCapacityFill');
+    const hsCapacityRemainingEl = document.getElementById('hsCapacityRemaining');
+    if (hsCapacityUsedEl) hsCapacityUsedEl.textContent = fmtUsd(hsTotalCapacityUsed);
+    if (hsCapacityMaxEl) hsCapacityMaxEl.textContent = fmtUsd(hsMaxTotal);
+    if (hsCapacityFillEl) {
+        const hsPct = hsMaxTotal > 0 ? Math.min((hsTotalCapacityUsed / hsMaxTotal) * 100, 100) : 0;
+        hsCapacityFillEl.style.width = hsPct + '%';
+    }
+    if (hsCapacityRemainingEl) hsCapacityRemainingEl.textContent = fmtUsd(Math.max(hsMaxTotal - hsTotalCapacityUsed, 0));
 
     renderPositions(openPositions, accountSize, accountSizeData);
     showDashboard();

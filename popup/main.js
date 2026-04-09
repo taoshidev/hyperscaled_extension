@@ -275,6 +275,45 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
     }
 
+    // Capacity HL/HS toggle
+    const capacityToggle = document.getElementById('capacityToggle');
+    if (capacityToggle) {
+        capacityToggle.addEventListener('click', (e) => {
+            const btn = e.target.closest('.capacity-toggle-btn');
+            if (!btn) return;
+            const view = btn.dataset.view;
+            const hlView = document.getElementById('capacityViewHl');
+            const hsView = document.getElementById('capacityViewHs');
+            capacityToggle.querySelectorAll('.capacity-toggle-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            if (view === 'hs') {
+                hlView.hidden = true;
+                hsView.hidden = false;
+            } else {
+                hlView.hidden = false;
+                hsView.hidden = true;
+            }
+        });
+    }
+
+    // Pin to side panel
+    const pinSideBtn = document.getElementById('pinSideBtn');
+    if (pinSideBtn && chrome.sidePanel) {
+        pinSideBtn.addEventListener('click', async () => {
+            try {
+                const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+                if (tab) {
+                    await chrome.sidePanel.open({ tabId: tab.id });
+                    window.close();
+                }
+            } catch (e) {
+                console.error('[Hyperscaled] Side panel open failed:', e);
+            }
+        });
+    } else if (pinSideBtn) {
+        pinSideBtn.style.display = 'none';
+    }
+
     // Restore cached data instantly, then refresh live
     console.log('[Hyperscaled Popup] Starting data refresh, storedAddress:', state.storedAddress);
     state.dashboardShown = false;

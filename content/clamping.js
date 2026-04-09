@@ -247,7 +247,7 @@
 
     const symbol = getCurrentSymbol();
     const currentPairNotional = (symbol && ACCOUNT.notionalByPair[symbol]) || 0;
-    const maxNotionalPerPair = effectiveMaxSingleUsd(symbol);
+    const maxNotionalPerPair = effectiveMaxSingleUsd();
     const maxNotionalTotal = effectiveMaxTotalUsd();
 
     const leftSingle = maxNotionalPerPair - currentPairNotional;
@@ -301,7 +301,7 @@
 
     const symbol = getCurrentSymbol();
     const currentPairNotional = (symbol && ACCOUNT.notionalByPair[symbol]) || 0;
-    const maxNotionalPerPair = effectiveMaxSingleUsd(symbol);
+    const maxNotionalPerPair = effectiveMaxSingleUsd();
     const maxNotionalTotal = effectiveMaxTotalUsd();
 
     const leftSingle = maxNotionalPerPair - currentPairNotional;

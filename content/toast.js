@@ -62,7 +62,7 @@
     const isBlockedOnly = details?.blocked === true;
     const symbol = getCurrentSymbol();
     const symbolLabel = symbol || "this asset";
-    const perPairLimitUsd = effectiveMaxSingleUsd(symbol);
+    const perPairLimitUsd = effectiveMaxSingleUsd();
     const usedPerPairUsd = (symbol && ACCOUNT.notionalByPair[symbol]) || 0;
     const remainingPerPairUsd = Math.max(perPairLimitUsd - usedPerPairUsd, 0);
     const leverageBasisUsd = marginLimitBasisUsd();
@@ -116,7 +116,7 @@
        iconHtml = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="#f87171" stroke-width="1.5"/><line x1="5" y1="5" x2="11" y2="11" stroke="#f87171" stroke-width="1.5" stroke-linecap="round"/></svg>';
        variantClass = "hf-toast hf-toast--blocked";
     } else if (constraint === 'per-pair') {
-       messageHtml = "Single-asset limit is <b>" + fmt(effectiveMaxSingleUsd(symbol)) + "</b>. Size " +
+       messageHtml = "Single-asset limit is <b>" + fmt(effectiveMaxSingleUsd()) + "</b>. Size " +
          formatSizeForToast(requestedSize, sizeUnit) + " " + sizeUnit + " should be reduced to " +
          formatSizeForToast(clampedSize, sizeUnit) + " " + sizeUnit + ".";
        if (perAssetBuyContext) {

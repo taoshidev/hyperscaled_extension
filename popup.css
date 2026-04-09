@@ -178,6 +178,50 @@ body {
     color: var(--text-dim);
 }
 
+/* ── Pin Side Button ───────────────────────────────── */
+.pin-side-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    background: transparent;
+    border: 1px solid var(--border-card);
+    border-radius: var(--radius-sm);
+    color: var(--text-faint);
+    cursor: pointer;
+    transition: border-color 0.15s ease, color 0.15s ease;
+    flex-shrink: 0;
+}
+
+.pin-side-btn:hover {
+    border-color: var(--accent-border);
+    color: var(--text-primary);
+}
+
+/* ── Capacity Basis Note ───────────────────────────── */
+.capacity-basis-note {
+    font-size: 10px;
+    font-family: var(--font-ui);
+    color: var(--text-faint);
+    margin-bottom: var(--space-2);
+}
+
+.capacity-basis-note span {
+    font-family: var(--font-mono);
+    color: var(--text-body);
+    font-variant-numeric: tabular-nums;
+}
+
+.capacity-multiplier {
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--text-subtle);
+    font-weight: 400;
+    margin-left: 4px;
+}
+
 /* ── Wallet Config ──────────────────────────────────── */
 .wallet-config {
     margin-bottom: 14px;
@@ -709,6 +753,41 @@ body {
     font-weight: 600;
     font-family: var(--font-ui);
     color: var(--text-strong);
+}
+
+.capacity-toggle {
+    display: flex;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 6px;
+    padding: 2px;
+    gap: 2px;
+}
+
+.capacity-toggle-btn {
+    font-size: 10px;
+    font-family: var(--font-ui);
+    font-weight: 500;
+    color: var(--text-faint);
+    background: none;
+    border: none;
+    padding: 3px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: color 0.15s ease, background 0.15s ease;
+    white-space: nowrap;
+}
+
+.capacity-toggle-btn:hover {
+    color: var(--text-subtle);
+}
+
+.capacity-toggle-btn.active {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-body);
+}
+
+.capacity-view[hidden] {
+    display: none;
 }
 
 .capacity-row {

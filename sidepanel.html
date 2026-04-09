@@ -8,8 +8,22 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="popup.css">
+    <style>
+        body {
+            width: 100%;
+            min-width: 300px;
+            max-width: 100%;
+        }
+        .container {
+            border: none;
+            border-radius: 0;
+        }
+        .header .pin-side-btn {
+            display: none;
+        }
+    </style>
 </head>
-<body>
+<body data-context="sidepanel">
     <div class="container">
         <!-- Header -->
         <div class="header">
@@ -20,9 +34,6 @@
                     <span id="hlBalanceHeader" class="wallet-inline-balance">$0.00</span>
                 </div>
                 <div class="status-badge" style="display: none;">In Challenge</div>
-                <button id="pinSideBtn" class="pin-side-btn" title="Pin to side panel">
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 2h10v12H3z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M7 2v12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-                </button>
             </div>
         </div>
 
@@ -157,77 +168,81 @@
             <div class="progress-label"><span id="drawdownLabel">--</span></div>
         </div>
 
-        <!-- Section 4: Trading Capacity (unified with HL/HS toggle) -->
+        <!-- Section 4a: Trading Capacity (Hyperliquid) -->
         <div class="capacity-block">
             <div class="capacity-header">
-                <span class="capacity-title">Trading Capacity <button class="info-toggle" aria-expanded="false" data-info="tradingCapacity"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5.5v.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button></span>
-                <div class="capacity-toggle" id="capacityToggle">
-                    <button class="capacity-toggle-btn active" data-view="hl">HL</button>
-                    <button class="capacity-toggle-btn" data-view="hs">Hyperscaled</button>
-                </div>
+                <span class="capacity-title">Trading Capacity (Hyperliquid) <button class="info-toggle" aria-expanded="false" data-info="tradingCapacity"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5.5v.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button></span>
             </div>
-            <div class="info-expand" id="info-tradingCapacity" hidden>These limits control how much notional exposure you can take. Calculated from your HL wallet balance and enforced automatically when you place orders. Toggle to Hyperscaled to see the same limits scaled to your funded account size.
+            <div class="info-expand" id="info-tradingCapacity" hidden>These limits control how much notional exposure you can take on your Hyperliquid account. They are calculated from your HL wallet balance and enforced automatically when you place orders.
                 <span class="info-expand-item"><strong>Per Asset</strong> — max position size in any single asset. Calculated as your HL equity × <span id="infoPerAssetMultiplier">--</span>. Prevents over-concentration.</span>
                 <span class="info-expand-item"><strong>Total Available Size</strong> — max combined value of all positions. Calculated as your HL equity × <span id="infoTotalMultiplier">--</span>. This is your overall leverage cap.</span>
             </div>
+            <div class="capacity-basis-note">
+                Based on HL equity of <span id="capacityBasisValue">--</span>
+            </div>
 
-            <!-- HL view -->
-            <div class="capacity-view" id="capacityViewHl">
-                <div class="capacity-basis-note">
-                    Based on HL equity of <span id="capacityBasisValue">--</span>
+            <!-- Per-asset row -->
+            <div class="capacity-row">
+                <div class="capacity-row-header">
+                    <span class="capacity-row-label">Per Asset <span class="capacity-multiplier" id="perAssetMultiplier"></span></span>
                 </div>
-                <div class="capacity-row">
-                    <div class="capacity-row-header">
-                        <span class="capacity-row-label">Per Asset <span class="capacity-multiplier" id="perAssetMultiplier"></span></span>
-                    </div>
-                    <div class="capacity-asset-list" id="perPairSubBars"></div>
-                    <div class="capacity-footer">
-                        <span class="capacity-used" id="perPairBreakdown">No open positions</span>
-                        <span class="capacity-remaining"><span id="perPairRemaining">--</span> left</span>
-                    </div>
-                </div>
-                <div class="capacity-row">
-                    <div class="capacity-row-header">
-                        <span class="capacity-row-label">Total Available Size <span class="capacity-multiplier" id="totalMultiplier"></span></span>
-                        <span class="capacity-row-value"><span id="capacityUsed">--</span> / <span id="capacityMax">--</span></span>
-                    </div>
-                    <div class="capacity-bar">
-                        <div class="capacity-fill capacity-fill--total" id="capacityFill" style="width: 0%;"></div>
-                    </div>
-                    <div class="capacity-footer">
-                        <span class="capacity-used">All positions</span>
-                        <span class="capacity-remaining"><span id="capacityRemaining">--</span> left</span>
-                    </div>
+                <div class="capacity-asset-list" id="perPairSubBars"></div>
+                <div class="capacity-footer">
+                    <span class="capacity-used" id="perPairBreakdown">No open positions</span>
+                    <span class="capacity-remaining"><span id="perPairRemaining">--</span> left</span>
                 </div>
             </div>
 
-            <!-- HS view -->
-            <div class="capacity-view" id="capacityViewHs" hidden>
-                <div class="capacity-basis-note">
-                    Mirrored from HL at <span id="hsBasisRatio">--</span> — based on account size of <span id="hsBasisValue">--</span>
+            <!-- Total available size row -->
+            <div class="capacity-row">
+                <div class="capacity-row-header">
+                    <span class="capacity-row-label">Total Available Size <span class="capacity-multiplier" id="totalMultiplier"></span></span>
+                    <span class="capacity-row-value"><span id="capacityUsed">--</span> / <span id="capacityMax">--</span></span>
                 </div>
-                <div class="capacity-row">
-                    <div class="capacity-row-header">
-                        <span class="capacity-row-label">Per Asset</span>
-                    </div>
-                    <div class="capacity-asset-list" id="hsPerPairSubBars"></div>
-                    <div class="capacity-footer">
-                        <span class="capacity-used" id="hsPerPairBreakdown">No open positions</span>
-                        <span class="capacity-remaining"><span id="hsPerPairRemaining">--</span> left</span>
-                    </div>
+                <div class="capacity-bar">
+                    <div class="capacity-fill capacity-fill--total" id="capacityFill" style="width: 0%;"></div>
                 </div>
-                <div class="capacity-row">
-                    <div class="capacity-row-header">
-                        <span class="capacity-row-label">Total Available Size</span>
-                        <span class="capacity-row-value"><span id="hsCapacityUsed">--</span> / <span id="hsCapacityMax">--</span></span>
-                    </div>
-                    <div class="capacity-bar">
-                        <div class="capacity-fill capacity-fill--total" id="hsCapacityFill" style="width: 0%;"></div>
-                    </div>
-                    <div class="capacity-footer">
-                        <span class="capacity-used">All positions</span>
-                        <span class="capacity-remaining"><span id="hsCapacityRemaining">--</span> left</span>
-                    </div>
+                <div class="capacity-footer">
+                    <span class="capacity-used">All positions</span>
+                    <span class="capacity-remaining"><span id="capacityRemaining">--</span> left</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 4b: Trading Capacity (Hyperscaled) -->
+        <div class="capacity-block capacity-block--hs">
+            <div class="capacity-header">
+                <span class="capacity-title">Trading Capacity (Hyperscaled) <button class="info-toggle" aria-expanded="false" data-info="tradingCapacityHs"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5.5v.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button></span>
+            </div>
+            <div class="info-expand" id="info-tradingCapacityHs" hidden>The same capacity limits shown above, but mirrored to your Hyperscaled funded account. These values match the scale used by your challenge target and drawdown limits, so you can compare them directly.</div>
+            <div class="capacity-basis-note">
+                Mirrored from HL at <span id="hsBasisRatio">--</span> — based on account size of <span id="hsBasisValue">--</span>
+            </div>
+
+            <!-- Per-asset row (mirrored) -->
+            <div class="capacity-row">
+                <div class="capacity-row-header">
+                    <span class="capacity-row-label">Per Asset</span>
+                </div>
+                <div class="capacity-asset-list" id="hsPerPairSubBars"></div>
+                <div class="capacity-footer">
+                    <span class="capacity-used" id="hsPerPairBreakdown">No open positions</span>
+                    <span class="capacity-remaining"><span id="hsPerPairRemaining">--</span> left</span>
+                </div>
+            </div>
+
+            <!-- Total available size row (mirrored) -->
+            <div class="capacity-row">
+                <div class="capacity-row-header">
+                    <span class="capacity-row-label">Total Available Size</span>
+                    <span class="capacity-row-value"><span id="hsCapacityUsed">--</span> / <span id="hsCapacityMax">--</span></span>
+                </div>
+                <div class="capacity-bar">
+                    <div class="capacity-fill capacity-fill--total" id="hsCapacityFill" style="width: 0%;"></div>
+                </div>
+                <div class="capacity-footer">
+                    <span class="capacity-used">All positions</span>
+                    <span class="capacity-remaining"><span id="hsCapacityRemaining">--</span> left</span>
                 </div>
             </div>
         </div>
@@ -325,7 +340,6 @@
             </div>
             <div class="payouts-history-label">Payout History</div>
             <div id="payoutsHistoryContainer">
-                <!-- Example payout row (JS will populate) -->
                 <div class="payouts-history-card">
                     <div class="payouts-history-row">
                         <div class="payouts-history-left">

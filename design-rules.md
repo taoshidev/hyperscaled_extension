@@ -386,6 +386,88 @@ The dashboard **Order Events** section shows validator order activity. When ther
 
 ---
 
+## Trading Capacity — Unified Block with Toggle
+
+Trading capacity is a single block with a segmented toggle (`HL | Hyperscaled`) in the header. Both views share the same indigo bar pattern and structure; the toggle swaps which scale is visible.
+
+1. **HL view** (default) — based on HL spot + perps equity. These are the enforced limits the trader works within.
+2. **Hyperscaled view** — the same limits mirrored proportionally to the funded account size (`HL values × mirrorRatio`). Speaks the same scale as challenge target and drawdown.
+
+| Element | Treatment |
+|---------|-----------|
+| Toggle container | `rgba(255,255,255,0.04)` bg, `border-radius: 6px`, `padding: 2px`, `gap: 2px` |
+| Toggle button | `10px`, `--font-ui`, `500 weight`, `--text-faint` default, `--text-body` when active |
+| Toggle active bg | `rgba(255,255,255,0.08)`, `border-radius: 4px` |
+| Basis note (HL) | `10px`, `--font-ui`, `--text-faint` — e.g. "Based on HL equity of $1,000" |
+| Basis note (HS) | Same style — e.g. "Mirrored from HL at 10.0x — based on account size of $100,000" |
+| Basis values | `--font-mono`, `--text-body` — inline monospace for dollar amounts and ratios |
+| Multiplier badge | `10px`, `--font-mono`, `--text-subtle`, `margin-left: 4px` — on HL view row labels only |
+
+**Rule:** "Total Portfolio" is renamed to **"Total Available Size"** in both views to avoid confusion with the trader's overall portfolio.
+
+**Rule:** The HS view mirrors HL values by a constant ratio — the percentage fills are identical between the two views (same utilization, different scale). This lets the trader see "$625 used on HL = $6,250 on my $100k account" at a glance.
+
+**Rule:** The toggle uses `hidden` attribute on `.capacity-view` containers. Both views remain in the DOM and are populated on every data refresh — the toggle only controls visibility.
+
+---
+
+## Mirror Preview Card (Content Script)
+
+A floating card that appears below the order size input on the Hyperliquid trading page. Shows the HL order notional, mirrored amount on the funded account, and a capacity impact bar.
+
+| Property | Value |
+|----------|-------|
+| Position | Fixed, below the active size input (8px gap), clamped to viewport |
+| Width | `220px` |
+| Background | `#141416` (solid, no translucency) |
+| Border | `1px solid rgba(255,255,255,0.08)` |
+| Border radius | `10px` |
+| Shadow | `0 8px 24px rgba(0,0,0,0.6)`, subtle white inset glow |
+| Row labels | `11px`, `rgba(255,255,255,0.45)` |
+| HL value | `12px / 500`, Menlo, `rgba(255,255,255,0.85)` |
+| Mirror value | `12px / 600`, Menlo, `#00c6a7` (teal) |
+| Mirror ratio | `10px`, Menlo, `rgba(255,255,255,0.3)`, parenthesized |
+| Capacity title | `9px / 600`, uppercase, `rgba(255,255,255,0.3)` |
+| Capacity pct | `11px / 600`, Menlo, color shifts with usage (indigo → amber → red) |
+| Capacity bar | `5px` height, indigo fill, two segments (current + pending) |
+| Capacity detail | `10px`, Menlo, `rgba(255,255,255,0.35)` |
+| Transition | `opacity 0.15s ease`, `translateY 0.15s ease` |
+| Pointer events | None (does not interfere with order entry) |
+
+**Capacity bar colors:** Default indigo (`#6466f1`), pending segment at 40% opacity. Above 70% usage: amber (`#ffb900`). Above 90%: red (`rgb(239,68,68)`).
+
+**Rule:** The card is non-interactive (`pointer-events: none`). It disappears 1.5s after the input loses focus. If mirror ratio is unavailable (data loading), the mirror row is hidden but HL order and capacity still display. Uses solid-background approach to avoid host CSS interference.
+
+---
+
+## Side Panel
+
+The extension supports Chrome's Side Panel API for pinning the dashboard alongside the trading page.
+
+| Property | Value |
+|----------|-------|
+| Width | Fills available panel width (`width: 100%`, `min-width: 300px`) |
+| Container | No border, no border-radius (panel provides its own chrome) |
+| Pin button | Hidden when already in side panel context (`body[data-context="sidepanel"]`) |
+
+**Rule:** The side panel reuses the same popup HTML/CSS/JS — no separate component library needed. The only adjustments are removing the fixed 380px width and the container's decorative border.
+
+---
+
+## Pin Button (Header)
+
+A ghost icon button in the header that opens the extension as a side panel.
+
+| Property | Value |
+|----------|-------|
+| Size | `28px × 28px`, centered SVG icon |
+| Default | `transparent` bg, `--border-card` border, `--text-faint` icon color |
+| Hover | `--accent-border` border, `--text-primary` icon color |
+| Transition | `0.15s ease` on border-color and color |
+| Hidden | When `chrome.sidePanel` API unavailable; when in side panel context |
+
+---
+
 ## What This UI Should Never Have
 
 - Gradients used decoratively (the teal glow in `.container::before` is the only allowed ambient gradient)

@@ -9,35 +9,25 @@
     return walletEquity + openNotional;
   }
 
-  const HIGH_LEV_SYMBOLS = new Set(["EUR", "JPY", "SP500"]);
-
-  function perPositionLeverageCap(symbol) {
-    const isHighLev = symbol && HIGH_LEV_SYMBOLS.has(symbol.toUpperCase());
-    if (ACCOUNT.inChallenge) return isHighLev ? 2.5 : 0.5;
-    return isHighLev ? 5 : 1;
+  function perPositionLeverageCap() {
+    return ACCOUNT.inChallenge ? 0.625 : 2.5;
   }
 
   function totalPositionLeverageCap() {
-    return ACCOUNT.inChallenge ? 2 : 5;
+    return ACCOUNT.inChallenge ? 1.25 : 5;
   }
 
   function resolveChallengeModeFromValidator(result) {
-    const candidates = [
-      result?.challenge_period?.bucket,
-      result?.challenge_period?.status,
-      result?.subaccount_status,
-      result?.account_size_data?.status,
-    ]
-      .filter((v) => typeof v === "string")
-      .map((v) => v.toUpperCase());
-
-    if (candidates.some((v) => v.includes("FUNDED"))) return false;
-    if (candidates.some((v) => v.includes("CHALLENGE") || v.includes("EVAL"))) return true;
-    return ACCOUNT.inChallenge;
+    const bucket = result?.challenge_period?.bucket;
+    // Explicit bucket → use it directly
+    if (bucket === 'SUBACCOUNT_FUNDED') return false;
+    if (bucket) return true; // SUBACCOUNT_CHALLENGE, SUBACCOUNT_EVAL, etc.
+    // No bucket (no trades placed yet, status "active") → assume challenge
+    return true;
   }
 
-  function effectiveMaxSingleUsd(symbol) {
-    const modeCap = marginLimitBasisUsd() * perPositionLeverageCap(symbol);
+  function effectiveMaxSingleUsd() {
+    const modeCap = marginLimitBasisUsd() * perPositionLeverageCap();
     if (HF.state.limitsLoaded && ACCOUNT.maxPositionPerPair > 0) {
       return Math.min(modeCap, ACCOUNT.maxPositionPerPair);
     }

@@ -42,9 +42,9 @@ The `data-info` attribute on the button matches the `id="info-{key}"` on the pan
 
 ---
 
-## Trading Capacity Block
+## Trading Capacity Block (Unified with Toggle)
 
-A header-bar-footer layout displaying the trader's used vs. remaining position capacity. Uses an indigo bar (distinct from teal/amber) to signal a neutral utilization metric. The "Per Asset" row can include compact per-asset sub-bars for open exposures.
+A single capacity block with a segmented `HL | Hyperscaled` toggle in the header. Both views use the same indigo bar pattern. The toggle swaps between HL (enforced exchange limits) and Hyperscaled (same values mirrored to funded account scale).
 
 ### HTML structure
 
@@ -52,43 +52,49 @@ A header-bar-footer layout displaying the trader's used vs. remaining position c
 <div class="capacity-block">
     <div class="capacity-header">
         <span class="capacity-title">Trading Capacity</span>
-    </div>
-
-    <!-- Per-asset row -->
-    <div class="capacity-row">
-        <div class="capacity-row-header">
-            <span class="capacity-row-label">Per Asset</span>
-        </div>
-        <div class="capacity-asset-list">
-            <div class="capacity-asset-row">
-                <span class="capacity-asset-symbol">BTC</span>
-                <div class="capacity-asset-track"><div class="capacity-asset-fill" style="width: 18.8%;"></div></div>
-                <span class="capacity-asset-value">$234.50 / $1,250.00</span>
-            </div>
-            <div class="capacity-asset-row">
-                <span class="capacity-asset-symbol">ETH</span>
-                <div class="capacity-asset-track"><div class="capacity-asset-fill" style="width: 9.6%;"></div></div>
-                <span class="capacity-asset-value">$120.00 / $1,250.00</span>
-            </div>
-        </div>
-        <div class="capacity-footer">
-            <span class="capacity-used">2 assets with open exposure</span>
-            <span class="capacity-remaining">$1,015.50 left</span>
+        <div class="capacity-toggle" id="capacityToggle">
+            <button class="capacity-toggle-btn active" data-view="hl">HL</button>
+            <button class="capacity-toggle-btn" data-view="hs">Hyperscaled</button>
         </div>
     </div>
 
-    <!-- Total portfolio row -->
-    <div class="capacity-row">
-        <div class="capacity-row-header">
-            <span class="capacity-row-label">Total Portfolio</span>
-            <span class="capacity-row-value">$468.00 / $2,500.00</span>
+    <!-- HL view (default visible) -->
+    <div class="capacity-view" id="capacityViewHl">
+        <div class="capacity-basis-note">
+            Based on HL equity of <span id="capacityBasisValue">$1,000.00</span>
         </div>
-        <div class="capacity-bar">
-            <div class="capacity-fill capacity-fill--total" style="width: 18.7%;"></div>
+        <div class="capacity-row">
+            <div class="capacity-row-header">
+                <span class="capacity-row-label">Per Asset <span class="capacity-multiplier">(0.625x HL bal)</span></span>
+            </div>
+            <!-- ...sub-bars, footer... -->
         </div>
-        <div class="capacity-footer">
-            <span class="capacity-used">All positions</span>
-            <span class="capacity-remaining">$2,032.00 left</span>
+        <div class="capacity-row">
+            <div class="capacity-row-header">
+                <span class="capacity-row-label">Total Available Size <span class="capacity-multiplier">(1.25x HL bal)</span></span>
+                <span class="capacity-row-value">$468 / $1,250</span>
+            </div>
+            <!-- ...bar, footer... -->
+        </div>
+    </div>
+
+    <!-- HS view (hidden by default) -->
+    <div class="capacity-view" id="capacityViewHs" hidden>
+        <div class="capacity-basis-note">
+            Mirrored from HL at <span id="hsBasisRatio">10.0x</span> — based on account size of <span id="hsBasisValue">$100,000</span>
+        </div>
+        <div class="capacity-row">
+            <div class="capacity-row-header">
+                <span class="capacity-row-label">Per Asset</span>
+            </div>
+            <!-- ...sub-bars with mirrored values, footer... -->
+        </div>
+        <div class="capacity-row">
+            <div class="capacity-row-header">
+                <span class="capacity-row-label">Total Available Size</span>
+                <span class="capacity-row-value">$4,680 / $12,500</span>
+            </div>
+            <!-- ...bar, footer... -->
         </div>
     </div>
 </div>
@@ -100,9 +106,12 @@ A header-bar-footer layout displaying the trader's used vs. remaining position c
 |---------|----------|---------------|
 | Title | Font size / weight | `12px / 600` |
 | Title | Color | `--text-strong` |
+| Basis note | Font size / color | `10px` / `--text-faint` |
+| Basis note value | Font / color | `--font-mono` / `--text-body` |
 | Row label | Font size / weight | `11px / 500` |
 | Row label | Color | `--text-faint` |
 | Row label | Text transform | `uppercase`, `letter-spacing: 0.03em` |
+| Multiplier badge | Font / size / color | `--font-mono` / `10px` / `--text-subtle` (HL block only) |
 | Bar track | Background | `--indigo-bg` |
 | Bar fill | Background | `--indigo` (flat, no gradient) |
 | Bar height | — | `10px` |
@@ -118,9 +127,13 @@ A header-bar-footer layout displaying the trader's used vs. remaining position c
 ### Rules
 
 - Never use teal or amber for this bar — indigo keeps capacity visually separate from P&L and challenge indicators.
-- Two rows: "Per Asset" (largest single position vs per-pair max) and "Total Portfolio" (all positions vs portfolio max).
+- Two rows per view: "Per Asset" and "Total Available Size".
+- The HL view shows multiplier badges and the HL equity basis. The HS view shows the mirror ratio and account size basis instead.
+- The HS view computes all values as `hlValue × (accountSize / hlBalance)`. The percentage fills are identical between the two views — same utilization, different scale.
+- The HS view creates continuity: challenge target ($10k on a $100k acct), drawdown ($5k), and capacity ($12,500 total) all speak the same language.
 - When open positions exist, render one sub-bar per asset in the "Per Asset" row; each sub-bar scales against per-asset max capacity and is sorted descending by notional.
 - Per Asset header is label-only (no right value). Each asset sub-row right value is `$used / $max` for that same per-asset cap.
+- The toggle uses `hidden` attribute on `.capacity-view` containers. Both views stay in the DOM — only visibility changes. HL is the default view.
 - Bar fill width is set inline via `style="width: XX%;"` calculated from JS.
 
 ---

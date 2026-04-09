@@ -26,7 +26,11 @@
 
       const opts = { capture: true, passive: true };
 
-      input.addEventListener("focus", () => { HF.state.lastEditedInput = input; scheduleUpdate(); }, opts);
+      input.addEventListener("focus", () => {
+        HF.state.lastEditedInput = input;
+        scheduleUpdate();
+        if (HF.utils.isLikelySizeInput(input)) HF.mirrorPreview.onSizeInputChange(input);
+      }, opts);
       input.addEventListener("input", () => {
         HF.state.lastEditedInput = input;
         HF.toast.resetBlockedToastDismissed();
@@ -35,18 +39,23 @@
         clearTimeout(clampDebounceTimer);
         if (HF.utils.isLikelySizeInput(input)) {
           clampDebounceTimer = setTimeout(() => HF.clamping.clampInputIfNeeded(input), 400);
+          HF.mirrorPreview.onSizeInputChange(input);
         }
       }, opts);
       input.addEventListener("keydown", () => { HF.state.lastEditedInput = input; scheduleUpdate(); }, opts);
       input.addEventListener("keyup", () => { HF.state.lastEditedInput = input; scheduleUpdate(); }, opts);
       input.addEventListener("change", () => {
         HF.state.lastEditedInput = input;
-        if (HF.utils.isLikelySizeInput(input)) HF.clamping.clampInputIfNeeded(input);
+        if (HF.utils.isLikelySizeInput(input)) {
+          HF.clamping.clampInputIfNeeded(input);
+          HF.mirrorPreview.onSizeInputChange(input);
+        }
         scheduleUpdate();
       }, opts);
       input.addEventListener("blur", () => {
         clearTimeout(clampDebounceTimer);
         if (HF.utils.isLikelySizeInput(input)) HF.clamping.clampInputIfNeeded(input);
+        HF.mirrorPreview.onSizeInputBlur(input);
       }, opts);
     }
   }
