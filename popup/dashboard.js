@@ -311,7 +311,7 @@ export function renderPositions(positions, accountSize, accountSizeData) {
         const isLong = !isNaN(netLev) ? netLev > 0 : (pos.position_type === 'LONG');
         const direction = isLong ? 'LONG' : 'SHORT';
         const badgeClass = isLong ? 'long' : 'short';
-        const leverage = !isNaN(netLev) && netLev !== 0 ? Math.abs(netLev).toFixed(2) + 'x' : '--';
+        const exposure = !isNaN(netLev) && netLev !== 0 ? (Math.abs(netLev) * 100).toFixed(1) + '%' : '--';
 
         const value = !isNaN(netLev)
             ? Math.abs(netLev) * (accountSize || 0)
@@ -352,8 +352,8 @@ export function renderPositions(positions, accountSize, accountSizeData) {
                         <span class="detail-value">${fmtUsd(entryPx)}</span>
                     </div>
                     <div class="detail-row">
-                        <span class="detail-label">Leverage</span>
-                        <span class="detail-value">${leverage}</span>
+                        <span class="detail-label">Exposure</span>
+                        <span class="detail-value">${exposure}</span>
                     </div>
                     ${pos.total_fees > 0 ? `
                     <div class="detail-row">
