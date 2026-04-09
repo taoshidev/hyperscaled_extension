@@ -33,7 +33,7 @@ async function restoreFromCache() {
     ]);
 
     if (balanceCache?.data) {
-        state.hlBalance = balanceCache.data.accountValue || balanceCache.data.perpAccountValue || 0;
+        state.hlBalance = balanceCache.data.perpAccountValue || 0;
         state.openTotalUsed = Number(balanceCache.data.openTotalUsed) || 0;
         state.openSingleUsed = Number(balanceCache.data.openSingleUsed) || 0;
         state.notionalByPair = balanceCache.data.notionalByPair && typeof balanceCache.data.notionalByPair === 'object'
@@ -62,7 +62,7 @@ async function refreshBalance() {
     try {
         const response = await safeSendMessage({ action: 'fetchBalance', address: state.storedAddress });
 
-        state.hlBalance = response.accountValue || response.perpAccountValue || 0;
+        state.hlBalance = response.perpAccountValue || 0;
         state.openTotalUsed = Number(response.openTotalUsed) || 0;
         state.openSingleUsed = Number(response.openSingleUsed) || 0;
         state.notionalByPair = response.notionalByPair && typeof response.notionalByPair === 'object'
