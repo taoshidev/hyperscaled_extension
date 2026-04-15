@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="popup.css">
+    <script src="lib/translation.js"></script>
 </head>
 <body>
     <div class="container">
@@ -100,6 +101,29 @@
 
         <!-- Dashboard Content (shown only when valid data is available) -->
         <div id="dashboardContent" style="display: none;">
+
+        <!-- Account Translation — how HL activity maps to the challenge -->
+        <div class="translation-card" id="accountTranslationCard" style="display: none;">
+            <div class="translation-header">
+                <div class="translation-eyebrow">Account Translation</div>
+                <div class="translation-ratio-badge" id="translationRatioBadge">—</div>
+            </div>
+            <div class="translation-subtitle" id="translationSubtitle">
+                Your Hyperliquid activity → your challenge
+            </div>
+            <div class="translation-body">
+                <div class="translation-col">
+                    <div class="translation-col-label">Your Hyperliquid</div>
+                    <div class="translation-col-value" id="translationHlValue">--</div>
+                </div>
+                <div class="translation-arrow">→</div>
+                <div class="translation-col">
+                    <div class="translation-col-label" id="translationChallengeLabel">Your Challenge</div>
+                    <div class="translation-col-value translation-col-value--accent" id="translationChallengeValue">--</div>
+                </div>
+            </div>
+            <div class="translation-caption" id="translationCaption"></div>
+        </div>
 
         <!-- Section 1: Account Balances (2-column grid) -->
         <div class="balance-grid">

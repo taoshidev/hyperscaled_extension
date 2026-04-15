@@ -119,6 +119,19 @@
           <span class="hf-stat-label">EQUITY</span>
           <span class="hf-stat-value" id="hf-equity">${fmt(equity)}</span>
         </div>
+        ${(() => {
+          const T = window.HSTranslation;
+          const ratio = T ? T.mirrorRatio(ACCOUNT.fundedSize, ACCOUNT.hlBalance) : 0;
+          if (!ratio || ratio <= 0) return '';
+          const label = T ? T.formatRatio(ratio) : ratio.toFixed(1) + 'x';
+          return `
+            <span class="hf-divider"></span>
+            <div class="hf-stat-group" title="Your Hyperliquid activity is mirrored onto your ${fmt(ACCOUNT.fundedSize || 0)} challenge at ${label}">
+              <span class="hf-stat-label">SCALE</span>
+              <span class="hf-stat-value">${label}</span>
+            </div>
+          `;
+        })()}
         <span class="hf-divider"></span>
         <div class="hf-dd-stack hf-dd-trigger" id="hf-dd-trigger">
           <div class="hf-dd-row">

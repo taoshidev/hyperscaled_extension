@@ -141,6 +141,16 @@ export function applyValidatorData(result, state) {
     const hlBal = Number(state.hlBalance) || 0;
     const mirrorRatio = hlBal > 0 ? accountSize / hlBal : 0;
 
+    // ── Account Translation card ────────────────────────────────────────────
+    renderAccountTranslation({
+        hlBalance: hlBal,
+        accountSize,
+        mirrorRatio,
+        challengeEquity: validatorEquity,
+        hasOpenPositions: openPositions.length > 0,
+        inChallenge,
+    });
+
     // ── Trading Capacity ────────────────────────────────────────────────────────
     const perPairLevCap = inChallenge ? 0.625 : 2.5;
     const totalLevCap   = inChallenge ? 1.25  : 5;
@@ -296,6 +306,46 @@ export function applyValidatorData(result, state) {
     renderPositions(openPositions, accountSize, accountSizeData);
     showDashboard();
     state.dashboardShown = true;
+}
+
+function renderAccountTranslation({ hlBalance, accountSize, mirrorRatio, challengeEquity, hasOpenPositions, inChallenge }) {
+    const card = document.getElementById('accountTranslationCard');
+    if (!card) return;
+
+    const T = typeof window !== 'undefined' ? window.HSTranslation : null;
+    const ratio = T ? T.mirrorRatio(accountSize, hlBalance) : mirrorRatio;
+
+    if (!ratio || ratio <= 0 || !accountSize || !hlBalance) {
+        card.style.display = 'none';
+        return;
+    }
+    card.style.display = '';
+
+    const badge = document.getElementById('translationRatioBadge');
+    if (badge) badge.textContent = T ? T.formatRatio(ratio) + ' scale' : (ratio.toFixed(1) + 'x scale');
+
+    const sub = document.getElementById('translationSubtitle');
+    if (sub) {
+        sub.textContent = 'Your Hyperliquid activity \u2192 your ' + fmtUsd(accountSize) + (inChallenge ? ' challenge' : ' funded account');
+    }
+
+    const hlVal = document.getElementById('translationHlValue');
+    if (hlVal) hlVal.textContent = fmtUsd(hlBalance);
+
+    const chLabel = document.getElementById('translationChallengeLabel');
+    if (chLabel) chLabel.textContent = fmtUsd(accountSize) + (inChallenge ? ' Challenge' : ' Funded');
+
+    const chVal = document.getElementById('translationChallengeValue');
+    if (chVal) chVal.textContent = fmtUsd(challengeEquity || (T ? T.scaleEquity(hlBalance, ratio) : hlBalance * ratio));
+
+    const caption = document.getElementById('translationCaption');
+    if (caption) {
+        const scaled = T ? T.scaleEquity(hlBalance, ratio) : hlBalance * ratio;
+        const ratioTxt = T ? T.formatRatio(ratio) : (ratio.toFixed(1) + 'x');
+        caption.textContent = hasOpenPositions
+            ? 'Every P&L swing on your ' + fmtUsd(hlBalance) + ' HL account lands at ' + ratioTxt + ' on your ' + fmtUsd(accountSize) + ' challenge.'
+            : 'Trade as normal on Hyperliquid. Your ' + fmtUsd(hlBalance) + ' is mirrored as ' + fmtUsd(scaled) + ' on your challenge account.';
+    }
 }
 
 export function renderPositions(positions, accountSize, accountSizeData) {

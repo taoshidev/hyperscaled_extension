@@ -1880,6 +1880,85 @@ body {
     font-weight: 600;
 }
 
+/* ── Account Translation card ───────────────────────── */
+.translation-card {
+    background: var(--bg);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+}
+.translation-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+.translation-eyebrow {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+}
+.translation-ratio-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: var(--accent-bg);
+    border: 1px solid var(--accent-border);
+    color: var(--accent);
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 11px;
+    font-weight: 600;
+}
+.translation-subtitle {
+    margin-top: 4px;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.65);
+}
+.translation-body {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 12px;
+}
+.translation-col {
+    flex: 1;
+    min-width: 0;
+}
+.translation-col-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: rgba(255, 255, 255, 0.45);
+    font-weight: 600;
+}
+.translation-col-value {
+    margin-top: 4px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 18px;
+    font-weight: 500;
+    color: #fff;
+}
+.translation-col-value--accent {
+    color: var(--accent);
+}
+.translation-arrow {
+    color: var(--accent);
+    font-size: 16px;
+    font-weight: 700;
+    opacity: 0.9;
+    padding-top: 14px;
+}
+.translation-caption {
+    margin-top: 12px;
+    font-size: 11px;
+    line-height: 1.45;
+    color: rgba(255, 255, 255, 0.55);
+}
+
 /* ── Scrollbar ──────────────────────────────────────── */
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }

@@ -39,6 +39,7 @@
       "matches": ["https://app.hyperliquid.xyz/*", "https://app.hyperliquid-testnet.xyz/*"],
       "js": [
         "content/namespace.js",
+        "lib/translation.js",
         "content/state.js",
         "content/utils.js",
         "content/api.js",
