@@ -340,6 +340,14 @@
     if (!HF.state.balanceVerified) return;
     if (!HF.state.validatorDataLoaded) return;
 
+    if (HF.utils.isTpSlOrderType()) {
+      HF.state.shouldBlockTrade = HF.state.forcedTradeBlock;
+      enforceTradeBlock();
+      startTradeBlockObserver();
+      installTradeGuards();
+      return;
+    }
+
     const { getHLLeverage, getCurrentSymbol, effectiveMaxSingleUsd, effectiveMaxTotalUsd, readOrderValueFromDOM } = HF.utils;
 
     const hlLev = getHLLeverage();

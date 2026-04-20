@@ -252,7 +252,7 @@
   }
 
   function getButtonActivationScore(button) {
-    if (!(button instanceof HTMLButtonElement)) return -Infinity;
+    if (!(button instanceof HTMLElement)) return -Infinity;
     if (button.offsetParent === null) return -Infinity;
 
     let score = 0;
@@ -388,6 +388,53 @@
     return side === "buy";
   }
 
+  const TPSL_TAB_TEXTS = new Set([
+    "tp/sl", "tp / sl", "tpsl", "tp", "stop", "stop loss", "take profit",
+  ]);
+  const ORDER_TYPE_SIBLING_TEXTS = new Set(["market", "limit", "pro", "scale"]);
+
+  function isOrderTypeTabText(text) {
+    return TPSL_TAB_TEXTS.has(text) || ORDER_TYPE_SIBLING_TEXTS.has(text);
+  }
+
+  function collectOrderTypeTabGroups() {
+    const groups = new Map();
+    const nodes = document.querySelectorAll('button, [role="tab"], [role="button"]');
+    for (const node of nodes) {
+      if (!(node instanceof HTMLElement)) continue;
+      if (node.closest("#" + HF.state.BANNER_ID)) continue;
+      if (node.offsetParent === null) continue;
+      const text = normalizeText(node.textContent);
+      if (!isOrderTypeTabText(text)) continue;
+      const parent = node.parentElement;
+      if (!parent) continue;
+      if (!groups.has(parent)) groups.set(parent, []);
+      groups.get(parent).push({ node, text });
+    }
+    return groups;
+  }
+
+  function isTpSlOrderType() {
+    const groups = collectOrderTypeTabGroups();
+    for (const tabs of groups.values()) {
+      const hasTpSl = tabs.some((t) => TPSL_TAB_TEXTS.has(t.text));
+      const hasSibling = tabs.some((t) => ORDER_TYPE_SIBLING_TEXTS.has(t.text));
+      if (!hasTpSl || !hasSibling) continue;
+
+      let best = null;
+      let bestScore = -Infinity;
+      for (const t of tabs) {
+        const score = getButtonActivationScore(t.node);
+        if (score > bestScore) {
+          bestScore = score;
+          best = t;
+        }
+      }
+      if (best && TPSL_TAB_TEXTS.has(best.text)) return true;
+    }
+    return false;
+  }
+
   function isLiveEditableInput(input) {
     return (
       input instanceof HTMLInputElement &&
@@ -471,6 +518,7 @@
     isLikelySizeInput,
     getActiveOrderSide,
     isBuyOrderSideActive,
+    isTpSlOrderType,
     isLiveEditableInput,
     CLAMP_DEBUG,
     clampDebug,
