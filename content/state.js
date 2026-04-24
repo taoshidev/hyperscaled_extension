@@ -42,6 +42,7 @@
     SUPPORTED_SYMBOLS: ["BTC", "ETH", "SOL", "XRP", "DOGE", "ADA"],
     validatorDataLoaded: false,
     limitsLoaded: false,
+    pairsLoaded: false,
     currentBalance: null,
     balanceVerified: false,
     balanceCheckTimer: null,

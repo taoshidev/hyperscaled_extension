@@ -113,8 +113,12 @@
         HF.state.SUPPORTED_SYMBOLS = pairs.map(p => p.trade_pair_id.replace(/USD[CT]?$/, ""));
         console.log("[Hyperscaled] Loaded", HF.state.SUPPORTED_SYMBOLS.length, "supported symbols from validator");
       }
+      HF.state.pairsLoaded = true;
+      HF.pairSupport.checkPairSupport();
     } catch (e) {
       console.error("[Hyperscaled] Trade pairs fetch failed, using defaults:", e);
+      HF.state.pairsLoaded = true;
+      HF.pairSupport.checkPairSupport();
     }
   }
 
