@@ -234,6 +234,11 @@
     if (!HF.state.balanceVerified) return;
     if (!HF.state.validatorDataLoaded) return;
     if (isClampingInProgress) return;
+    if (HF.utils.isTpSlOrderType()) {
+      HF.tradeGate.releaseForcedTradeBlock();
+      HF.tradeGate.checkAndBlockButtons();
+      return;
+    }
     if (input && !isLikelySizeInput(input)) return;
     input = resolveLiveSizeInput(input);
     if (!input) return;
@@ -295,6 +300,11 @@
     if (!HF.state.balanceVerified) return;
     if (!HF.state.validatorDataLoaded) return;
     if (isClampingInProgress) return;
+    if (HF.utils.isTpSlOrderType()) {
+      HF.tradeGate.releaseForcedTradeBlock();
+      HF.tradeGate.checkAndBlockButtons();
+      return;
+    }
 
     const orderValue = readOrderValueFromDOM();
     if (orderValue <= 0) return;

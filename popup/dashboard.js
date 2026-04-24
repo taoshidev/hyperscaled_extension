@@ -183,7 +183,15 @@ export function applyValidatorData(result, state) {
         .map(([symbol, value]) => [String(symbol).toUpperCase(), Number(value) || 0])
         .filter(([, value]) => value > 0)
         .sort((a, b) => b[1] - a[1]);
-    if (perPairRemainingEl) perPairRemainingEl.textContent = fmtUsd(Math.max(maxPerPair - largestPairNotional, 0));
+    const perPairRemainingWrapperEl = document.getElementById('perPairRemainingWrapper');
+    if (perPairRemainingEl && perPairRemainingWrapperEl) {
+        if (perAssetEntries.length === 0) {
+            perPairRemainingWrapperEl.style.display = 'none';
+        } else {
+            perPairRemainingWrapperEl.style.display = '';
+            perPairRemainingEl.textContent = fmtUsd(Math.max(maxPerPair - largestPairNotional, 0));
+        }
+    }
     if (perPairSubBarsEl) {
         if (perAssetEntries.length === 0) {
             perPairSubBarsEl.innerHTML = '';

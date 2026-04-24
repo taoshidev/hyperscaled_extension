@@ -21,6 +21,14 @@
     return 'var(--indigo)';
   }
 
+  let ddDocListenerAttached = false;
+
+  function positionDdPanel(banner, trigger, panel) {
+    const triggerRect = trigger.getBoundingClientRect();
+    const bannerRect = banner.getBoundingClientRect();
+    panel.style.left = (triggerRect.left - bannerRect.left) + 'px';
+  }
+
   function wireDdPanel(banner) {
     const trigger = banner.querySelector('#hf-dd-trigger');
     const panel = banner.querySelector('#hf-dd-panel');
@@ -30,16 +38,20 @@
       e.stopPropagation();
       const isOpen = panel.classList.contains('hf-dd-panel--open');
       panel.classList.toggle('hf-dd-panel--open', !isOpen);
-      const triggerRect = trigger.getBoundingClientRect();
-      const bannerRect = banner.getBoundingClientRect();
-      panel.style.left = (triggerRect.left - bannerRect.left) + 'px';
+      positionDdPanel(banner, trigger, panel);
     });
 
-    document.addEventListener('click', (e) => {
-      if (!panel.contains(e.target) && !trigger.contains(e.target)) {
-        panel.classList.remove('hf-dd-panel--open');
-      }
-    });
+    if (!ddDocListenerAttached) {
+      document.addEventListener('click', (e) => {
+        const p = document.getElementById('hf-dd-panel');
+        const t = document.getElementById('hf-dd-trigger');
+        if (!p || !t) return;
+        if (!p.contains(e.target) && !t.contains(e.target)) {
+          p.classList.remove('hf-dd-panel--open');
+        }
+      });
+      ddDocListenerAttached = true;
+    }
   }
 
   function updateDdPanel() {
@@ -242,6 +254,10 @@
   function updateBannerFromValidator() {
     const banner = document.getElementById(HF.state.BANNER_ID);
     if (!banner) return;
+
+    const prevPanel = banner.querySelector('#hf-dd-panel');
+    const wasPanelOpen = prevPanel?.classList.contains('hf-dd-panel--open') || false;
+
     banner.innerHTML = getBannerHTML();
     applyBannerStateClasses(banner);
 
@@ -252,6 +268,16 @@
 
     wireDdPanel(banner);
     updateDdPanel();
+
+    if (wasPanelOpen) {
+      const trigger = banner.querySelector('#hf-dd-trigger');
+      const panel = banner.querySelector('#hf-dd-panel');
+      if (trigger && panel) {
+        panel.classList.add('hf-dd-panel--open');
+        positionDdPanel(banner, trigger, panel);
+      }
+    }
+
     updateBanner(getPendingNotional());
   }
 

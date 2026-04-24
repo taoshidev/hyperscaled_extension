@@ -7,6 +7,7 @@
 
   function isSymbolSupported(symbol) {
     if (!symbol) return true;
+    if (!HF.state.pairsLoaded) return true;
     return HF.state.SUPPORTED_SYMBOLS.includes(symbol);
   }
 

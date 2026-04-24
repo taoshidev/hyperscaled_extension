@@ -31,7 +31,8 @@
     "https://app.hyperliquid-testnet.xyz/trade/*",
     "https://api.hyperliquid-testnet.xyz/*",
     "http://34.187.154.219:48888/*",
-    "https://validator.mainnet.vantatrading.io/*"
+    "https://validator.mainnet.vantatrading.io/*",
+    "https://*.vantatrading.io/*"
   ],
   "content_scripts": [
     {
