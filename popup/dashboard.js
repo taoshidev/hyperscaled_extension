@@ -161,11 +161,11 @@ export function applyValidatorData(result, state) {
         const backendTotal = parseFloat(state.traderLimits.max_portfolio_usd) || 0;
         const backendSize = parseFloat(state.traderLimits.account_size) || accountSize || 1;
         if (backendPair > 0) {
-            maxPerPair = backendPair;
+            maxPerPair = mirrorRatio > 0 ? backendPair / mirrorRatio : backendPair;
             perPairLevDisplay = `${(backendPair / backendSize).toFixed(2)}x`;
         }
         if (backendTotal > 0) {
-            maxTotal = backendTotal;
+            maxTotal = mirrorRatio > 0 ? backendTotal / mirrorRatio : backendTotal;
             totalLevDisplay = `${(backendTotal / backendSize).toFixed(2)}x`;
         }
     }

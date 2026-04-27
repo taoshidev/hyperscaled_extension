@@ -92,11 +92,15 @@
     try {
       const result = await sendToBackground({ action: "fetchTraderLimits", address });
 
+      const fundedSize = parseFloat(result.account_size) || ACCOUNT.fundedSize || 0;
+      const hlEq = ACCOUNT.hlEquity || ACCOUNT.hlBalance || 0;
+      const scalingRatio = (fundedSize > 0 && hlEq > 0) ? fundedSize / hlEq : 1;
+
       if (result.max_position_per_pair_usd != null) {
-        ACCOUNT.maxPositionPerPair = parseFloat(result.max_position_per_pair_usd) || 0;
+        ACCOUNT.maxPositionPerPair = (parseFloat(result.max_position_per_pair_usd) || 0) / scalingRatio;
       }
       if (result.max_portfolio_usd != null) {
-        ACCOUNT.maxPortfolio = parseFloat(result.max_portfolio_usd) || 0;
+        ACCOUNT.maxPortfolio = (parseFloat(result.max_portfolio_usd) || 0) / scalingRatio;
       }
       HF.state.limitsLoaded = true;
     } catch (e) {
