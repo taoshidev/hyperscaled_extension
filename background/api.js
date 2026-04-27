@@ -34,7 +34,7 @@ export async function resolveEntityEndpoint(hlAddress) {
   console.log('[Hyperscaled BG] Entity endpoint response:', JSON.stringify(data));
 
   if (!data.endpoint_url) {
-    throw new Error('No endpoint URL found for this address');
+    data.endpoint_url = 'https://entity-miner.mainnet.vantatrading.io';
   }
 
   entityEndpointCache[hlAddress] = data.endpoint_url;
