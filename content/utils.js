@@ -9,14 +9,6 @@
     return walletEquity + openNotional;
   }
 
-  function perPositionLeverageCap() {
-    return ACCOUNT.inChallenge ? 0.625 : 2.5;
-  }
-
-  function totalPositionLeverageCap() {
-    return ACCOUNT.inChallenge ? 1.25 : 5;
-  }
-
   function resolveChallengeModeFromValidator(result) {
     const bucket = result?.challenge_period?.bucket;
     // Explicit bucket → use it directly
@@ -27,19 +19,17 @@
   }
 
   function effectiveMaxSingleUsd() {
-    const modeCap = marginLimitBasisUsd() * perPositionLeverageCap();
     if (HF.state.limitsLoaded && ACCOUNT.maxPositionPerPair > 0) {
-      return Math.min(modeCap, ACCOUNT.maxPositionPerPair);
+      return ACCOUNT.maxPositionPerPair;
     }
-    return modeCap;
+    return marginLimitBasisUsd();
   }
 
   function effectiveMaxTotalUsd() {
-    const modeCap = marginLimitBasisUsd() * totalPositionLeverageCap();
     if (HF.state.limitsLoaded && ACCOUNT.maxPortfolio > 0) {
-      return Math.min(modeCap, ACCOUNT.maxPortfolio);
+      return ACCOUNT.maxPortfolio;
     }
-    return modeCap;
+    return marginLimitBasisUsd();
   }
 
   const fmt = (n) =>

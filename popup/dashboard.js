@@ -142,9 +142,7 @@ export function applyValidatorData(result, state) {
     const mirrorRatio = hlBal > 0 ? accountSize / hlBal : 0;
 
     // ── Trading Capacity ────────────────────────────────────────────────────────
-    const perPairLevCap = inChallenge ? 0.625 : 2.5;
-    const totalLevCap   = inChallenge ? 1.25  : 5;
-    // Capacity is calculated from HL balance (not Hyperscaled account size).
+    // Capacity comes directly from validator limits when available.
     const basisUsd = (Number(state.hlBalance) || 0) + (Number(state.openTotalUsed) || 0);
 
     // Populate multiplier and basis labels
@@ -153,21 +151,30 @@ export function applyValidatorData(result, state) {
     const capacityBasisValueEl = document.getElementById('capacityBasisValue');
     const infoPerAssetMultEl = document.getElementById('infoPerAssetMultiplier');
     const infoTotalMultEl = document.getElementById('infoTotalMultiplier');
-    if (perAssetMultiplierEl) perAssetMultiplierEl.textContent = `(${perPairLevCap}x HL bal)`;
-    if (totalMultiplierEl) totalMultiplierEl.textContent = `(${totalLevCap}x HL bal)`;
-    if (capacityBasisValueEl) capacityBasisValueEl.textContent = fmtUsd(basisUsd);
-    if (infoPerAssetMultEl) infoPerAssetMultEl.textContent = `${perPairLevCap}x`;
-    if (infoTotalMultEl) infoTotalMultEl.textContent = `${totalLevCap}x`;
-
-    let maxPerPair = basisUsd * perPairLevCap;
-    let maxTotal   = basisUsd * totalLevCap;
+    let maxPerPair = basisUsd;
+    let maxTotal   = basisUsd;
+    let perPairLevDisplay = '1x';
+    let totalLevDisplay   = '1x';
 
     if (state.traderLimits) {
         const backendPair = parseFloat(state.traderLimits.max_position_per_pair_usd) || 0;
         const backendTotal = parseFloat(state.traderLimits.max_portfolio_usd) || 0;
-        if (backendPair > 0) maxPerPair = Math.min(maxPerPair, backendPair);
-        if (backendTotal > 0) maxTotal = Math.min(maxTotal, backendTotal);
+        const backendSize = parseFloat(state.traderLimits.account_size) || accountSize || 1;
+        if (backendPair > 0) {
+            maxPerPair = backendPair;
+            perPairLevDisplay = `${(backendPair / backendSize).toFixed(2)}x`;
+        }
+        if (backendTotal > 0) {
+            maxTotal = backendTotal;
+            totalLevDisplay = `${(backendTotal / backendSize).toFixed(2)}x`;
+        }
     }
+
+    if (perAssetMultiplierEl) perAssetMultiplierEl.textContent = `(${perPairLevDisplay} acct)`;
+    if (totalMultiplierEl) totalMultiplierEl.textContent = `(${totalLevDisplay} acct)`;
+    if (capacityBasisValueEl) capacityBasisValueEl.textContent = fmtUsd(basisUsd);
+    if (infoPerAssetMultEl) infoPerAssetMultEl.textContent = perPairLevDisplay;
+    if (infoTotalMultEl) infoTotalMultEl.textContent = totalLevDisplay;
 
     const hasHlExposureData = (
         (Number(state.openTotalUsed) || 0) > 0 ||
