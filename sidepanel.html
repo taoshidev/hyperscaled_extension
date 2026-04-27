@@ -109,6 +109,19 @@
             </div>
         </div>
 
+        <!-- Eliminated Screen (shown when challenge account has been eliminated) -->
+        <div id="eliminatedScreen" class="screen-eliminated" style="display: none;">
+            <div class="eliminated-status-card">
+                <div class="eliminated-icon">✕</div>
+                <div class="eliminated-title">Account Eliminated</div>
+                <div class="eliminated-body">This challenge account has been eliminated. Your drawdown limit was breached and the account is no longer active.</div>
+            </div>
+            <div class="eliminated-action-card">
+                <a href="https://hyperscaled.trade/dashboard" target="_blank" class="eliminated-new-btn">Start a new challenge →</a>
+                <button id="eliminatedChangeAddr" class="eliminated-change-btn">Try a different address</button>
+            </div>
+        </div>
+
         <!-- Dashboard Content (shown only when valid data is available) -->
         <div id="dashboardContent" style="display: none;">
 

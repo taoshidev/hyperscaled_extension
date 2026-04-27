@@ -14,6 +14,7 @@ export function setPlaceholders() {
 
 export function showDashboard() {
     hideUnregistered();
+    hideEliminated();
     const el = document.getElementById('dashboardContent');
     if (el) el.style.display = '';
     const badge = document.querySelector('.status-badge');
@@ -30,6 +31,7 @@ export function hideDashboard() {
 
 export function showUnregistered() {
     hideUnregistered();
+    hideEliminated();
     const el = document.getElementById('unregisteredScreen');
     if (el) el.style.display = '';
     const walletConfig = document.getElementById('walletConfig');
@@ -38,5 +40,18 @@ export function showUnregistered() {
 
 export function hideUnregistered() {
     const el = document.getElementById('unregisteredScreen');
+    if (el) el.style.display = 'none';
+}
+
+export function showEliminated() {
+    hideEliminated();
+    const el = document.getElementById('eliminatedScreen');
+    if (el) el.style.display = '';
+    const walletConfig = document.getElementById('walletConfig');
+    if (walletConfig) walletConfig.style.display = 'none';
+}
+
+export function hideEliminated() {
+    const el = document.getElementById('eliminatedScreen');
     if (el) el.style.display = 'none';
 }

@@ -3,7 +3,7 @@ import { fmtUsd, truncateAddress } from './format.js';
 import { safeSendMessage, getCachedData, loadAddress, saveAddress } from './api.js';
 import { applyValidatorData, renderPositions } from './dashboard.js';
 import { refreshEvents, renderEvents, initEventsPagination } from './events.js';
-import { showDashboard, hideDashboard, showUnregistered, hideUnregistered, setPlaceholders } from './screens.js';
+import { showDashboard, hideDashboard, showUnregistered, hideUnregistered, showEliminated, hideEliminated, setPlaceholders } from './screens.js';
 import { showPositionNotification, setupNotificationClickHandler } from './notifications.js';
 import { initExplainers } from './explain.js';
 
@@ -44,7 +44,13 @@ async function restoreFromCache() {
     }
 
     if (validatorCache?.data && validatorCache.data.status === 'success') {
-        applyValidatorData(validatorCache.data, state);
+        if (validatorCache.data.subaccount_status === 'eliminated') {
+            hideDashboard();
+            hideUnregistered();
+            showEliminated();
+        } else {
+            applyValidatorData(validatorCache.data, state);
+        }
     }
 
     if (limitsCache?.data) {
@@ -90,6 +96,13 @@ async function refreshValidatorData() {
             return;
         }
 
+        if (result.subaccount_status === 'eliminated') {
+            hideDashboard();
+            hideUnregistered();
+            showEliminated();
+            return;
+        }
+
         applyValidatorData(result, state);
     } catch (e) {
         console.error('[Hyperscaled Popup] Validator data fetch failed:', e.message, e);
@@ -131,6 +144,7 @@ function showWalletCollapsed(address) {
 
 function showWalletExpanded() {
     hideUnregistered();
+    hideEliminated();
     const collapsed = document.getElementById('walletCollapsed');
     const config = document.getElementById('walletConfig');
     const addressInput = document.getElementById('walletAddress');
@@ -161,6 +175,7 @@ function disconnectWallet() {
     }
     hideDashboard();
     hideUnregistered();
+    hideEliminated();
     const addressInput = document.getElementById('walletAddress');
     if (addressInput) addressInput.value = '';
     const walletStatus = document.getElementById('walletStatus');
@@ -219,6 +234,14 @@ document.addEventListener('DOMContentLoaded', async function() {
     if (unregisteredChangeBtn) {
         unregisteredChangeBtn.addEventListener('click', () => {
             hideUnregistered();
+            showWalletExpanded();
+        });
+    }
+
+    const eliminatedChangeBtn = document.getElementById('eliminatedChangeAddr');
+    if (eliminatedChangeBtn) {
+        eliminatedChangeBtn.addEventListener('click', () => {
+            hideEliminated();
             showWalletExpanded();
         });
     }
