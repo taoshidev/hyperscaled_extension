@@ -2,7 +2,7 @@
 
 ## How to Work in This Project
 
-When suggesting any change to a color, spacing value, token, or component pattern:
+When  suggesting any change to a color, spacing value, token, or component pattern:
 
 1. Update the CSS first
 2. Then update the relevant token or rule in `design-rules.md`
