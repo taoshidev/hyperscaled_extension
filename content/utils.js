@@ -489,8 +489,6 @@
 
   HF.utils = {
     marginLimitBasisUsd,
-    perPositionLeverageCap,
-    totalPositionLeverageCap,
     resolveChallengeModeFromValidator,
     effectiveMaxSingleUsd,
     effectiveMaxTotalUsd,
