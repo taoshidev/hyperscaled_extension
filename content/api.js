@@ -118,11 +118,11 @@
         console.log("[Hyperscaled] Loaded", HF.state.SUPPORTED_SYMBOLS.length, "HL-supported symbols from validator");
       }
       HF.state.pairsLoaded = true;
-      HF.pairSupport.checkPairSupport();
+      HF.pairSupport.checkPairSupport(true);
     } catch (e) {
       console.error("[Hyperscaled] Trade pairs fetch failed, using defaults:", e);
       HF.state.pairsLoaded = true;
-      HF.pairSupport.checkPairSupport();
+      HF.pairSupport.checkPairSupport(true);
     }
   }
 

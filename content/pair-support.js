@@ -42,9 +42,9 @@
     document.getElementById(HF.state.UNSUPPORTED_OVERLAY_ID)?.remove();
   }
 
-  function checkPairSupport() {
+  function checkPairSupport(forceRecheck = false) {
     const symbol = HF.utils.getCurrentSymbol();
-    if (symbol === lastDetectedSymbol) return;
+    if (symbol === lastDetectedSymbol && !forceRecheck) return;
     lastDetectedSymbol = symbol;
 
     if (symbol !== dismissedSymbol) {
