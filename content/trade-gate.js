@@ -337,6 +337,14 @@
   }
 
   function checkAndBlockButtons() {
+    if (HF.state._unsupportedPairBlocked) {
+      HF.state.shouldBlockTrade = true;
+      enforceTradeBlock();
+      startTradeBlockObserver();
+      installTradeGuards();
+      return;
+    }
+
     if (!HF.state.balanceVerified) return;
     if (!HF.state.validatorDataLoaded) return;
 
@@ -391,4 +399,12 @@
     stopTradeBlockObserver,
     bypassDepositBlockAndRetry,
   };
+
+  // If pair-support already flagged an unsupported pair before trade-gate loaded, enforce now.
+  if (HF.state._unsupportedPairBlocked) {
+    HF.state.shouldBlockTrade = true;
+    enforceTradeBlock();
+    startTradeBlockObserver();
+    installTradeGuards();
+  }
 })();
