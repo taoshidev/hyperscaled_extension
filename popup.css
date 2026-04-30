@@ -1459,6 +1459,13 @@ body {
     text-align: center;
 }
 
+.footer-version {
+    font-size: 10px;
+    color: var(--text-secondary);
+    text-align: center;
+    margin-top: -6px;
+}
+
 /* ── Screen: Positions (full list) ──────────────────── */
 .screen-positions {
     display: flex;

@@ -16,6 +16,14 @@
     if (existing && existing.dataset.symbol === symbol) return;
     if (existing) existing.remove();
 
+    // Resolve friendly display name (e.g. XYZ:CL \u2192 WTIOIL)
+    const displayName = (HF.state.hlCoinToDisplay || {})[symbol] || symbol;
+    // Supported pairs list using only friendly names (no hl_coin duplicates)
+    const friendlySupported = Object.values(HF.state.hlCoinToDisplay || {});
+    const supportedList = friendlySupported.length
+      ? friendlySupported.sort().map(s => s + "-USDC").join(", ")
+      : HF.state.SUPPORTED_SYMBOLS.map(s => s + "-USDC").join(", ");
+
     const overlay = document.createElement("div");
     overlay.id = HF.state.UNSUPPORTED_OVERLAY_ID;
     overlay.dataset.symbol = symbol;
@@ -25,8 +33,8 @@
         <span class="hf-unsupported-icon">\u26a0\ufe0f</span>
         <span class="hf-unsupported-title">Unsupported Pair</span>
         <span class="hf-unsupported-msg">
-          <b>${symbol}-USDC</b> is not supported by Hyperscaled.<br>
-          Supported pairs: <b>${HF.state.SUPPORTED_SYMBOLS.map(s => s + "-USDC").join(", ")}</b>
+          <b>${displayName}-USDC</b> is not supported by Hyperscaled.<br>
+          Supported pairs: <b>${supportedList}</b>
         </span>
       </div>
     `;

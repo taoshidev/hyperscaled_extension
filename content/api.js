@@ -113,11 +113,31 @@
       const result = await sendToBackground({ action: "fetchTradePairs" });
 
       const pairs = (result.allowed || result.allowed_trade_pairs || []).filter(
-        p => p.trade_pair_source === "hyperliquid" && !String(p.hl_coin || "").startsWith("xyz:")
+        p => p.trade_pair_source === "hyperliquid"
       );
       if (pairs.length > 0) {
-        HF.state.SUPPORTED_SYMBOLS = pairs.map(p => p.trade_pair_id.replace(/USD[CT]?0?$/, "").toUpperCase());
-        console.log("[Hyperscaled] Loaded", HF.state.SUPPORTED_SYMBOLS.length, "HL-supported symbols from validator");
+        // Build a reverse map: any symbol key (uppercased) → friendly display name
+        // e.g. "XYZ:CL" → "WTIOIL", "XYZ:WTIOIL" → "WTIOIL", "BTC" → "BTC"
+        HF.state.hlCoinToDisplay = {};
+        const symbols = new Set();
+        pairs.forEach(p => {
+          const friendly = p.trade_pair_id.replace(/USDC?$/, "").toUpperCase();
+          symbols.add(friendly);
+          if (p.hl_coin) {
+            const hlKey = p.hl_coin.toUpperCase();
+            symbols.add(hlKey);
+            HF.state.hlCoinToDisplay[hlKey] = friendly;
+            // HL URLs use xyz:<friendly> (e.g. /trade/xyz:WTIOIL) even when
+            // hl_coin uses a different ticker (e.g. xyz:CL). Add both forms.
+            if (hlKey.startsWith("XYZ:")) {
+              const xyzFriendly = "XYZ:" + friendly;
+              symbols.add(xyzFriendly);
+              HF.state.hlCoinToDisplay[xyzFriendly] = friendly;
+            }
+          }
+        });
+        HF.state.SUPPORTED_SYMBOLS = [...symbols];
+        console.log("[Hyperscaled] Loaded", pairs.length, "HL-supported pairs from validator");
       }
       HF.state.pairsLoaded = true;
       HF.pairSupport.checkPairSupport(true);

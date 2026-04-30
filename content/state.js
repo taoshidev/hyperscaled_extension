@@ -40,6 +40,7 @@
     ACCOUNT,
     midPrices: {},
     SUPPORTED_SYMBOLS: ["BTC", "ETH", "SOL", "XRP", "DOGE", "ADA"],
+    hlCoinToDisplay: {},
     validatorDataLoaded: false,
     limitsLoaded: false,
     pairsLoaded: false,
