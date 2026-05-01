@@ -94,7 +94,12 @@
 
       const fundedSize = parseFloat(result.account_size) || ACCOUNT.fundedSize || 0;
       const hlEq = ACCOUNT.hlEquity || ACCOUNT.hlBalance || 0;
-      const scalingRatio = (fundedSize > 0 && hlEq > 0) ? fundedSize / hlEq : 1;
+
+      // If balance hasn't loaded yet the scaling ratio would be wrong (1x instead of ~73x),
+      // producing inflated limit values ($100k/$200k). Skip and let the next poll retry.
+      if (hlEq <= 0) return;
+
+      const scalingRatio = fundedSize > 0 ? fundedSize / hlEq : 1;
 
       if (result.max_position_per_pair_usd != null) {
         ACCOUNT.maxPositionPerPair = (parseFloat(result.max_position_per_pair_usd) || 0) / scalingRatio;
@@ -103,6 +108,9 @@
         ACCOUNT.maxPortfolio = (parseFloat(result.max_portfolio_usd) || 0) / scalingRatio;
       }
       HF.state.limitsLoaded = true;
+
+      // Re-render the mirror preview card if it's already visible with stale limit values
+      if (HF.mirrorPreview) HF.mirrorPreview.refreshIfVisible();
     } catch (e) {
       console.error("[Hyperscaled] Trader limits fetch failed:", e);
     }
@@ -306,9 +314,9 @@
   }
 
   function startBalanceChecking() {
-    checkBalance();
-    fetchValidatorData();
-    fetchTraderLimits();
+    // Fetch balance and validator data first so fetchTraderLimits has hlEquity
+    // available to compute the correct scaling ratio (avoids stuck $100k/$200k limits)
+    Promise.all([checkBalance(), fetchValidatorData()]).then(() => fetchTraderLimits());
     fetchTradePairs();
     fetchMidPrices();
     if (HF.state.balanceCheckTimer) clearInterval(HF.state.balanceCheckTimer);

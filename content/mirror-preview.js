@@ -277,10 +277,17 @@
     }
   }
 
+  function refreshIfVisible() {
+    if (!previewEl || !previewEl.classList.contains('hf-mirror-show')) return;
+    const input = HF.state.lastEditedInput;
+    if (input && HF.utils.isLikelySizeInput(input)) showMirrorPreview(input);
+  }
+
   HF.mirrorPreview = {
     showMirrorPreview,
     hideMirrorPreview,
     onSizeInputChange,
     onSizeInputBlur,
+    refreshIfVisible,
   };
 })();
