@@ -121,7 +121,8 @@
       const result = await sendToBackground({ action: "fetchTradePairs" });
 
       const pairs = (result.allowed || result.allowed_trade_pairs || []).filter(
-        p => p.trade_pair_source === "hyperliquid"
+        p => p.trade_pair_source === "hyperliquid" &&
+             !p.trade_pair_id.toLowerCase().startsWith("xyz:")
       );
       if (pairs.length > 0) {
         // Build a reverse map: any symbol key (uppercased) → friendly display name
