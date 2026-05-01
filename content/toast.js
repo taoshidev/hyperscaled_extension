@@ -5,6 +5,7 @@
 
   let activeClampToast = null;
   let activeInfoToast = null;
+  let activeLimitBlockToast = null;
   let infoToastTimer = null;
   let blockedToastDismissed = false;
   let blockedToastDetailsExpanded = false;
@@ -348,9 +349,91 @@
     return blockedToastDismissed;
   }
 
+  function showUnsupportedPairToast(symbol) {
+    const variantClass = "hf-toast hf-toast--blocked";
+    const iconHtml = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="#f87171" stroke-width="1.5"/><line x1="5" y1="5" x2="11" y2="11" stroke="#f87171" stroke-width="1.5" stroke-linecap="round"/><line x1="11" y1="5" x2="5" y2="11" stroke="#f87171" stroke-width="1.5" stroke-linecap="round"/></svg>';
+    const innerHtml =
+      '<div class="hf-toast-icon">' + iconHtml + '</div>' +
+      '<div class="hf-toast-content">' +
+        '<div class="hf-toast-title">Unsupported Pair</div>' +
+        '<div class="hf-toast-msg"><b>' + (symbol || "This pair") + '</b> is not supported by Hyperscaled. Switch to a supported pair to trade.</div>' +
+      '</div>' +
+      '<button class="hf-toast-close" type="button" aria-label="Dismiss">' +
+        '<svg width="10" height="10" viewBox="0 0 10 10" fill="none">' +
+          '<line x1="1" y1="1" x2="9" y2="9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>' +
+          '<line x1="9" y1="1" x2="1" y2="9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>' +
+        '</svg>' +
+      '</button>';
+
+    const container = ensureToastContainer();
+    if (activeInfoToast && activeInfoToast.parentNode) {
+      activeInfoToast.className = variantClass + " hf-toast-show";
+      activeInfoToast.innerHTML = innerHtml;
+    } else {
+      const toast = document.createElement("div");
+      toast.className = variantClass;
+      toast.innerHTML = innerHtml;
+      container.appendChild(toast);
+      activeInfoToast = toast;
+      void toast.offsetWidth;
+      toast.classList.add("hf-toast-show");
+    }
+
+    activeInfoToast.addEventListener("mousedown", function handler(e) {
+      if (e.target.closest(".hf-toast-close")) {
+        e.preventDefault();
+        dismissInfoToast();
+        activeInfoToast?.removeEventListener("mousedown", handler);
+      }
+    });
+
+    if (infoToastTimer) clearTimeout(infoToastTimer);
+    infoToastTimer = setTimeout(() => dismissInfoToast(), 6000);
+  }
+
+  function showLimitBlockToast() {
+    if (activeLimitBlockToast && activeLimitBlockToast.parentNode) return;
+
+    const { fmt, effectiveMaxSingleUsd, effectiveMaxTotalUsd, getCurrentSymbol } = HF.utils;
+    const symbol = getCurrentSymbol();
+    const pairMax = effectiveMaxSingleUsd();
+    const totalMax = effectiveMaxTotalUsd();
+    const pairUsed = (symbol && ACCOUNT.notionalByPair[symbol]) || 0;
+    const totalUsed = ACCOUNT.openTotalUsed || 0;
+    const remaining = fmt(Math.max(Math.min(pairMax - pairUsed, totalMax - totalUsed), 0));
+
+    const iconHtml = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="#f87171" stroke-width="1.5"/><line x1="5" y1="5" x2="11" y2="11" stroke="#f87171" stroke-width="1.5" stroke-linecap="round"/><line x1="11" y1="5" x2="5" y2="11" stroke="#f87171" stroke-width="1.5" stroke-linecap="round"/></svg>';
+    const innerHtml =
+      '<div class="hf-toast-icon">' + iconHtml + '</div>' +
+      '<div class="hf-toast-content">' +
+        '<div class="hf-toast-title">Order Blocked — Over Position Limit</div>' +
+        '<div class="hf-toast-msg">Max remaining: <b>' + remaining + '</b>. Reduce your order size to place this trade.</div>' +
+      '</div>';
+
+    const container = ensureToastContainer();
+    const toast = document.createElement('div');
+    toast.className = 'hf-toast hf-toast--blocked';
+    toast.innerHTML = innerHtml;
+    container.appendChild(toast);
+    activeLimitBlockToast = toast;
+    void toast.offsetWidth;
+    toast.classList.add('hf-toast-show');
+  }
+
+  function dismissLimitBlockToast() {
+    if (!activeLimitBlockToast) return;
+    const toast = activeLimitBlockToast;
+    activeLimitBlockToast = null;
+    toast.classList.remove('hf-toast-show');
+    setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 300);
+  }
+
   HF.toast = {
     showClampToast,
     showDepositScalingToast,
+    showUnsupportedPairToast,
+    showLimitBlockToast,
+    dismissLimitBlockToast,
     dismissClampToast,
     resetBlockedToastDismissed,
     isBlockedToastDismissed,

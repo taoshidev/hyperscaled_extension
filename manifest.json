@@ -1,10 +1,9 @@
 {
   "manifest_version": 3,
   "name": "Hyperscaled",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "Track your Hyperscaled account and Hyperliquid positions",
   "action": {
-    "default_popup": "popup.html",
     "default_icon": {
       "16": "icon16.png",
       "48": "icon48.png",
@@ -37,6 +36,12 @@
   "content_scripts": [
     {
       "matches": ["https://app.hyperliquid.xyz/*", "https://app.hyperliquid-testnet.xyz/*"],
+      "js": ["content/order-intercept.js"],
+      "world": "MAIN",
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://app.hyperliquid.xyz/*", "https://app.hyperliquid-testnet.xyz/*"],
       "js": [
         "content/namespace.js",
         "content/state.js",
@@ -50,6 +55,7 @@
         "content/mirror-preview.js",
         "content/input-binding.js",
         "content/payment.js",
+        "content/order-detect.js",
         "content/navigation.js",
         "content/main.js"
       ],

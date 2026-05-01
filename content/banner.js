@@ -187,6 +187,7 @@
           <span class="hf-target-suffix">/ ${targetMax}%</span>
         </div>
         <span class="hf-divider"></span>
+        <a href="https://www.hyperscaled.trade/rules" target="_blank" class="hf-rules-link">Rules</a>
         <span class="hf-spacer"></span>
       </div>
     `;
@@ -246,6 +247,10 @@
   }
 
   function getPendingNotional() {
+    // pendingNotional is set directly from the input by mirror-preview — most reliable.
+    // Prioritise it so scheduleUpdate's checkAndBlockButtons() doesn't override the block
+    // with a stale DOM read or missing mid-price that returns 0.
+    if (HF.state.pendingNotional > 0) return HF.state.pendingNotional;
     const orderValue = HF.utils.readOrderValueFromDOM();
     if (orderValue > 0) return orderValue;
     return pendingFromLastEditedInput() || pendingFromScan() || 0;

@@ -181,7 +181,7 @@
             </div>
             <div class="info-expand" id="info-tradingCapacity" hidden>These limits control how much notional exposure you can take. Calculated from your HL wallet balance and enforced automatically when you place orders. Toggle to Hyperscaled to see the same limits scaled to your funded account size.
                 <span class="info-expand-item"><strong>Per Asset</strong> — max position size in any single asset. Calculated as your HL equity × <span id="infoPerAssetMultiplier">--</span>. Prevents over-concentration.</span>
-                <span class="info-expand-item"><strong>Total Available Size</strong> — max combined value of all positions. Calculated as your HL equity × <span id="infoTotalMultiplier">--</span>. This is your overall leverage cap.</span>
+                <span class="info-expand-item"><strong>Available Size</strong> — max combined value of all positions. Calculated as your HL equity × <span id="infoTotalMultiplier">--</span>. This is your overall leverage cap.</span>
             </div>
 
             <!-- HL view -->
@@ -201,7 +201,7 @@
                 </div>
                 <div class="capacity-row">
                     <div class="capacity-row-header">
-                        <span class="capacity-row-label">Total Available Size <span class="capacity-multiplier" id="totalMultiplier"></span></span>
+                        <span class="capacity-row-label">Available Size <span class="capacity-multiplier" id="totalMultiplier"></span></span>
                         <span class="capacity-row-value"><span id="capacityUsed">--</span> / <span id="capacityMax">--</span></span>
                     </div>
                     <div class="capacity-bar">
@@ -217,7 +217,7 @@
             <!-- HS view -->
             <div class="capacity-view" id="capacityViewHs" hidden>
                 <div class="capacity-basis-note">
-                    Mirrored from HL at <span id="hsBasisRatio">--</span> — based on account size of <span id="hsBasisValue">--</span>
+                    Mirrored from HL at <span id="hsBasisRatio">--</span> — based on <span id="hsBasisValue">--</span> funding
                 </div>
                 <div class="capacity-row">
                     <div class="capacity-row-header">
@@ -231,7 +231,7 @@
                 </div>
                 <div class="capacity-row">
                     <div class="capacity-row-header">
-                        <span class="capacity-row-label">Total Available Size</span>
+                        <span class="capacity-row-label">Available Size</span>
                         <span class="capacity-row-value"><span id="hsCapacityUsed">--</span> / <span id="hsCapacityMax">--</span></span>
                     </div>
                     <div class="capacity-bar">
@@ -245,18 +245,7 @@
             </div>
         </div>
 
-        <!-- Section 5: Open Positions -->
-        <div class="section">
-            <div class="section-header section-header--positions">
-                <div class="section-title section-title--uppercase">Open Positions <button class="info-toggle" aria-expanded="false" data-info="openPositions"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5.5v.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button></div>
-            </div>
-            <div class="info-expand" id="info-openPositions" hidden>Your currently open trades as reported by the Vanta Network validator, mirrored from your Hyperliquid account. P&L shown is unrealized (the position hasn't been closed yet). Value is the notional size of the position. Entry is the average price you entered at.</div>
-            <div id="positionsContainer">
-                <div class="no-more-positions">Loading positions...</div>
-            </div>
-        </div>
-
-        <!-- Section 6: Next Payout -->
+        <!-- Section 5: Next Payout -->
         <div class="payout-card">
             <div class="payout-content">
                 <div class="payout-left">
@@ -429,6 +418,7 @@
         <!-- Footer -->
         <div class="footer">
             <div class="footer-text">Powered by Vanta Network on Bittensor</div>
+            <div class="footer-version">v1.0.9</div>
         </div>
     </div>
 

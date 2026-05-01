@@ -256,6 +256,23 @@
   flex: 1 !important;
 }
 
+/* ── Rules link ─────────────────────────────────────────────────────────── */
+#hf-banner .hf-rules-link {
+  font-family: var(--font-ui) !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  color: var(--text-label) !important;
+  text-decoration: none !important;
+  letter-spacing: 0.02em !important;
+  white-space: nowrap !important;
+  padding: 2px 6px !important;
+  border-radius: 3px !important;
+  transition: color 0.15s ease !important;
+}
+#hf-banner .hf-rules-link:hover {
+  color: var(--text-primary) !important;
+}
+
 
 /* ── Clickable DD trigger ──────────────────────────────────────────────── */
 #hf-banner .hf-dd-trigger {

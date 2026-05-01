@@ -103,6 +103,17 @@
     return TRADE_BTN_KEYWORDS.some((kw) => aria.includes(kw));
   }
 
+  // Broader check — covers <button> and [role="button"] for the hard gate
+  function isTradeInteractionTarget(target) {
+    const el = target?.closest?.('button, [role="button"]');
+    if (!el) return false;
+    if (el.closest('#hf-banner') || el.closest('#hf-toast-container')) return false;
+    const text = normalizeTradeText(el.textContent);
+    const aria = normalizeTradeText(el.getAttribute('aria-label') || '');
+    const combined = text + ' ' + aria;
+    return TRADE_BTN_KEYWORDS.some((kw) => combined.includes(kw));
+  }
+
   function findTradeButtons() {
     const results = [];
     const buttons = document.querySelectorAll("button");
@@ -309,17 +320,34 @@
     tradeGuardAbort = new AbortController();
 
     const opts = { capture: true, passive: false, signal: tradeGuardAbort.signal };
+
+    function hardGate(e, submitter) {
+      // Re-evaluate synchronously so state is fresh even if scheduleUpdate hasn't fired
+      if (!HF.state._unsupportedPairBlocked) checkAndBlockButtons();
+
+      // Hard gate: catches cases where button detection fails (role=button, child targets, etc.)
+      // shouldBlockTrade is set reliably by mirror-preview directly from computed values
+      if (HF.state.shouldBlockTrade && isTradeInteractionTarget(e.target)) {
+        cancelBlockedTrade(e);
+        HF.toast.showLimitBlockToast();
+        return;
+      }
+
+      // Fallback: form-based detection
+      if (shouldBlockTradeInteraction(e.target, submitter || null)) cancelBlockedTrade(e);
+    }
+
     const clickLikeHandler = (e) => {
       maybeBlockDepositWhileOwningAssets(e, null);
-      if (shouldBlockTradeInteraction(e.target, null)) cancelBlockedTrade(e);
+      hardGate(e, null);
     };
     const submitHandler = (e) => {
       maybeBlockDepositWhileOwningAssets(e, e.submitter || null);
-      if (shouldBlockTradeInteraction(e.target, e.submitter || null)) cancelBlockedTrade(e);
+      hardGate(e, e.submitter || null);
     };
     const enterHandler = (e) => {
       if (e.key !== "Enter") return;
-      if (shouldBlockTradeInteraction(e.target, null)) cancelBlockedTrade(e);
+      hardGate(e, null);
     };
 
     window.addEventListener("pointerdown", clickLikeHandler, opts);
@@ -337,6 +365,14 @@
   }
 
   function checkAndBlockButtons() {
+    if (HF.state._unsupportedPairBlocked) {
+      HF.state.shouldBlockTrade = true;
+      enforceTradeBlock();
+      startTradeBlockObserver();
+      installTradeGuards();
+      return;
+    }
+
     if (!HF.state.balanceVerified) return;
     if (!HF.state.validatorDataLoaded) return;
 
@@ -391,4 +427,12 @@
     stopTradeBlockObserver,
     bypassDepositBlockAndRetry,
   };
+
+  // If pair-support already flagged an unsupported pair before trade-gate loaded, enforce now.
+  if (HF.state._unsupportedPairBlocked) {
+    HF.state.shouldBlockTrade = true;
+    enforceTradeBlock();
+    startTradeBlockObserver();
+    installTradeGuards();
+  }
 })();

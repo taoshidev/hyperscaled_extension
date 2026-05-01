@@ -770,7 +770,7 @@ body {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: var(--space-2);
-    margin-bottom: var(--space-3);
+    margin-bottom: var(--space-5);
 }
 
 .balance-card {
@@ -781,6 +781,10 @@ body {
 }
 
 .balance-label {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    white-space: nowrap;
     font-size: 10px;
     font-family: var(--font-ui);
     font-weight: 400;
@@ -824,7 +828,7 @@ body {
 
 /* ── Trading Capacity ───────────────────────────────── */
 .capacity-block {
-    margin-bottom: var(--space-3);
+    margin-bottom: var(--space-5);
 }
 
 .capacity-header {
@@ -999,7 +1003,7 @@ body {
 
 /* ── Sections ───────────────────────────────────────── */
 .section {
-    margin-bottom: var(--space-3);
+    margin-bottom: var(--space-5);
 }
 
 .section-header {
@@ -1453,6 +1457,13 @@ body {
     font-size: 11px;
     color: var(--text-ghost);
     text-align: center;
+}
+
+.footer-version {
+    font-size: 10px;
+    color: var(--text-secondary);
+    text-align: center;
+    margin-top: -6px;
 }
 
 /* ── Screen: Positions (full list) ──────────────────── */

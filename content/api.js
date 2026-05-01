@@ -94,7 +94,12 @@
 
       const fundedSize = parseFloat(result.account_size) || ACCOUNT.fundedSize || 0;
       const hlEq = ACCOUNT.hlEquity || ACCOUNT.hlBalance || 0;
-      const scalingRatio = (fundedSize > 0 && hlEq > 0) ? fundedSize / hlEq : 1;
+
+      // If balance hasn't loaded yet the scaling ratio would be wrong (1x instead of ~73x),
+      // producing inflated limit values ($100k/$200k). Skip and let the next poll retry.
+      if (hlEq <= 0) return;
+
+      const scalingRatio = fundedSize > 0 ? fundedSize / hlEq : 1;
 
       if (result.max_position_per_pair_usd != null) {
         ACCOUNT.maxPositionPerPair = (parseFloat(result.max_position_per_pair_usd) || 0) / scalingRatio;
@@ -103,6 +108,9 @@
         ACCOUNT.maxPortfolio = (parseFloat(result.max_portfolio_usd) || 0) / scalingRatio;
       }
       HF.state.limitsLoaded = true;
+
+      // Re-render the mirror preview card if it's already visible with stale limit values
+      if (HF.mirrorPreview) HF.mirrorPreview.refreshIfVisible();
     } catch (e) {
       console.error("[Hyperscaled] Trader limits fetch failed:", e);
     }
@@ -112,17 +120,39 @@
     try {
       const result = await sendToBackground({ action: "fetchTradePairs" });
 
-      const pairs = result.allowed_trade_pairs || [];
+      const pairs = (result.allowed || result.allowed_trade_pairs || []).filter(
+        p => p.trade_pair_source === "hyperliquid" &&
+             !p.trade_pair_id.toLowerCase().startsWith("xyz:")
+      );
       if (pairs.length > 0) {
-        HF.state.SUPPORTED_SYMBOLS = pairs.map(p => p.trade_pair_id.replace(/USD[CT]?$/, ""));
-        console.log("[Hyperscaled] Loaded", HF.state.SUPPORTED_SYMBOLS.length, "supported symbols from validator");
+        // Build a reverse map: any symbol key (uppercased) → friendly display name
+        // e.g. "XYZ:CL" → "WTIOIL", "XYZ:WTIOIL" → "WTIOIL", "BTC" → "BTC"
+        HF.state.hlCoinToDisplay = {};
+        const symbols = new Set();
+        pairs.forEach(p => {
+          const friendly = p.trade_pair_id.replace(/USDC?$/, "").toUpperCase();
+          symbols.add(friendly);
+          // mainnet omits hl_coin — fall back to the derived friendly name
+          const hlKey = p.hl_coin ? p.hl_coin.toUpperCase() : friendly;
+          symbols.add(hlKey);
+          HF.state.hlCoinToDisplay[hlKey] = friendly;
+          // HL URLs use xyz:<friendly> (e.g. /trade/xyz:WTIOIL) even when
+          // hl_coin uses a different ticker (e.g. xyz:CL). Add both forms.
+          if (hlKey.startsWith("XYZ:")) {
+            const xyzFriendly = "XYZ:" + friendly;
+            symbols.add(xyzFriendly);
+            HF.state.hlCoinToDisplay[xyzFriendly] = friendly;
+          }
+        });
+        HF.state.SUPPORTED_SYMBOLS = [...symbols];
+        console.log("[Hyperscaled] Loaded", pairs.length, "HL-supported pairs from validator");
       }
       HF.state.pairsLoaded = true;
-      HF.pairSupport.checkPairSupport();
+      HF.pairSupport.checkPairSupport(true);
     } catch (e) {
       console.error("[Hyperscaled] Trade pairs fetch failed, using defaults:", e);
       HF.state.pairsLoaded = true;
-      HF.pairSupport.checkPairSupport();
+      HF.pairSupport.checkPairSupport(true);
     }
   }
 
@@ -284,9 +314,9 @@
   }
 
   function startBalanceChecking() {
-    checkBalance();
-    fetchValidatorData();
-    fetchTraderLimits();
+    // Fetch balance and validator data first so fetchTraderLimits has hlEquity
+    // available to compute the correct scaling ratio (avoids stuck $100k/$200k limits)
+    Promise.all([checkBalance(), fetchValidatorData()]).then(() => fetchTraderLimits());
     fetchTradePairs();
     fetchMidPrices();
     if (HF.state.balanceCheckTimer) clearInterval(HF.state.balanceCheckTimer);

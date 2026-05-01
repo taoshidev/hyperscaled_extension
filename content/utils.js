@@ -125,7 +125,8 @@
   }
 
   function getCurrentSymbol() {
-    const urlMatch = location.pathname.match(/\/trade\/(@?\w+)/);
+    // Match /trade/xyz:EUR, /trade/@BTC, /trade/BTC etc — capture dex prefix if present
+    const urlMatch = location.pathname.match(/\/trade\/(@?[\w:]+)/);
     if (urlMatch) {
       return urlMatch[1].replace(/^@/, "").toUpperCase();
     }

@@ -6,9 +6,14 @@ import { pollEventsForStoredAddress } from './events.js';
 import { handlePaymentMessage, attemptBackgroundVerification } from './payment.js';
 import { showPositionNotification, setupNotificationClickHandler } from './notifications.js';
 
-// ── Extension icon click ─────────────────────────────────────────────────────
-chrome.action.onClicked.addListener(() => {
-  showPositionNotification();
+// ── Side panel on icon click ─────────────────────────────────────────────────
+// openPanelOnActionClick: true makes the browser open/close the side panel
+// automatically when the toolbar icon is clicked. onClicked no longer fires
+// when this is set, so notification triggers are alarm-driven instead.
+chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
+
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
 });
 
 // ── Alarms ───────────────────────────────────────────────────────────────────

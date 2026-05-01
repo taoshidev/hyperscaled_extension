@@ -119,6 +119,11 @@
       return;
     }
 
+    if (HF.state._unsupportedPairBlocked) {
+      hideMirrorPreview();
+      return;
+    }
+
     const v = HF.utils.parseNumber(input.value);
     if (v <= 0) {
       hideMirrorPreview();
@@ -228,6 +233,25 @@
     }
     if (capDetail) capDetail.textContent = fmt(afterOrder) + ' / ' + fmt(maxTotal);
 
+    // Cache notional for the click-handler fallback in getPendingNotional()
+    HF.state.pendingNotional = notional;
+
+    // Block/unblock directly from already-computed values — don't call checkAndBlockButtons()
+    // which re-reads the DOM and can get a stale "Order Value" from before React re-renders
+    // (e.g. user goes 1373→1372→1373: DOM still shows 1372 when the second 1373 input fires)
+    if (HF.tradeGate && HF.state.balanceVerified && HF.state.validatorDataLoaded && !HF.state._unsupportedPairBlocked) {
+      const wouldExceed = !isSell && (pairAfter > pairMax || afterOrder > maxTotal);
+      if (wouldExceed) {
+        HF.state.shouldBlockTrade = true;
+      } else if (!HF.state.forcedTradeBlock) {
+        HF.state.shouldBlockTrade = false;
+        HF.toast.dismissLimitBlockToast();
+      }
+      HF.tradeGate.enforceTradeBlock();
+      HF.tradeGate.startTradeBlockObserver();
+      HF.tradeGate.installTradeGuards();
+    }
+
     if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
     void el.offsetWidth;
     el.classList.add('hf-mirror-show');
@@ -236,6 +260,8 @@
   function hideMirrorPreview() {
     if (!previewEl) return;
     previewEl.classList.remove('hf-mirror-show');
+    HF.state.pendingNotional = 0;
+    HF.toast.dismissLimitBlockToast();
   }
 
   function onSizeInputChange(input) {
@@ -251,10 +277,17 @@
     }
   }
 
+  function refreshIfVisible() {
+    if (!previewEl || !previewEl.classList.contains('hf-mirror-show')) return;
+    const input = HF.state.lastEditedInput;
+    if (input && HF.utils.isLikelySizeInput(input)) showMirrorPreview(input);
+  }
+
   HF.mirrorPreview = {
     showMirrorPreview,
     hideMirrorPreview,
     onSizeInputChange,
     onSizeInputBlur,
+    refreshIfVisible,
   };
 })();
