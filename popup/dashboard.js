@@ -181,11 +181,23 @@ export function applyValidatorData(result, state) {
         (Number(state.openSingleUsed) || 0) > 0 ||
         (state.notionalByPair && Object.keys(state.notionalByPair).length > 0)
     );
-    const largestPairNotional = hasHlExposureData ? (Number(state.openSingleUsed) || 0) : maxSingleNotional;
-    const totalCapacityUsed = hasHlExposureData ? (Number(state.openTotalUsed) || 0) : totalNotional;
+    // Validator notionals are HS-scale (net_leverage × accountSize). Scale to HL terms
+    // so the HL view reads correctly and the HS view's `× r` produces the right number.
+    // Without this, a fill that shows on the validator before HL's assetPositions catches up
+    // briefly displays HS values in the HL row and HS × r in the HS row.
+    const validatorNotionalByPairHl = {};
+    if (mirrorRatio > 0) {
+        for (const [k, v] of Object.entries(validatorNotionalByPair)) {
+            validatorNotionalByPairHl[k] = v / mirrorRatio;
+        }
+    }
+    const totalNotionalHl = mirrorRatio > 0 ? totalNotional / mirrorRatio : totalNotional;
+    const maxSingleNotionalHl = mirrorRatio > 0 ? maxSingleNotional / mirrorRatio : maxSingleNotional;
+    const largestPairNotional = hasHlExposureData ? (Number(state.openSingleUsed) || 0) : maxSingleNotionalHl;
+    const totalCapacityUsed = hasHlExposureData ? (Number(state.openTotalUsed) || 0) : totalNotionalHl;
     const perPairRemainingEl = document.getElementById('perPairRemaining');
     const perPairSubBarsEl = document.getElementById('perPairSubBars');
-    const perAssetSource = hasHlExposureData ? state.notionalByPair : validatorNotionalByPair;
+    const perAssetSource = hasHlExposureData ? state.notionalByPair : validatorNotionalByPairHl;
     const perAssetEntries = Object.entries(perAssetSource || {})
         .map(([symbol, value]) => [String(symbol).toUpperCase(), Number(value) || 0])
         .filter(([, value]) => value > 0)
