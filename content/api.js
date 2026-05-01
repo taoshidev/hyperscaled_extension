@@ -131,17 +131,16 @@
         pairs.forEach(p => {
           const friendly = p.trade_pair_id.replace(/USDC?$/, "").toUpperCase();
           symbols.add(friendly);
-          if (p.hl_coin) {
-            const hlKey = p.hl_coin.toUpperCase();
-            symbols.add(hlKey);
-            HF.state.hlCoinToDisplay[hlKey] = friendly;
-            // HL URLs use xyz:<friendly> (e.g. /trade/xyz:WTIOIL) even when
-            // hl_coin uses a different ticker (e.g. xyz:CL). Add both forms.
-            if (hlKey.startsWith("XYZ:")) {
-              const xyzFriendly = "XYZ:" + friendly;
-              symbols.add(xyzFriendly);
-              HF.state.hlCoinToDisplay[xyzFriendly] = friendly;
-            }
+          // mainnet omits hl_coin — fall back to the derived friendly name
+          const hlKey = p.hl_coin ? p.hl_coin.toUpperCase() : friendly;
+          symbols.add(hlKey);
+          HF.state.hlCoinToDisplay[hlKey] = friendly;
+          // HL URLs use xyz:<friendly> (e.g. /trade/xyz:WTIOIL) even when
+          // hl_coin uses a different ticker (e.g. xyz:CL). Add both forms.
+          if (hlKey.startsWith("XYZ:")) {
+            const xyzFriendly = "XYZ:" + friendly;
+            symbols.add(xyzFriendly);
+            HF.state.hlCoinToDisplay[xyzFriendly] = friendly;
           }
         });
         HF.state.SUPPORTED_SYMBOLS = [...symbols];
