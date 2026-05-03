@@ -384,12 +384,14 @@
       return;
     }
 
-    const { getHLLeverage, getCurrentSymbol, effectiveMaxSingleUsd, effectiveMaxTotalUsd, readOrderValueFromDOM } = HF.utils;
+    const { getHLLeverage, getCurrentSymbol, effectiveMaxSingleUsd, effectiveMaxTotalUsd,
+            readOrderValueFromDOM, getActiveOrderSide, isReduceIntent } = HF.utils;
 
     const hlLev = getHLLeverage();
     const pending = HF.banner.getPendingNotional();
     const symbol = getCurrentSymbol();
-    const currentPairNotional = (symbol && ACCOUNT.notionalByPair[symbol]) || 0;
+    const resolvedSymbol = HF.utils.resolveExposureSymbol(symbol);
+    const currentPairNotional = (resolvedSymbol && ACCOUNT.notionalByPair[resolvedSymbol]) || 0;
 
     const maxNotionalPerPair = effectiveMaxSingleUsd();
     const maxNotionalTotal = effectiveMaxTotalUsd();
@@ -397,19 +399,25 @@
     const leftSingle = maxNotionalPerPair - currentPairNotional;
     const leftTotal = maxNotionalTotal - ACCOUNT.openTotalUsed;
 
-    const alreadyAtLimit = leftSingle <= 0 || leftTotal <= 0;
-    const overSingle = pending > 0 && pending >= leftSingle;
-    const overTotal = pending > 0 && pending >= leftTotal;
+    // Reduce-intent bypass: if the active order side is opposite the current
+    // position, the order will reduce exposure — never block it on cap, even
+    // when current exposure is already over cap.
+    const activeSide = getActiveOrderSide();
+    const reducing = isReduceIntent(symbol, activeSide);
+
+    const alreadyAtLimit = !reducing && (leftSingle <= 0 || leftTotal <= 0);
+    const overSingle = !reducing && pending > 0 && pending >= leftSingle;
+    const overTotal = !reducing && pending > 0 && pending >= leftTotal;
     const orderValue = readOrderValueFromDOM();
     const maxAllowedFromCurrent = Math.max(Math.min(leftSingle, leftTotal), 0);
-    const overByOrderValue = orderValue > maxAllowedFromCurrent + 0.01;
+    const overByOrderValue = !reducing && orderValue > maxAllowedFromCurrent + 0.01;
 
     HF.state.shouldBlockTrade = HF.state.forcedTradeBlock || alreadyAtLimit || overSingle || overTotal || overByOrderValue;
     logTradeGateDiagnostics({
       source: "checkAndBlockButtons",
       pendingNotional: pending,
       orderValue,
-      details: { alreadyAtLimit, overSingle, overTotal, overByOrderValue },
+      details: { alreadyAtLimit, overSingle, overTotal, overByOrderValue, reducing, activeSide },
     });
     enforceTradeBlock();
     startTradeBlockObserver();

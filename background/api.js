@@ -199,6 +199,7 @@ function normalizePerpSymbol(raw) {
 
 function extractExposureFromAssetPositions(perpsData) {
   const perAsset = {};
+  const perAssetSigned = {};
   let total = 0;
   let openCount = 0;
   const assetPositions = Array.isArray(perpsData?.assetPositions) ? perpsData.assetPositions : [];
@@ -217,7 +218,12 @@ function extractExposureFromAssetPositions(perpsData) {
     if (!(notional > 0)) continue;
 
     const symbol = normalizePerpSymbol(pos?.coin ?? pos?.asset ?? pos?.name ?? row?.coin ?? row?.asset);
-    if (symbol) perAsset[symbol] = (perAsset[symbol] || 0) + notional;
+    if (symbol) {
+      perAsset[symbol] = (perAsset[symbol] || 0) + notional;
+      // Preserve direction so reduce-intent gating can distinguish long vs short.
+      const signed = size > 0 ? notional : -notional;
+      perAssetSigned[symbol] = (perAssetSigned[symbol] || 0) + signed;
+    }
 
     total += notional;
     openCount += 1;
@@ -228,6 +234,7 @@ function extractExposureFromAssetPositions(perpsData) {
     openTotalUsed: total,
     openSingleUsed: maxSingle,
     notionalByPair: perAsset,
+    signedNotionalByPair: perAssetSigned,
     openPositionCount: openCount,
   };
 }
@@ -327,8 +334,12 @@ export async function fetchHLBalance(address) {
     })
   );
 
-  let accountValue = perpsWithdrawable + spotUSDC + spotAssetsUsd;
-  let perpsValue = perpsWithdrawable;
+  // Total HL equity = perp account value (margin used + free + unrealized PnL)
+  // + spot. Withdrawable would exclude margin in open positions, which would
+  // halve the basis when the trader has a leveraged position open and break
+  // mirrorRatio / per-asset cap math downstream.
+  let accountValue = perpAccountValue + spotUSDC + spotAssetsUsd;
+  let perpsValue = perpAccountValue;
 
   if (FAKE_MONEY) {
     accountValue = 1000;
@@ -360,6 +371,7 @@ export async function fetchHLBalance(address) {
     openTotalUsed: exposure.openTotalUsed,
     openSingleUsed: exposure.openSingleUsed,
     notionalByPair: exposure.notionalByPair,
+    signedNotionalByPair: exposure.signedNotionalByPair,
     openPositionCount: exposure.openPositionCount,
     exposureSource: 'hyperliquid-assetPositions',
   };

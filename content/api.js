@@ -111,6 +111,7 @@
 
       // Re-render the mirror preview card if it's already visible with stale limit values
       if (HF.mirrorPreview) HF.mirrorPreview.refreshIfVisible();
+      HF.toast?.evaluateOversizeState?.();
     } catch (e) {
       console.error("[Hyperscaled] Trader limits fetch failed:", e);
     }
@@ -207,15 +208,22 @@
       let maxSingleNotional = 0;
 
       const notionalByPair = {};
+      const signedNotionalByPair = {};
       for (const pos of openPositions) {
+        const rawLev = parseFloat(pos.net_leverage ?? pos.leverage);
         const notional = pos.net_leverage != null
-          ? Math.abs(parseFloat(pos.net_leverage)) * ACCOUNT.fundedSize
+          ? Math.abs(rawLev) * ACCOUNT.fundedSize
           : (pos.filled_orders || []).reduce((s, o) => s + Math.abs(parseFloat(o.value) || 0), 0);
+        // Validator's net_leverage is signed: long > 0, short < 0. Preserve the
+        // sign so reduce-intent gating can compare against order side.
+        const signedNotional = Number.isFinite(rawLev) && rawLev !== 0
+          ? Math.sign(rawLev) * notional
+          : notional;
 
         const r = parseFloat(pos.current_return) || 1;
         let pnl;
         if (capUsed != null && capUsed > 0 && levSum > 0) {
-          const lev = Math.abs(parseFloat(pos.net_leverage ?? pos.leverage) || 0);
+          const lev = Math.abs(rawLev) || 0;
           const share = lev / levSum;
           pnl = (r - 1) * capUsed * share;
         } else if (capUsed != null && capUsed > 0 && openPositions.length > 0) {
@@ -232,6 +240,7 @@
         const coin = (typeof tp === "string" ? tp : (tp[0] || "")).replace(/\/.*$/, "").replace(/USD[CT]?$/, "").toUpperCase();
         if (coin) {
           notionalByPair[coin] = (notionalByPair[coin] || 0) + notional;
+          signedNotionalByPair[coin] = (signedNotionalByPair[coin] || 0) + signedNotional;
         }
       }
 
@@ -254,6 +263,7 @@
 
       if (ACCOUNT.exposureSource !== "hyperliquid-assetPositions") {
         ACCOUNT.notionalByPair = notionalByPair;
+        ACCOUNT.signedNotionalByPair = signedNotionalByPair;
         ACCOUNT.openTotalUsed = totalNotional;
         ACCOUNT.openSingleUsed = maxSingleNotional;
         ACCOUNT.exposureSource = "validator-net-leverage";
@@ -261,6 +271,7 @@
 
       HF.state.validatorDataLoaded = true;
       HF.banner.updateBannerFromValidator();
+      HF.toast?.evaluateOversizeState?.();
     } catch (e) {
       console.error("[Hyperscaled] Validator fetch failed:", e);
       if (e.message.toLowerCase().includes("unregistered")) {
@@ -287,12 +298,30 @@
       ACCOUNT.hlBalance = HF.state.currentBalance;
       ACCOUNT.hlEquity = HF.state.currentBalance;
       if (result && typeof result === "object") {
-        const mappedExposure = result.notionalByPair && typeof result.notionalByPair === "object"
-          ? result.notionalByPair
-          : {};
+        // Remap HL coin keys (e.g. "XYZ:CL") to display/exposure keys (e.g. "WTIOIL")
+        // so that cap lookups using the URL symbol ("XYZ:WTIOIL") resolve correctly.
+        // Native pairs like "BTC" pass through unchanged.
+        const remapKeys = (raw) => {
+          const display = HF.state.hlCoinToDisplay || {};
+          const out = {};
+          for (const [k, v] of Object.entries(raw || {})) {
+            const key = display[k] || k;
+            out[key] = (out[key] || 0) + (Number(v) || 0);
+          }
+          return out;
+        };
+        const mappedExposure = remapKeys(
+          result.notionalByPair && typeof result.notionalByPair === "object"
+            ? result.notionalByPair : {}
+        );
+        const signedExposure = remapKeys(
+          result.signedNotionalByPair && typeof result.signedNotionalByPair === "object"
+            ? result.signedNotionalByPair : {}
+        );
         const openTotalFromHL = Number(result.openTotalUsed) || 0;
         const openSingleFromHL = Number(result.openSingleUsed) || 0;
         ACCOUNT.notionalByPair = mappedExposure;
+        ACCOUNT.signedNotionalByPair = signedExposure;
         ACCOUNT.openTotalUsed = openTotalFromHL;
         ACCOUNT.openSingleUsed = openSingleFromHL;
         ACCOUNT.exposureSource = typeof result.exposureSource === "string" && result.exposureSource
@@ -303,6 +332,7 @@
 
       updateBannerBalance();
       HF.inputBinding.scheduleUpdate();
+      HF.toast?.evaluateOversizeState?.();
     } catch (e) {
       console.error("[Hyperscaled] Balance check failed:", e);
     }
@@ -354,11 +384,13 @@
       ACCOUNT.openTotalUsed = 0;
       ACCOUNT.exposureSource = "none";
       ACCOUNT.notionalByPair = {};
+      ACCOUNT.signedNotionalByPair = {};
       ACCOUNT.inChallenge = false;
       ACCOUNT.isRegistered = false;
       ACCOUNT.registrationChecked = false;
       HF.state.validatorDataLoaded = false;
       HF.banner.updateBannerFromValidator();
+      HF.toast?.dismissOversizeToast?.();
 
       checkBalance(newAddress);
       fetchValidatorData(newAddress);

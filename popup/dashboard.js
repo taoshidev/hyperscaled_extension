@@ -143,7 +143,10 @@ export function applyValidatorData(result, state) {
 
     // ── Trading Capacity ────────────────────────────────────────────────────────
     // Capacity comes directly from validator limits when available.
-    const basisUsd = (Number(state.hlBalance) || 0) + (Number(state.openTotalUsed) || 0);
+    // Basis is total HL equity — which already includes margin in open positions
+    // and unrealized PnL via HL's crossMarginSummary.accountValue. Don't add
+    // openTotalUsed (notional) on top, that would double-count.
+    const basisUsd = Number(state.hlBalance) || 0;
 
     // Populate multiplier and basis labels
     const perAssetMultiplierEl = document.getElementById('perAssetMultiplier');
@@ -218,13 +221,17 @@ export function applyValidatorData(result, state) {
             perPairSubBarsEl.innerHTML = perAssetEntries.map(([symbol, value]) => {
                 const usedPct = maxPerPair > 0 ? Math.min((value / maxPerPair) * 100, 100) : 0;
                 const safeSymbol = symbol.replace(/[^A-Z0-9._-]/g, '');
+                const isOver = maxPerPair > 0 && value > maxPerPair;
+                const trackCls = isOver ? 'capacity-asset-track capacity-asset-track--over' : 'capacity-asset-track';
+                const fillCls  = isOver ? 'capacity-asset-fill capacity-asset-fill--over'   : 'capacity-asset-fill';
+                const valueCls = isOver ? 'capacity-asset-value capacity-asset-value--over' : 'capacity-asset-value';
                 return `
                     <div class="capacity-asset-row">
                         <span class="capacity-asset-symbol">${safeSymbol}</span>
-                        <div class="capacity-asset-track">
-                            <div class="capacity-asset-fill" style="width: ${usedPct.toFixed(1)}%;"></div>
+                        <div class="${trackCls}">
+                            <div class="${fillCls}" style="width: ${usedPct.toFixed(1)}%;"></div>
                         </div>
-                        <span class="capacity-asset-value">${fmtUsd(value)} / ${fmtUsd(maxPerPair)}</span>
+                        <span class="${valueCls}">${fmtUsd(value)} / ${fmtUsd(maxPerPair)}</span>
                     </div>
                 `;
             }).join('');
@@ -246,11 +253,15 @@ export function applyValidatorData(result, state) {
     const capacityMaxEl = document.getElementById('capacityMax');
     const capacityFillEl = document.getElementById('capacityFill');
     const capacityRemainingEl = document.getElementById('capacityRemaining');
+    const totalOver = maxTotal > 0 && totalCapacityUsed > maxTotal;
     if (capacityUsedEl) capacityUsedEl.textContent = fmtUsd(totalCapacityUsed);
     if (capacityMaxEl) capacityMaxEl.textContent = fmtUsd(maxTotal);
     if (capacityFillEl) {
         const capPct = maxTotal > 0 ? Math.min((totalCapacityUsed / maxTotal) * 100, 100) : 0;
         capacityFillEl.style.width = capPct + '%';
+        capacityFillEl.classList.toggle('capacity-fill--over', totalOver);
+        const trackEl = capacityFillEl.parentElement;
+        if (trackEl) trackEl.classList.toggle('capacity-bar--over', totalOver);
     }
     if (capacityRemainingEl) capacityRemainingEl.textContent = fmtUsd(Math.max(maxTotal - totalCapacityUsed, 0));
 
@@ -278,13 +289,17 @@ export function applyValidatorData(result, state) {
                 const hsValue = value * r;
                 const usedPct = hsMaxPerPair > 0 ? Math.min((hsValue / hsMaxPerPair) * 100, 100) : 0;
                 const safeSymbol = symbol.replace(/[^A-Z0-9._-]/g, '');
+                const isOver = hsMaxPerPair > 0 && hsValue > hsMaxPerPair;
+                const trackCls = isOver ? 'capacity-asset-track capacity-asset-track--over' : 'capacity-asset-track';
+                const fillCls  = isOver ? 'capacity-asset-fill capacity-asset-fill--over'   : 'capacity-asset-fill';
+                const valueCls = isOver ? 'capacity-asset-value capacity-asset-value--over' : 'capacity-asset-value';
                 return `
                     <div class="capacity-asset-row">
                         <span class="capacity-asset-symbol">${safeSymbol}</span>
-                        <div class="capacity-asset-track">
-                            <div class="capacity-asset-fill" style="width: ${usedPct.toFixed(1)}%;"></div>
+                        <div class="${trackCls}">
+                            <div class="${fillCls}" style="width: ${usedPct.toFixed(1)}%;"></div>
                         </div>
-                        <span class="capacity-asset-value">${fmtUsd(hsValue)} / ${fmtUsd(hsMaxPerPair)}</span>
+                        <span class="${valueCls}">${fmtUsd(hsValue)} / ${fmtUsd(hsMaxPerPair)}</span>
                     </div>
                 `;
             }).join('');
@@ -304,11 +319,15 @@ export function applyValidatorData(result, state) {
     const hsCapacityMaxEl = document.getElementById('hsCapacityMax');
     const hsCapacityFillEl = document.getElementById('hsCapacityFill');
     const hsCapacityRemainingEl = document.getElementById('hsCapacityRemaining');
+    const hsTotalOver = hsMaxTotal > 0 && hsTotalCapacityUsed > hsMaxTotal;
     if (hsCapacityUsedEl) hsCapacityUsedEl.textContent = fmtUsd(hsTotalCapacityUsed);
     if (hsCapacityMaxEl) hsCapacityMaxEl.textContent = fmtUsd(hsMaxTotal);
     if (hsCapacityFillEl) {
         const hsPct = hsMaxTotal > 0 ? Math.min((hsTotalCapacityUsed / hsMaxTotal) * 100, 100) : 0;
         hsCapacityFillEl.style.width = hsPct + '%';
+        hsCapacityFillEl.classList.toggle('capacity-fill--over', hsTotalOver);
+        const hsTrackEl = hsCapacityFillEl.parentElement;
+        if (hsTrackEl) hsTrackEl.classList.toggle('capacity-bar--over', hsTotalOver);
     }
     if (hsCapacityRemainingEl) hsCapacityRemainingEl.textContent = fmtUsd(Math.max(hsMaxTotal - hsTotalCapacityUsed, 0));
 

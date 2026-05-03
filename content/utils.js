@@ -4,9 +4,35 @@
   const { ACCOUNT } = HF.state;
 
   function marginLimitBasisUsd() {
-    const walletEquity = Number(ACCOUNT.hlEquity) || 0;
-    const openNotional = Number(ACCOUNT.openTotalUsed) || 0;
-    return walletEquity + openNotional;
+    // Total HL equity already includes margin used in open positions and
+    // unrealized PnL (via HL's crossMarginSummary.accountValue). Don't add
+    // open notional on top — that would double-count and inflate the basis.
+    return Number(ACCOUNT.hlEquity) || 0;
+  }
+
+  // Resolves a URL symbol (e.g. "XYZ:WTIOIL") or HL coin (e.g. "XYZ:CL") to
+  // the canonical display/exposure key used in notionalByPair and signedNotionalByPair.
+  // Native pairs like "BTC" pass through unchanged. xyz pairs resolve through
+  // hlCoinToDisplay (built by fetchTradePairs) so that both "XYZ:CL" and
+  // "XYZ:WTIOIL" map to the same "WTIOIL" key that validator data uses.
+  function resolveExposureSymbol(symbol) {
+    if (!symbol) return null;
+    const display = HF.state.hlCoinToDisplay || {};
+    return display[symbol] || symbol;
+  }
+
+  // True when the order side is opposite the current position direction —
+  // i.e. selling a long or buying a short. Used to bypass cap-based gating
+  // when the user is reducing exposure (which should always be allowed,
+  // even when current exposure is already over the cap).
+  function isReduceIntent(symbol, side) {
+    if (!symbol || (side !== "buy" && side !== "sell")) return false;
+    const resolved = resolveExposureSymbol(symbol);
+    const signed = Number(ACCOUNT.signedNotionalByPair?.[resolved]) || 0;
+    if (Math.abs(signed) <= 0.01) return false;
+    if (signed > 0 && side === "sell") return true;
+    if (signed < 0 && side === "buy") return true;
+    return false;
   }
 
   function resolveChallengeModeFromValidator(result) {
@@ -490,6 +516,8 @@
 
   HF.utils = {
     marginLimitBasisUsd,
+    resolveExposureSymbol,
+    isReduceIntent,
     resolveChallengeModeFromValidator,
     effectiveMaxSingleUsd,
     effectiveMaxTotalUsd,

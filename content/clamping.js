@@ -229,7 +229,7 @@
   function clampInputIfNeeded(input) {
     const { parseNumber, readOrderValueFromDOM, inputToNotional, getCurrentSymbol,
             effectiveMaxSingleUsd, effectiveMaxTotalUsd, getSizeUnit, fmt,
-            isLikelySizeInput } = HF.utils;
+            isLikelySizeInput, getActiveOrderSide, isReduceIntent } = HF.utils;
 
     if (!HF.state.balanceVerified) return;
     if (!HF.state.validatorDataLoaded) return;
@@ -251,7 +251,15 @@
     if (notional <= 0) return;
 
     const symbol = getCurrentSymbol();
-    const currentPairNotional = (symbol && ACCOUNT.notionalByPair[symbol]) || 0;
+    // Reduce-intent bypass: opposite-side orders bring exposure down and must
+    // not be clamped/blocked, even when the current pair is over cap.
+    if (isReduceIntent(symbol, getActiveOrderSide(input))) {
+      HF.tradeGate.releaseForcedTradeBlock();
+      HF.tradeGate.checkAndBlockButtons();
+      return;
+    }
+    const resolvedSymbol = HF.utils.resolveExposureSymbol(symbol);
+    const currentPairNotional = (resolvedSymbol && ACCOUNT.notionalByPair[resolvedSymbol]) || 0;
     const maxNotionalPerPair = effectiveMaxSingleUsd();
     const maxNotionalTotal = effectiveMaxTotalUsd();
 
@@ -295,7 +303,7 @@
 
   function checkAndClampOrderValue() {
     const { readOrderValueFromDOM, getCurrentSymbol, effectiveMaxSingleUsd, effectiveMaxTotalUsd,
-            parseNumber, getSizeUnit, fmt } = HF.utils;
+            parseNumber, getSizeUnit, fmt, getActiveOrderSide, isReduceIntent } = HF.utils;
 
     if (!HF.state.balanceVerified) return;
     if (!HF.state.validatorDataLoaded) return;
@@ -310,7 +318,14 @@
     if (orderValue <= 0) return;
 
     const symbol = getCurrentSymbol();
-    const currentPairNotional = (symbol && ACCOUNT.notionalByPair[symbol]) || 0;
+    // Reduce-intent bypass: skip clamp/block when the order shrinks exposure.
+    if (isReduceIntent(symbol, getActiveOrderSide())) {
+      HF.tradeGate.releaseForcedTradeBlock();
+      HF.tradeGate.checkAndBlockButtons();
+      return;
+    }
+    const resolvedSymbol = HF.utils.resolveExposureSymbol(symbol);
+    const currentPairNotional = (resolvedSymbol && ACCOUNT.notionalByPair[resolvedSymbol]) || 0;
     const maxNotionalPerPair = effectiveMaxSingleUsd();
     const maxNotionalTotal = effectiveMaxTotalUsd();
 

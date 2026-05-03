@@ -971,6 +971,25 @@ body {
     transition: width 0.3s ease;
 }
 
+/* Oversized state — applies to both wide capacity bars and asset sub-bars
+   when notional exceeds the allowed cap. Track tints with matching red. */
+.capacity-fill--over,
+.capacity-asset-fill--over {
+    background: var(--red);
+}
+
+.capacity-bar--over {
+    background: var(--danger-bg);
+}
+
+.capacity-asset-track--over {
+    background: var(--danger-bg);
+}
+
+.capacity-asset-value--over {
+    color: var(--red);
+}
+
 .capacity-asset-value {
     font-size: 10px;
     font-family: var(--font-mono);

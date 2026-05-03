@@ -341,6 +341,40 @@ When orders are blocked due to insufficient remaining capacity, the banner uses 
 
 ---
 
+## Oversized Positions State
+
+When current open positions already exceed the allowed cap (per-asset or total) — e.g. validator limits tightened, mark price moved, or the user took on positions outside enforced bounds — two surfaces fire:
+
+1. **Capacity bars in the extension popup turn red** so the trader sees the breach when they open the popup.
+2. **A persistent toast appears in the top-right of the Hyperliquid page** so the trader is alerted without needing to open the popup.
+
+This is a stronger semantic than "blocked" because the trader has already breached the cap and must reduce exposure (close/trim positions) — the existing blocked-toast handles the inverse case (preventing a *new* order that would exceed cap).
+
+### Popup capacity bars
+
+| Element | Treatment |
+|---------|-----------|
+| Bar fill (over cap) | `--red` (`.capacity-fill--over`, `.capacity-asset-fill--over`) |
+| Bar track / asset track (over cap) | `--danger-bg` (`.capacity-bar--over`, `.capacity-asset-track--over`) |
+| Asset row value (over cap) | `--red` (`.capacity-asset-value--over`) |
+
+**Rule:** Oversize is the only place capacity bars use red. Indigo remains the default for all under-cap states (any utilization 0–100% of the limit). The red treatment applies to the fill *and* track (paired tokens) so the bar reads as breached at a glance, not just heavy.
+
+### Hyperliquid page toast (`hf-toast--oversize`)
+
+| Property | Value |
+|----------|-------|
+| Variant class | `hf-toast hf-toast--warning hf-toast--oversize` (reuses the `--warning` red surface so severity matches "Order Prevented") |
+| Title | `"Hyperscaled: Position Size Over Cap"` |
+| Body | Worst per-asset breach first (`<symbol>` exposure `<used>` exceeds per-asset cap `<max>`), then total breach if also over, then a one-line action ("Reduce or close positions to bring exposure back under the cap.") |
+| Persistence | Stays up while the breach holds — no auto-dismiss timer. Re-evaluated after every ACCOUNT update (validator fetch, balance check, limits fetch) via `HF.toast.evaluateOversizeState()` |
+
+**Rule:** Oversize toast is informational + actionable. It must list the *worst* over-cap axis so the trader has one specific position to act on. Don't add a close/dismiss button — the toast disappears automatically once exposure returns under cap.
+
+**Rule:** Don't compete with the blocked-order toast. Oversize fires from already-open exposure; blocked fires from a new order attempt. They can coexist (both appear top-right, stacked).
+
+---
+
 ## Info Expand (Educational Tooltips)
 
 Inline expandable explanations that educate users about trading concepts and metrics. A small circle-i icon next to section headers toggles a collapsible text panel.

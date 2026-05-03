@@ -136,6 +136,62 @@ A single capacity block with a segmented `HL | Hyperscaled` toggle in the header
 - The toggle uses `hidden` attribute on `.capacity-view` containers. Both views stay in the DOM — only visibility changes. HL is the default view.
 - Bar fill width is set inline via `style="width: XX%;"` calculated from JS.
 
+### Oversized state modifiers
+
+When notional exceeds the allowed cap, JS adds `--over` modifier classes so the bar reads as breached:
+
+| Element | Class added |
+|---------|-------------|
+| Total bar track | `capacity-bar--over` |
+| Total bar fill | `capacity-fill--over` |
+| Asset row track | `capacity-asset-track--over` |
+| Asset row fill | `capacity-asset-fill--over` |
+| Asset row value | `capacity-asset-value--over` |
+
+Width still clamps to 100%; only color flips. See **Oversized Positions State** in `design-rules.md` for tokens.
+
+---
+
+## Oversize Toast (HL page)
+
+When current open positions already exceed the per-asset or total cap, the content script shows a persistent toast in the top-right of the Hyperliquid page. The popup's capacity bars also flip to red — see "Oversized state modifiers" above. The toast lives on HL (not in the popup) so the trader is alerted in their trading flow without needing to open the extension.
+
+### Structure
+
+The toast is built dynamically in `content/toast.js` (`showOversizeToast()`). Reuses the `--warning` variant surface for visual severity:
+
+```html
+<div class="hf-toast hf-toast--warning hf-toast--oversize hf-toast-show">
+  <div class="hf-toast-icon"><!-- inline SVG warning glyph --></div>
+  <div class="hf-toast-content">
+    <div class="hf-toast-title">Hyperscaled: Position Size Over Cap</div>
+    <div class="hf-toast-msg">
+      <b>BTC</b> exposure <b>$1,999.91</b> exceeds the per-asset cap of <b>$352.34</b>.
+      Total exposure <b>$1,999.91</b> exceeds the portfolio cap of <b>$1,409.36</b>.
+      Reduce or close positions to bring exposure back under the cap.
+    </div>
+  </div>
+</div>
+```
+
+### API
+
+| Function | Purpose |
+|----------|---------|
+| `HF.toast.showOversizeToast()` | Build / refresh the toast. Idempotent — replaces innerHTML if already mounted. |
+| `HF.toast.dismissOversizeToast()` | Tear down with the standard 300ms fade. |
+| `HF.toast.evaluateOversizeState()` | Read `ACCOUNT.notionalByPair` / `openTotalUsed` against `effectiveMaxSingleUsd()` / `effectiveMaxTotalUsd()` and call show/dismiss. Bails out if `HF.state.limitsLoaded` is false. |
+
+`evaluateOversizeState()` is called from `content/api.js` after each ACCOUNT update: `fetchValidatorData()`, `checkBalance()`, and `fetchTraderLimits()`. Wallet-address change calls `dismissOversizeToast()` directly to clear stale state before the new fetches resolve.
+
+### Rules
+
+- Always lead with the **worst per-asset breach** (largest absolute over-cap value) so the trader has one specific position to act on. If multiple assets are over, append `(+N more over cap)`.
+- If total exposure is also over the portfolio cap, append a second sentence — but only after the per-asset line.
+- Always end with the action: `Reduce or close positions to bring exposure back under the cap.`
+- No dismiss button. The toast disappears automatically once exposure returns under cap. This is intentional — the trader cannot snooze a real risk breach.
+- Reuse `hf-toast--warning` styling, do not invent a new color. The trailing `hf-toast--oversize` class is a behavioral marker (used to find/replace the active oversize toast), not a style hook.
+
 ---
 
 ## Metric Section

@@ -29,6 +29,7 @@
     maxPositionPerPair: 0,
     maxPortfolio: 0,
     notionalByPair: {},
+    signedNotionalByPair: {},
     inChallenge: false,
     isRegistered: false,
     registrationChecked: false,

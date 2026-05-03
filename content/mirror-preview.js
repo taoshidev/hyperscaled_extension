@@ -154,7 +154,8 @@
     const isSell = side === 'sell';
 
     // Per-pair capacity — selling reduces exposure, buying adds
-    const pairUsed = (symbol && ACCOUNT.notionalByPair[symbol]) || 0;
+    const resolvedSymbol = HF.utils.resolveExposureSymbol(symbol);
+    const pairUsed = (resolvedSymbol && ACCOUNT.notionalByPair[resolvedSymbol]) || 0;
     const pairMax = effectiveMaxSingleUsd();
     const pairAfter = isSell ? Math.max(pairUsed - notional, 0) : pairUsed + notional;
     const pairUsedPct = pairMax > 0 ? Math.min((pairUsed / pairMax) * 100, 100) : 0;
@@ -238,9 +239,11 @@
 
     // Block/unblock directly from already-computed values — don't call checkAndBlockButtons()
     // which re-reads the DOM and can get a stale "Order Value" from before React re-renders
-    // (e.g. user goes 1373→1372→1373: DOM still shows 1372 when the second 1373 input fires)
+    // (e.g. user goes 1373→1372→1373: DOM still shows 1372 when the second 1373 input fires).
+    // Reduce-intent orders never block, even if current exposure already exceeds cap.
     if (HF.tradeGate && HF.state.balanceVerified && HF.state.validatorDataLoaded && !HF.state._unsupportedPairBlocked) {
-      const wouldExceed = !isSell && (pairAfter > pairMax || afterOrder > maxTotal);
+      const reducing = HF.utils.isReduceIntent(symbol, side);
+      const wouldExceed = !reducing && (pairAfter > pairMax || afterOrder > maxTotal);
       if (wouldExceed) {
         HF.state.shouldBlockTrade = true;
       } else if (!HF.state.forcedTradeBlock) {

@@ -6,6 +6,7 @@
   let activeClampToast = null;
   let activeInfoToast = null;
   let activeLimitBlockToast = null;
+  let activeOversizeToast = null;
   let infoToastTimer = null;
   let blockedToastDismissed = false;
   let blockedToastDetailsExpanded = false;
@@ -64,7 +65,8 @@
     const symbol = getCurrentSymbol();
     const symbolLabel = symbol || "this asset";
     const perPairLimitUsd = effectiveMaxSingleUsd();
-    const usedPerPairUsd = (symbol && ACCOUNT.notionalByPair[symbol]) || 0;
+    const resolvedSymbol = HF.utils.resolveExposureSymbol(symbol);
+    const usedPerPairUsd = (resolvedSymbol && ACCOUNT.notionalByPair[resolvedSymbol]) || 0;
     const remainingPerPairUsd = Math.max(perPairLimitUsd - usedPerPairUsd, 0);
     const leverageBasisUsd = marginLimitBasisUsd();
     const maxPairLeverage = leverageBasisUsd > 0 ? perPairLimitUsd / leverageBasisUsd : 0;
@@ -394,11 +396,12 @@
   function showLimitBlockToast() {
     if (activeLimitBlockToast && activeLimitBlockToast.parentNode) return;
 
-    const { fmt, effectiveMaxSingleUsd, effectiveMaxTotalUsd, getCurrentSymbol } = HF.utils;
+    const { fmt, effectiveMaxSingleUsd, effectiveMaxTotalUsd, getCurrentSymbol, resolveExposureSymbol } = HF.utils;
     const symbol = getCurrentSymbol();
     const pairMax = effectiveMaxSingleUsd();
     const totalMax = effectiveMaxTotalUsd();
-    const pairUsed = (symbol && ACCOUNT.notionalByPair[symbol]) || 0;
+    const resolvedSym = resolveExposureSymbol(symbol);
+    const pairUsed = (resolvedSym && ACCOUNT.notionalByPair[resolvedSym]) || 0;
     const totalUsed = ACCOUNT.openTotalUsed || 0;
     const remaining = fmt(Math.max(Math.min(pairMax - pairUsed, totalMax - totalUsed), 0));
 
@@ -428,6 +431,92 @@
     setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 300);
   }
 
+  // ── Oversize Positions toast ──────────────────────────────────────────────
+  // Shown when current open positions already exceed the per-asset or total
+  // cap (independent of any new order attempt). Stays up until the breach
+  // resolves — call evaluateOversizeState() after every ACCOUNT update.
+  function buildOversizeMessageHtml() {
+    const { fmt, effectiveMaxSingleUsd, effectiveMaxTotalUsd } = HF.utils;
+    const pairMax = effectiveMaxSingleUsd();
+    const totalMax = effectiveMaxTotalUsd();
+    const totalUsed = Number(ACCOUNT.openTotalUsed) || 0;
+    const byPair = ACCOUNT.notionalByPair || {};
+    const overAssets = Object.entries(byPair)
+      .map(([sym, v]) => ({ sym: String(sym).toUpperCase(), value: Number(v) || 0 }))
+      .filter(({ value }) => pairMax > 0 && value > pairMax)
+      .sort((a, b) => b.value - a.value);
+
+    const parts = [];
+    if (overAssets.length > 0) {
+      const worst = overAssets[0];
+      const more = overAssets.length > 1 ? ` (+${overAssets.length - 1} more over cap)` : '';
+      parts.push(
+        '<b>' + worst.sym + '</b> exposure <b>' + fmt(worst.value) +
+        '</b> exceeds the per-asset cap of <b>' + fmt(pairMax) + '</b>' + more + '.'
+      );
+    }
+    if (totalMax > 0 && totalUsed > totalMax) {
+      parts.push(
+        'Total exposure <b>' + fmt(totalUsed) +
+        '</b> exceeds the portfolio cap of <b>' + fmt(totalMax) + '</b>.'
+      );
+    }
+    parts.push('Reduce or close positions to bring exposure back under the cap.');
+    return parts.join(' ');
+  }
+
+  function showOversizeToast() {
+    const messageHtml = buildOversizeMessageHtml();
+    const titleHtml = "Hyperscaled: Position Size Over Cap";
+    const iconHtml = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="#f87171" stroke-width="1.5"/><line x1="8" y1="4.5" x2="8" y2="9" stroke="#f87171" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="11.5" r="0.9" fill="#f87171"/></svg>';
+    const innerHtml =
+      '<div class="hf-toast-icon">' + iconHtml + '</div>' +
+      '<div class="hf-toast-content">' +
+        '<div class="hf-toast-title">' + titleHtml + '</div>' +
+        '<div class="hf-toast-msg">' + messageHtml + '</div>' +
+      '</div>';
+    const variantClass = "hf-toast hf-toast--warning hf-toast--oversize";
+
+    if (activeOversizeToast && activeOversizeToast.parentNode) {
+      activeOversizeToast.className = variantClass + " hf-toast-show";
+      activeOversizeToast.innerHTML = innerHtml;
+      return;
+    }
+
+    const container = ensureToastContainer();
+    const toast = document.createElement("div");
+    toast.className = variantClass;
+    toast.innerHTML = innerHtml;
+    container.appendChild(toast);
+    activeOversizeToast = toast;
+    void toast.offsetWidth;
+    toast.classList.add("hf-toast-show");
+  }
+
+  function dismissOversizeToast() {
+    if (!activeOversizeToast) return;
+    const toast = activeOversizeToast;
+    activeOversizeToast = null;
+    toast.classList.remove("hf-toast-show");
+    setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 300);
+  }
+
+  function evaluateOversizeState() {
+    if (!HF.state.limitsLoaded) return;
+    const { effectiveMaxSingleUsd, effectiveMaxTotalUsd } = HF.utils;
+    const pairMax = effectiveMaxSingleUsd();
+    const totalMax = effectiveMaxTotalUsd();
+    const totalUsed = Number(ACCOUNT.openTotalUsed) || 0;
+    const byPair = ACCOUNT.notionalByPair || {};
+    const anyPairOver = pairMax > 0 && Object.values(byPair).some(v => (Number(v) || 0) > pairMax);
+    const totalOver = totalMax > 0 && totalUsed > totalMax;
+    if (anyPairOver || totalOver) {
+      showOversizeToast();
+    } else {
+      dismissOversizeToast();
+    }
+  }
+
   HF.toast = {
     showClampToast,
     showDepositScalingToast,
@@ -437,5 +526,8 @@
     dismissClampToast,
     resetBlockedToastDismissed,
     isBlockedToastDismissed,
+    showOversizeToast,
+    dismissOversizeToast,
+    evaluateOversizeState,
   };
 })();
