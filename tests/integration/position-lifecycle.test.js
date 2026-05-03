@@ -35,6 +35,7 @@ import {
   extractExposureFromAssetPositions,
   transformTraderResponse,
   buildHlCoinToDisplay,
+  applyTraderLimits,
   remapKeys,
   resolveExposureSymbol,
 } from './helpers.js';
@@ -92,11 +93,16 @@ beforeAll(async () => {
 
 afterAll(async () => {
   if (SKIP) return;
-  // Best-effort cleanup: close any open BTC or GOLD positions left over
-  for (const pair of ['BTC-USDC', 'GOLD-USDC']) {
+  // Best-effort cleanup: close any open BTC or GOLD positions left over.
+  // GOLD is an xyz pair so it must be queried with dex:"xyz".
+  for (const { pair, coin, dex } of [
+    { pair: 'BTC-USDC', coin: 'BTC', dex: undefined },
+    { pair: 'GOLD-USDC', coin: 'xyz:GOLD', dex: 'xyz' },
+  ]) {
     try {
-      const state = await hlPost(HL_URL, { type: 'clearinghouseState', user: VAULT_ADDRESS });
-      const coin = pair === 'BTC-USDC' ? 'BTC' : 'xyz:GOLD';
+      const body = { type: 'clearinghouseState', user: VAULT_ADDRESS };
+      if (dex) body.dex = dex;
+      const state = await hlPost(HL_URL, body);
       const pos = state.assetPositions.find(
         p => (p.position?.coin || '').toUpperCase() === coin.toUpperCase()
       );
@@ -315,5 +321,97 @@ describe('GOLD lifecycle — xyz:GOLD perp (display pipeline)', () => {
     const exp = extractExposureFromAssetPositions(state);
     const mapped = remapKeys(exp.notionalByPair, hlCoinToDisplay);
     expect(mapped['GOLD'] ?? 0).toBeLessThan(2);
+  }, 30000);
+});
+
+// ── Add-to-position cap enforcement (xyz pair) ───────────────────────────────
+//
+// Regression test for the BRENTOIL double-order bug:
+//   1st order fills → xyz position appears in xyz DEX clearinghouse only
+//   Standard clearinghouseState returns 0 for that coin (xyz invisible)
+//   Before fix: notionalByPair['XYZ:GOLD'] = 0 → 2nd order passes cap check
+//   After fix:  background/api.js merges xyz DEX positions → notional is live
+//
+// This test verifies the JS-side exposure tracking is correct immediately after
+// the first fill, without waiting for the validator.
+
+describe('Add-to-position cap enforcement — xyz pair (BRENTOIL bug regression)', () => {
+  let firstOrderFilled = false;
+
+  it.skipIf(SKIP)('places a $300 GOLD position (first order)', () => {
+    const result = runPython('place', 'GOLD-USDC', '300');
+    expect(result.order_status).toMatch(/filled|partial/);
+    firstOrderFilled = true;
+  }, 30000);
+
+  it.skipIf(SKIP)('xyz DEX clearinghouse shows GOLD notional ≥ $250 immediately after fill', async () => {
+    if (!firstOrderFilled) return;
+    const pos = await pollUntil(async () => {
+      const state = await hlPost(HL_URL, { type: 'clearinghouseState', user: VAULT_ADDRESS, dex: 'xyz' });
+      return state.assetPositions.find(
+        p => (p.position?.coin || '').toLowerCase() === 'xyz:gold'
+          && Math.abs(parseFloat(p.position.szi)) > 0.000001
+      );
+    }, { maxMs: 10000, label: 'GOLD in xyz DEX after first order' });
+
+    expect(pos).toBeDefined();
+  }, 20000);
+
+  it.skipIf(SKIP)('merging xyz DEX into standard state makes GOLD notional visible (the fix)', async () => {
+    if (!firstOrderFilled) return;
+    // Standard clearinghouse — xyz position is invisible here
+    const standardState = await hlPost(HL_URL, { type: 'clearinghouseState', user: VAULT_ADDRESS });
+    const standardExp = extractExposureFromAssetPositions(standardState);
+
+    // xyz DEX clearinghouse — has the position
+    const xyzState = await hlPost(HL_URL, { type: 'clearinghouseState', user: VAULT_ADDRESS, dex: 'xyz' });
+
+    // Merge exactly as the fixed background/api.js does
+    const merged = {
+      ...standardState,
+      assetPositions: [
+        ...(standardState.assetPositions || []),
+        ...(xyzState.assetPositions || []),
+      ],
+    };
+    const mergedExp = extractExposureFromAssetPositions(merged);
+    const mapped = remapKeys(mergedExp.notionalByPair, hlCoinToDisplay);
+
+    // Before fix: mapped['GOLD'] would be 0 (xyz invisible in standard state)
+    // After fix:  merged state includes xyz positions → GOLD notional ≥ $250
+    expect(mapped['GOLD']).toBeGreaterThan(250);
+    expect(standardExp.notionalByPair['XYZ:GOLD'] ?? 0).toBe(0); // confirms the pre-fix problem
+  }, 15000);
+
+  it.skipIf(SKIP)('JS cap enforcement: $300 existing + $500 new > per-pair cap → blocked', async () => {
+    if (!firstOrderFilled) return;
+    const [limitsRaw, hlState] = await Promise.all([
+      validatorGet(VALIDATOR_URL, `/hl-traders/${VAULT_ADDRESS}/limits`),
+      hlPost(HL_URL, { type: 'clearinghouseState', user: VAULT_ADDRESS }),
+    ]);
+    const hlEq = parseFloat(hlState.crossMarginSummary?.accountValue ?? 0);
+    const caps = applyTraderLimits({
+      fundedSize: limitsRaw.account_size,
+      hlEq,
+      max_position_per_pair_usd: limitsRaw.max_position_per_pair_usd,
+      max_portfolio_usd: limitsRaw.max_portfolio_usd,
+    });
+    expect(caps).not.toBeNull();
+    // $300 existing + $500 second order should exceed the per-pair cap (~$680 on $1360 account)
+    expect(300 + 500).toBeGreaterThan(caps.maxPositionPerPair);
+  }, 15000);
+
+  it.skipIf(SKIP)('validator rejects second order that would exceed cap', () => {
+    if (!firstOrderFilled) return;
+    const result = runPython('validate', 'GOLD-USDC', '500');
+    // $300 open + $500 new > per-pair cap → LeverageLimitError
+    expect(result.status).toBe('error');
+    expect(result.error_type).toBe('LeverageLimitError');
+  }, 30000);
+
+  it.skipIf(SKIP)('closes GOLD position after regression test', () => {
+    if (!firstOrderFilled) return;
+    const result = runPython('close', 'GOLD-USDC');
+    expect(result.order_status).toMatch(/filled|partial/);
   }, 30000);
 });

@@ -278,11 +278,16 @@ function readSpotUsdValue(balance, mids) {
 export async function fetchHLBalance(address) {
   console.log('[Hyperscaled BG] fetchHLBalance called for', address);
 
-  const [perpsRes, spotRes, midsRes] = await Promise.all([
+  const [perpsRes, xyzPerpsRes, spotRes, midsRes] = await Promise.all([
     fetchWithTimeout(HL_API_URL + '/info', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ type: 'clearinghouseState', user: address })
+    }),
+    fetchWithTimeout(HL_API_URL + '/info', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'clearinghouseState', user: address, dex: 'xyz' })
     }),
     fetchWithTimeout(HL_API_URL + '/info', {
       method: 'POST',
@@ -298,6 +303,21 @@ export async function fetchHLBalance(address) {
 
   if (!perpsRes.ok) throw new Error(`Perps API error ${perpsRes.status}`);
   const perpsData = await perpsRes.json();
+  // Merge xyz DEX positions so xyz pairs (BRENTOIL, GOLD, WTIOIL, etc.) are
+  // visible to exposure tracking immediately after a fill, before the validator
+  // catches up. Without this, a second order on the same xyz pair could bypass
+  // the per-pair cap because notionalByPair shows 0 for that pair.
+  try {
+    if (xyzPerpsRes.ok) {
+      const xyzData = await xyzPerpsRes.json();
+      perpsData.assetPositions = [
+        ...(perpsData.assetPositions || []),
+        ...(xyzData.assetPositions || []),
+      ];
+    }
+  } catch (e) {
+    console.warn('[Hyperscaled BG] xyz DEX fetch failed, xyz positions excluded from exposure:', e.message);
+  }
   const perpAccountValue = parseFloat(perpsData?.crossMarginSummary?.accountValue ?? 0);
   const perpMarginUsed = parseFloat(perpsData?.crossMarginSummary?.totalMarginUsed ?? 0);
   const perpsWithdrawable = Math.max(0, perpAccountValue - perpMarginUsed);
