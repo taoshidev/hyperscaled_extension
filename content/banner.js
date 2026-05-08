@@ -132,19 +132,19 @@
         ${ACCOUNT.registrationChecked ? `<span class="hf-status-badge${ACCOUNT.isRegistered ? '' : ' hf-status-badge--unregistered'}">● ${ACCOUNT.isRegistered ? (ACCOUNT.inChallenge ? 'In Challenge' : 'Funded') : 'Unregistered'}</span>` : ''}
         <span class="hf-divider"></span>
         <div class="hf-stat-group">
-          <span class="hf-stat-label">EQUITY</span>
+          <span class="hf-stat-label">HS BALANCE</span>
           <span class="hf-stat-value" id="hf-equity">${fmt(equity)}</span>
         </div>
         <span class="hf-divider"></span>
         <div class="hf-dd-stack hf-dd-trigger" id="hf-dd-trigger">
           <div class="hf-dd-row">
-            <span class="hf-dd-label">DAILY</span>
+            <span class="hf-dd-label">INTRADAY DD</span>
             <span class="hf-dd-value" id="hf-daily" style="color:${ddColor(dailyUsage)} !important">${daily.toFixed(3)}%</span>
             <span class="hf-dd-suffix">/ ${intradayLimit.toFixed(0)}%</span>
             ${dailyUsage > 80 ? `<span class="hf-dd-warn" style="color:${ddColor(dailyUsage)} !important">\u26a0</span>` : ''}
           </div>
           <div class="hf-dd-row">
-            <span class="hf-dd-label">TRAILING</span>
+            <span class="hf-dd-label">EOD TRAILING DD</span>
             <span class="hf-dd-value" id="hf-trailing" style="color:${ddColor(trailingUsage)} !important">${trailing.toFixed(3)}%</span>
             <span class="hf-dd-suffix">/ ${eodLimit.toFixed(0)}%</span>
             ${trailingUsage > 80 ? `<span class="hf-dd-warn" style="color:${ddColor(trailingUsage)} !important">\u26a0</span>` : ''}

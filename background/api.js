@@ -409,38 +409,46 @@ export async function fetchHLBalance(address) {
   console.log('[Hyperscaled BG] total accountValue:', accountValue);
   const exposure = extractExposureFromAssetPositions(perpsData);
 
-  // Merge pending buy limit orders so back-to-back limit orders on the same
-  // pair are blocked before either fills. Limit orders don't appear in
-  // assetPositions until filled; without this a second $500 order slips through
-  // because notionalByPair shows $0 (no filled position yet).
-  let pendingBuyNotional = {};
+  // Pending buy limit orders are tracked separately from filled positions.
+  // They contribute to "what would be exposed if all resting orders fill" —
+  // displayed visually in the popup as a striped overlay so the trader
+  // sees them without the alarm color of real exposure. Filled positions
+  // still drive cap-breach toasts.
+  let pendingNotionalByPair = {};
   try {
     const allOpenOrders = [
       ...(openOrdersRes.ok ? await openOrdersRes.json() : []),
       ...(xyzOpenOrdersRes.ok ? await xyzOpenOrdersRes.json() : []),
     ];
-    pendingBuyNotional = extractPendingBuyNotional(allOpenOrders);
+    pendingNotionalByPair = extractPendingBuyNotional(allOpenOrders);
   } catch (e) {
     console.warn('[Hyperscaled BG] Open orders fetch failed, pending orders excluded:', e.message);
   }
 
-  const notionalByPair = { ...exposure.notionalByPair };
+  const filledNotionalByPair = { ...exposure.notionalByPair };
+  const filledTotal = exposure.openTotalUsed;
+
+  // Combined map kept for callers that want filled+pending in one place
+  // (mirror-preview's "after this order" check needs to see resting orders
+  // so chaining new orders into over-cap still warns).
+  const notionalByPair = { ...filledNotionalByPair };
   let pendingTotal = 0;
-  for (const [sym, val] of Object.entries(pendingBuyNotional)) {
+  for (const [sym, val] of Object.entries(pendingNotionalByPair)) {
     notionalByPair[sym] = (notionalByPair[sym] || 0) + val;
     pendingTotal += val;
   }
-  const openTotalUsed = exposure.openTotalUsed + pendingTotal;
+  const openTotalUsed = filledTotal + pendingTotal;
   const openSingleUsed = Object.values(notionalByPair).reduce((m, v) => Math.max(m, Number(v) || 0), 0);
 
   console.log(
-    '[Hyperscaled BG] HL exposure (filled + pending):',
+    '[Hyperscaled BG] HL exposure (filled vs pending):',
     JSON.stringify({
       openPositionCount: exposure.openPositionCount,
+      filledTotal,
+      pendingTotal,
       openTotalUsed,
-      openSingleUsed,
-      notionalByPair,
-      pendingBuyNotional,
+      filledNotionalByPair,
+      pendingNotionalByPair,
     })
   );
 
@@ -456,6 +464,10 @@ export async function fetchHLBalance(address) {
     openTotalUsed,
     openSingleUsed,
     notionalByPair,
+    filledNotionalByPair,
+    pendingNotionalByPair,
+    filledTotal,
+    pendingTotal,
     signedNotionalByPair: exposure.signedNotionalByPair,
     openPositionCount: exposure.openPositionCount,
     exposureSource: 'hyperliquid-assetPositions',

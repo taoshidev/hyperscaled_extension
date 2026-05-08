@@ -15,6 +15,10 @@ const state = {
     openTotalUsed: 0,
     openSingleUsed: 0,
     notionalByPair: {},
+    filledNotionalByPair: {},
+    pendingNotionalByPair: {},
+    filledTotal: 0,
+    pendingTotal: 0,
     refreshIntervalId: null,
     dashboardShown: false,
 };
@@ -39,6 +43,12 @@ async function restoreFromCache() {
         state.notionalByPair = balanceCache.data.notionalByPair && typeof balanceCache.data.notionalByPair === 'object'
             ? balanceCache.data.notionalByPair
             : {};
+        state.filledNotionalByPair = balanceCache.data.filledNotionalByPair && typeof balanceCache.data.filledNotionalByPair === 'object'
+            ? balanceCache.data.filledNotionalByPair : {};
+        state.pendingNotionalByPair = balanceCache.data.pendingNotionalByPair && typeof balanceCache.data.pendingNotionalByPair === 'object'
+            ? balanceCache.data.pendingNotionalByPair : {};
+        state.filledTotal = Number(balanceCache.data.filledTotal) || 0;
+        state.pendingTotal = Number(balanceCache.data.pendingTotal) || 0;
         const hlBalanceEl = document.getElementById('hlBalance');
         if (hlBalanceEl) hlBalanceEl.textContent = fmtUsd(state.hlBalance);
     }
@@ -74,6 +84,12 @@ async function refreshBalance() {
         state.notionalByPair = response.notionalByPair && typeof response.notionalByPair === 'object'
             ? response.notionalByPair
             : {};
+        state.filledNotionalByPair = response.filledNotionalByPair && typeof response.filledNotionalByPair === 'object'
+            ? response.filledNotionalByPair : {};
+        state.pendingNotionalByPair = response.pendingNotionalByPair && typeof response.pendingNotionalByPair === 'object'
+            ? response.pendingNotionalByPair : {};
+        state.filledTotal = Number(response.filledTotal) || 0;
+        state.pendingTotal = Number(response.pendingTotal) || 0;
         const hlBalanceEl = document.getElementById('hlBalance');
         if (hlBalanceEl) hlBalanceEl.textContent = fmtUsd(state.hlBalance);
     } catch (e) {

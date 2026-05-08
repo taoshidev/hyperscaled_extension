@@ -178,16 +178,12 @@ export function applyValidatorData(result, state) {
     const perAssetMultiplierEl = document.getElementById('perAssetMultiplier');
     const totalMultiplierEl = document.getElementById('totalMultiplier');
     const capacityBasisValueEl = document.getElementById('capacityBasisValue');
-    const infoPerAssetMultEl = document.getElementById('infoPerAssetMultiplier');
-    const infoTotalMultEl = document.getElementById('infoTotalMultiplier');
     const maxPerPair = basisUsd;
     const maxTotal   = basisUsd;
 
     if (perAssetMultiplierEl) perAssetMultiplierEl.textContent = '';
     if (totalMultiplierEl) totalMultiplierEl.textContent = '';
     if (capacityBasisValueEl) capacityBasisValueEl.textContent = fmtUsd(basisUsd);
-    if (infoPerAssetMultEl) infoPerAssetMultEl.textContent = '--';
-    if (infoTotalMultEl) infoTotalMultEl.textContent = '--';
 
     const hasHlExposureData = (
         (Number(state.openTotalUsed) || 0) > 0 ||
@@ -208,13 +204,26 @@ export function applyValidatorData(result, state) {
     const maxSingleNotionalHl = mirrorRatio > 0 ? maxSingleNotional / mirrorRatio : maxSingleNotional;
     const largestPairNotional = hasHlExposureData ? (Number(state.openSingleUsed) || 0) : maxSingleNotionalHl;
     const totalCapacityUsed = hasHlExposureData ? (Number(state.openTotalUsed) || 0) : totalNotionalHl;
+
+    // Filled vs pending split (HL units). Filled is the real exposure that
+    // drives "over cap" coloring; pending is hypothetical (resting limit
+    // orders) and renders as a striped overlay on the same bar.
+    const filledByPairHl  = hasHlExposureData ? (state.filledNotionalByPair  || {}) : validatorNotionalByPairHl;
+    const pendingByPairHl = hasHlExposureData ? (state.pendingNotionalByPair || {}) : {};
+    const filledTotalHl   = hasHlExposureData ? (Number(state.filledTotal)  || 0) : totalNotionalHl;
+    const pendingTotalHl  = hasHlExposureData ? (Number(state.pendingTotal) || 0) : 0;
+
     const perPairRemainingEl = document.getElementById('perPairRemaining');
     const perPairSubBarsEl = document.getElementById('perPairSubBars');
-    const perAssetSource = hasHlExposureData ? state.notionalByPair : validatorNotionalByPairHl;
-    const perAssetEntries = Object.entries(perAssetSource || {})
-        .map(([symbol, value]) => [String(symbol).toUpperCase(), Number(value) || 0])
-        .filter(([, value]) => value > 0)
-        .sort((a, b) => b[1] - a[1]);
+    const perAssetSyms = new Set([...Object.keys(filledByPairHl), ...Object.keys(pendingByPairHl)]);
+    const perAssetEntries = Array.from(perAssetSyms)
+        .map((sym) => ({
+            sym: String(sym).toUpperCase(),
+            filled: Number(filledByPairHl[sym]) || 0,
+            pending: Number(pendingByPairHl[sym]) || 0,
+        }))
+        .filter(({ filled, pending }) => filled + pending > 0)
+        .sort((a, b) => (b.filled + b.pending) - (a.filled + a.pending));
     const perPairRemainingWrapperEl = document.getElementById('perPairRemainingWrapper');
     if (perPairRemainingEl && perPairRemainingWrapperEl) {
         if (perAssetEntries.length === 0) {
@@ -228,20 +237,23 @@ export function applyValidatorData(result, state) {
         if (perAssetEntries.length === 0) {
             perPairSubBarsEl.innerHTML = '';
         } else {
-            perPairSubBarsEl.innerHTML = perAssetEntries.map(([symbol, value]) => {
-                const usedPct = maxPerPair > 0 ? Math.min((value / maxPerPair) * 100, 100) : 0;
-                const safeSymbol = symbol.replace(/[^A-Z0-9._-]/g, '');
-                const isOver = maxPerPair > 0 && value > maxPerPair;
+            perPairSubBarsEl.innerHTML = perAssetEntries.map(({ sym, filled, pending }) => {
+                const filledPct  = maxPerPair > 0 ? Math.min((filled  / maxPerPair) * 100, 100) : 0;
+                const pendingPct = maxPerPair > 0 ? Math.min((pending / maxPerPair) * 100, Math.max(0, 100 - filledPct)) : 0;
+                const safeSymbol = sym.replace(/[^A-Z0-9._-]/g, '');
+                const isOver = maxPerPair > 0 && filled > maxPerPair;
                 const trackCls = isOver ? 'capacity-asset-track capacity-asset-track--over' : 'capacity-asset-track';
                 const fillCls  = isOver ? 'capacity-asset-fill capacity-asset-fill--over'   : 'capacity-asset-fill';
                 const valueCls = isOver ? 'capacity-asset-value capacity-asset-value--over' : 'capacity-asset-value';
+                const pendingSuffix = pending > 0 ? ` · <span class="capacity-asset-pending">+${fmtUsd(pending)} pending</span>` : '';
                 return `
                     <div class="capacity-asset-row">
                         <span class="capacity-asset-symbol">${safeSymbol}</span>
                         <div class="${trackCls}">
-                            <div class="${fillCls}" style="width: ${usedPct.toFixed(1)}%;"></div>
+                            <div class="${fillCls}" style="width: ${filledPct.toFixed(1)}%;"></div>
+                            <div class="capacity-asset-fill capacity-asset-fill--pending" style="width: ${pendingPct.toFixed(1)}%; left: ${filledPct.toFixed(1)}%;"></div>
                         </div>
-                        <span class="${valueCls}">${fmtUsd(value)} / ${fmtUsd(maxPerPair)}</span>
+                        <span class="${valueCls}">${fmtUsd(filled)} / ${fmtUsd(maxPerPair)}${pendingSuffix}</span>
                     </div>
                 `;
             }).join('');
@@ -253,7 +265,9 @@ export function applyValidatorData(result, state) {
             perPairBreakdownEl.textContent = 'No open positions';
             perPairBreakdownEl.removeAttribute('title');
         } else {
-            const fullText = perAssetEntries.map(([symbol, value]) => `${symbol} ${fmtUsd(value)}`).join(' · ');
+            const fullText = perAssetEntries.map(({ sym, filled, pending }) =>
+                `${sym} ${fmtUsd(filled)}${pending > 0 ? ` (+${fmtUsd(pending)} pending)` : ''}`
+            ).join(' · ');
             perPairBreakdownEl.textContent = `${perAssetEntries.length} asset${perAssetEntries.length > 1 ? 's' : ''} with open exposure`;
             perPairBreakdownEl.title = fullText;
         }
@@ -263,17 +277,34 @@ export function applyValidatorData(result, state) {
     const capacityMaxEl = document.getElementById('capacityMax');
     const capacityFillEl = document.getElementById('capacityFill');
     const capacityRemainingEl = document.getElementById('capacityRemaining');
-    const totalOver = maxTotal > 0 && totalCapacityUsed > maxTotal;
-    if (capacityUsedEl) capacityUsedEl.textContent = fmtUsd(totalCapacityUsed);
+    const totalOver = maxTotal > 0 && filledTotalHl > maxTotal;
+    if (capacityUsedEl) {
+        const pendingSuffix = pendingTotalHl > 0
+            ? ` · <span class="capacity-asset-pending">+${fmtUsd(pendingTotalHl)} pending</span>`
+            : '';
+        capacityUsedEl.innerHTML = `${fmtUsd(filledTotalHl)}${pendingSuffix}`;
+    }
     if (capacityMaxEl) capacityMaxEl.textContent = fmtUsd(maxTotal);
     if (capacityFillEl) {
-        const capPct = maxTotal > 0 ? Math.min((totalCapacityUsed / maxTotal) * 100, 100) : 0;
-        capacityFillEl.style.width = capPct + '%';
+        const filledPct  = maxTotal > 0 ? Math.min((filledTotalHl  / maxTotal) * 100, 100) : 0;
+        const pendingPct = maxTotal > 0 ? Math.min((pendingTotalHl / maxTotal) * 100, Math.max(0, 100 - filledPct)) : 0;
+        capacityFillEl.style.width = filledPct + '%';
         capacityFillEl.classList.toggle('capacity-fill--over', totalOver);
         const trackEl = capacityFillEl.parentElement;
         if (trackEl) trackEl.classList.toggle('capacity-bar--over', totalOver);
+        // Pending overlay sibling — find or create
+        let pendingEl = capacityFillEl.parentElement?.querySelector('.capacity-fill--pending');
+        if (capacityFillEl.parentElement) {
+            if (!pendingEl) {
+                pendingEl = document.createElement('div');
+                pendingEl.className = 'capacity-fill capacity-fill--pending';
+                capacityFillEl.parentElement.appendChild(pendingEl);
+            }
+            pendingEl.style.width = pendingPct + '%';
+            pendingEl.style.left = filledPct + '%';
+        }
     }
-    if (capacityRemainingEl) capacityRemainingEl.textContent = fmtUsd(Math.max(maxTotal - totalCapacityUsed, 0));
+    if (capacityRemainingEl) capacityRemainingEl.textContent = fmtUsd(Math.max(maxTotal - filledTotalHl - pendingTotalHl, 0));
 
     // ── Trading Capacity (Hyperscaled) — mirrored proportionally ────────────
     // Every $ figure in this section depends on mirrorRatio. When it is 0
@@ -296,7 +327,8 @@ export function applyValidatorData(result, state) {
         if (backendSize > 0 && backendTotal > 0) hsMaxTotal   = (backendTotal / backendSize) * accountBalance;
     }
     const hsLargestPairNotional = largestPairNotional * r;
-    const hsTotalCapacityUsed   = totalCapacityUsed * r;
+    const hsFilledTotal  = filledTotalHl  * r;
+    const hsPendingTotal = pendingTotalHl * r;
 
     const hsBasisRatioEl = document.getElementById('hsBasisRatio');
     const hsBasisValueEl = document.getElementById('hsBasisValue');
@@ -313,21 +345,25 @@ export function applyValidatorData(result, state) {
         if (perAssetEntries.length === 0 || !hsAvailable) {
             hsPerPairSubBarsEl.innerHTML = '';
         } else {
-            hsPerPairSubBarsEl.innerHTML = perAssetEntries.map(([symbol, value]) => {
-                const hsValue = value * r;
-                const usedPct = hsMaxPerPair > 0 ? Math.min((hsValue / hsMaxPerPair) * 100, 100) : 0;
-                const safeSymbol = symbol.replace(/[^A-Z0-9._-]/g, '');
-                const isOver = hsMaxPerPair > 0 && hsValue > hsMaxPerPair;
+            hsPerPairSubBarsEl.innerHTML = perAssetEntries.map(({ sym, filled, pending }) => {
+                const hsFilled  = filled  * r;
+                const hsPending = pending * r;
+                const filledPct  = hsMaxPerPair > 0 ? Math.min((hsFilled  / hsMaxPerPair) * 100, 100) : 0;
+                const pendingPct = hsMaxPerPair > 0 ? Math.min((hsPending / hsMaxPerPair) * 100, Math.max(0, 100 - filledPct)) : 0;
+                const safeSymbol = sym.replace(/[^A-Z0-9._-]/g, '');
+                const isOver = hsMaxPerPair > 0 && hsFilled > hsMaxPerPair;
                 const trackCls = isOver ? 'capacity-asset-track capacity-asset-track--over' : 'capacity-asset-track';
                 const fillCls  = isOver ? 'capacity-asset-fill capacity-asset-fill--over'   : 'capacity-asset-fill';
                 const valueCls = isOver ? 'capacity-asset-value capacity-asset-value--over' : 'capacity-asset-value';
+                const pendingSuffix = hsPending > 0 ? ` · <span class="capacity-asset-pending">+${fmtUsd(hsPending)} pending</span>` : '';
                 return `
                     <div class="capacity-asset-row">
                         <span class="capacity-asset-symbol">${safeSymbol}</span>
                         <div class="${trackCls}">
-                            <div class="${fillCls}" style="width: ${usedPct.toFixed(1)}%;"></div>
+                            <div class="${fillCls}" style="width: ${filledPct.toFixed(1)}%;"></div>
+                            <div class="capacity-asset-fill capacity-asset-fill--pending" style="width: ${pendingPct.toFixed(1)}%; left: ${filledPct.toFixed(1)}%;"></div>
                         </div>
-                        <span class="${valueCls}">${fmtUsd(hsValue)} / ${fmtUsd(hsMaxPerPair)}</span>
+                        <span class="${valueCls}">${fmtUsd(hsFilled)} / ${fmtUsd(hsMaxPerPair)}${pendingSuffix}</span>
                     </div>
                 `;
             }).join('');
@@ -349,20 +385,38 @@ export function applyValidatorData(result, state) {
     const hsCapacityMaxEl = document.getElementById('hsCapacityMax');
     const hsCapacityFillEl = document.getElementById('hsCapacityFill');
     const hsCapacityRemainingEl = document.getElementById('hsCapacityRemaining');
-    const hsTotalOver = hsAvailable && hsMaxTotal > 0 && hsTotalCapacityUsed > hsMaxTotal;
-    if (hsCapacityUsedEl) hsCapacityUsedEl.textContent = hsAvailable ? fmtUsd(hsTotalCapacityUsed) : '--';
+    const hsTotalOver = hsAvailable && hsMaxTotal > 0 && hsFilledTotal > hsMaxTotal;
+    if (hsCapacityUsedEl) {
+        if (!hsAvailable) {
+            hsCapacityUsedEl.textContent = '--';
+        } else {
+            const pendingSuffix = hsPendingTotal > 0
+                ? ` · <span class="capacity-asset-pending">+${fmtUsd(hsPendingTotal)} pending</span>`
+                : '';
+            hsCapacityUsedEl.innerHTML = `${fmtUsd(hsFilledTotal)}${pendingSuffix}`;
+        }
+    }
     if (hsCapacityMaxEl) hsCapacityMaxEl.textContent = hsAvailable ? fmtUsd(hsMaxTotal) : '--';
     if (hsCapacityFillEl) {
-        const hsPct = hsAvailable && hsMaxTotal > 0
-            ? Math.min((hsTotalCapacityUsed / hsMaxTotal) * 100, 100)
-            : 0;
-        hsCapacityFillEl.style.width = hsPct + '%';
+        const filledPct  = hsAvailable && hsMaxTotal > 0 ? Math.min((hsFilledTotal  / hsMaxTotal) * 100, 100) : 0;
+        const pendingPct = hsAvailable && hsMaxTotal > 0 ? Math.min((hsPendingTotal / hsMaxTotal) * 100, Math.max(0, 100 - filledPct)) : 0;
+        hsCapacityFillEl.style.width = filledPct + '%';
         hsCapacityFillEl.classList.toggle('capacity-fill--over', hsTotalOver);
         const hsTrackEl = hsCapacityFillEl.parentElement;
         if (hsTrackEl) hsTrackEl.classList.toggle('capacity-bar--over', hsTotalOver);
+        let pendingEl = hsCapacityFillEl.parentElement?.querySelector('.capacity-fill--pending');
+        if (hsCapacityFillEl.parentElement) {
+            if (!pendingEl) {
+                pendingEl = document.createElement('div');
+                pendingEl.className = 'capacity-fill capacity-fill--pending';
+                hsCapacityFillEl.parentElement.appendChild(pendingEl);
+            }
+            pendingEl.style.width = pendingPct + '%';
+            pendingEl.style.left = filledPct + '%';
+        }
     }
     if (hsCapacityRemainingEl) hsCapacityRemainingEl.textContent = hsAvailable
-        ? fmtUsd(Math.max(hsMaxTotal - hsTotalCapacityUsed, 0))
+        ? fmtUsd(Math.max(hsMaxTotal - hsFilledTotal - hsPendingTotal, 0))
         : '--';
 
     renderPositions(openPositions, accountSize, accountSizeData);

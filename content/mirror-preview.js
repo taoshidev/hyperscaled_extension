@@ -130,14 +130,21 @@
       return;
     }
 
-    // Notional fallback chain — prefer the DOM "Order Value" (HL renders size × limit_price
-    // there, so it's correct for both market and limit orders). inputToNotional uses mid
-    // price which is wrong for limit orders priced away from mid.
-    let notional = HF.utils.readOrderValueFromDOM();
-    if (notional <= 0) notional = HF.utils.inputToNotional(v);
-    if (notional <= 0) {
-      const unit = HF.utils.getSizeUnit();
-      if (unit === 'USD' || unit === 'USDC') notional = v;
+    // Notional resolution:
+    //   - USD/USDC input: trader's intent IS the notional. HL's "Order Value"
+    //     in the DOM can drift below the typed value (lot-size rounding,
+    //     slippage estimate at best ask, etc.) which makes the preview show
+    //     a smaller number than what the trader typed.
+    //   - Coin input (BTC/ETH/...): typed size × price → notional. Prefer
+    //     HL's DOM "Order Value" because it uses the limit price for limit
+    //     orders, where mid-price would be wrong.
+    let notional;
+    const sizeUnit = HF.utils.getSizeUnit();
+    if (sizeUnit === 'USD' || sizeUnit === 'USDC') {
+      notional = v;
+    } else {
+      notional = HF.utils.readOrderValueFromDOM();
+      if (notional <= 0) notional = HF.utils.inputToNotional(v);
     }
     if (notional <= 0) {
       console.log('[Hyperscaled][MirrorPreview] Skipped: notional <= 0');
@@ -158,9 +165,14 @@
     const side = getActiveOrderSide(input);
     const isSell = side === 'sell';
 
-    // Per-pair capacity (HS units) — selling reduces exposure, buying adds
+    // Per-pair capacity (HS units) — selling reduces exposure, buying adds.
+    // Cap math uses FILLED exposure only. Resting limit orders are visible
+    // in the popup as a striped overlay but don't count here, because HS
+    // validator caps at fill-time, not at order-placement time. Stacking
+    // multiple resting orders that together would exceed cap is allowed —
+    // whichever fills second gets capped on HS arrival.
     const resolvedSymbol = HF.utils.resolveExposureSymbol(symbol);
-    const pairUsedHl = (resolvedSymbol && ACCOUNT.notionalByPair[resolvedSymbol]) || 0;
+    const pairUsedHl = (resolvedSymbol && ACCOUNT.filledNotionalByPair[resolvedSymbol]) || 0;
     const pairUsed = pairUsedHl * ratio;
     const pairMax = effectiveMaxSingleUsd();
     const pairAfter = isSell ? Math.max(pairUsed - hsOrder, 0) : pairUsed + hsOrder;
@@ -170,8 +182,8 @@
       : (pairMax > 0 ? Math.min((hsOrder / pairMax) * 100, 100 - pairUsedPct) : 0);
     const pairTotalPct = pairMax > 0 ? Math.min((pairAfter / pairMax) * 100, 100) : 0;
 
-    // Portfolio capacity (HS units) — same logic
-    const currentUsedHl = Number(ACCOUNT.openTotalUsed) || 0;
+    // Portfolio capacity (HS units) — same filled-only logic.
+    const currentUsedHl = Number(ACCOUNT.filledTotal) || 0;
     const currentUsed = currentUsedHl * ratio;
     const maxTotal = effectiveMaxTotalUsd();
     const afterOrder = isSell ? Math.max(currentUsed - hsOrder, 0) : currentUsed + hsOrder;
@@ -206,25 +218,71 @@
     }
 
     // Cap warning — HL goes through unchanged, HS mirror gets capped.
-    // Surface the shortfall so the trader knows what fraction of the order
-    // will actually mirror to HS before they confirm.
+    // Headroom on each binding cap is computed against the right "used"
+    // total: pair-side vs pairUsed, portfolio-side vs currentUsed (sum
+    // across all pairs). When both bind, the smaller of the two is what
+    // actually mirrors of this order.
     const reducing = HF.utils.isReduceIntent(symbol, side);
     const overPair  = !reducing && pairMax  > 0 && pairAfter  > pairMax  + 0.01;
     const overTotal = !reducing && maxTotal > 0 && afterOrder > maxTotal + 0.01;
     const warningEl = el.querySelector('#hf-mp-warning');
     if (warningEl) {
       if (overPair || overTotal) {
-        const which = overPair && overTotal ? 'pair & portfolio' : (overPair ? 'pair' : 'portfolio');
-        const cap = overPair && !overTotal ? pairMax : (overTotal && !overPair ? maxTotal : Math.min(pairMax, maxTotal));
-        const headroom = Math.max(0, cap - (overPair ? pairUsed : currentUsed));
-        const cappedHsOrder = Math.max(0, headroom);
-        const cappedHlOrder = ratio > 0 ? cappedHsOrder / ratio : 0;
+        const pairHeadroom  = overPair  ? Math.max(0, pairMax  - pairUsed)    : Infinity;
+        const totalHeadroom = overTotal ? Math.max(0, maxTotal - currentUsed) : Infinity;
+        const cappedHsOrder = Math.max(0, Math.min(pairHeadroom, totalHeadroom));
+        // Floor (not round) to 2 decimals so the displayed value, when typed
+        // back into HL, never overshoots the cap. fmt uses toLocaleString
+        // which rounds — that would push the recommendation $0.01–0.02 over
+        // and re-trigger the warning at the value we just suggested.
+        const cappedHlRaw = ratio > 0 ? cappedHsOrder / ratio : 0;
+        const cappedHlOrder = Math.floor(cappedHlRaw * 100) / 100;
+
+        const atLimit = cappedHsOrder < 0.01;
+        const pairAtLimit  = overPair  && pairHeadroom  < 0.01;
+        const totalAtLimit = overTotal && totalHeadroom < 0.01;
+
+        const lines = [];
+
+        if (atLimit) {
+          let atCapDesc;
+          if (pairAtLimit && totalAtLimit) {
+            atCapDesc = 'HS pair exposure (cap <b>' + fmt(pairMax) + '</b>) and HS portfolio exposure (cap <b>' + fmt(maxTotal) + '</b>) are at the limit';
+          } else if (pairAtLimit) {
+            atCapDesc = 'HS pair exposure is at the cap (<b>' + fmt(pairMax) + '</b>)';
+          } else {
+            atCapDesc = 'HS portfolio exposure is at the cap (<b>' + fmt(maxTotal) + '</b>)';
+          }
+          lines.push(atCapDesc + '. After this order gets filled, none of it will mirror to HS.');
+          lines.push('HL trading is unaffected.');
+        } else {
+          let exposureDesc;
+          if (overPair && overTotal) {
+            exposureDesc = 'HS pair exposure would be <b>' + fmt(pairAfter) + '</b> and HS portfolio exposure would be <b>' + fmt(afterOrder) + '</b>';
+          } else if (overPair) {
+            exposureDesc = 'HS pair exposure would be <b>' + fmt(pairAfter) + '</b>';
+          } else {
+            exposureDesc = 'HS portfolio exposure would be <b>' + fmt(afterOrder) + '</b>';
+          }
+          let capPhrase;
+          if (overPair && overTotal) {
+            capPhrase = 'the per-pair cap of <b>' + fmt(pairMax) + '</b> and portfolio cap of <b>' + fmt(maxTotal) + '</b>';
+          } else if (overPair) {
+            capPhrase = 'the per-pair cap of <b>' + fmt(pairMax) + '</b>';
+          } else {
+            capPhrase = 'the portfolio cap of <b>' + fmt(maxTotal) + '</b>';
+          }
+          lines.push('After this order gets filled, ' + exposureDesc + ' — exceeds ' + capPhrase + '.');
+          lines.push('HL trading is unaffected; HS mirrors only <b>' + fmt(cappedHsOrder) + '</b> of this order before capping at the limit.');
+          if (cappedHlOrder > 0) {
+            lines.push('Lower this HL order to <b>' + fmt(cappedHlOrder) + '</b> or less to avoid the HS cap.');
+          }
+        }
+
         warningEl.innerHTML =
           '<span class="hf-mp-warning-icon">⚠</span>' +
           '<span class="hf-mp-warning-text">' +
-            'Exceeds HS ' + which + ' limit. HL order goes through at <b>' + fmt(notional) + '</b>; ' +
-            'only <b>' + fmt(cappedHsOrder) + '</b> mirrors to HS' +
-            (cappedHlOrder > 0 ? ' (≈ <b>' + fmt(cappedHlOrder) + '</b> HL to stay within cap).' : '.') +
+            lines.map(l => '<div class="hf-mp-warning-line">' + l + '</div>').join('') +
           '</span>';
         warningEl.style.display = '';
       } else {

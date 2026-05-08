@@ -921,12 +921,16 @@ body {
     overflow: hidden;
     margin-top: var(--space-1);
     margin-bottom: var(--space-1);
+    position: relative;
 }
 
 .capacity-fill {
     height: 100%;
     border-radius: 5px;
     transition: width 0.3s ease;
+    position: absolute;
+    top: 0;
+    left: 0;
 }
 
 .capacity-fill--total {
@@ -962,6 +966,7 @@ body {
     border-radius: 3px;
     background: rgba(100, 102, 241, 0.16);
     overflow: hidden;
+    position: relative;
 }
 
 .capacity-asset-fill {
@@ -969,6 +974,29 @@ body {
     border-radius: 3px;
     background: var(--indigo);
     transition: width 0.3s ease;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+/* Pending = resting limit orders. Striped indigo overlay so it visually
+   reads as "would-be exposure if these fill" without the alarm color of
+   real exposure (which only filled positions own). */
+.capacity-asset-fill--pending,
+.capacity-fill--pending {
+    background: repeating-linear-gradient(
+        45deg,
+        rgba(100, 102, 241, 0.55),
+        rgba(100, 102, 241, 0.55) 4px,
+        rgba(100, 102, 241, 0.18) 4px,
+        rgba(100, 102, 241, 0.18) 8px
+    ) !important;
+}
+
+.capacity-asset-pending {
+    color: rgba(100, 102, 241, 0.85);
+    font-family: var(--font-mono);
+    font-weight: 500;
 }
 
 /* Oversized state — applies to both wide capacity bars and asset sub-bars

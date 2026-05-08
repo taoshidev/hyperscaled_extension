@@ -322,6 +322,14 @@
           result.notionalByPair && typeof result.notionalByPair === "object"
             ? result.notionalByPair : {}
         );
+        const filledExposure = remapKeys(
+          result.filledNotionalByPair && typeof result.filledNotionalByPair === "object"
+            ? result.filledNotionalByPair : {}
+        );
+        const pendingExposure = remapKeys(
+          result.pendingNotionalByPair && typeof result.pendingNotionalByPair === "object"
+            ? result.pendingNotionalByPair : {}
+        );
         const signedExposure = remapKeys(
           result.signedNotionalByPair && typeof result.signedNotionalByPair === "object"
             ? result.signedNotionalByPair : {}
@@ -329,6 +337,10 @@
         const openTotalFromHL = Number(result.openTotalUsed) || 0;
         const openSingleFromHL = Number(result.openSingleUsed) || 0;
         ACCOUNT.notionalByPair = mappedExposure;
+        ACCOUNT.filledNotionalByPair = filledExposure;
+        ACCOUNT.pendingNotionalByPair = pendingExposure;
+        ACCOUNT.filledTotal = Number(result.filledTotal) || 0;
+        ACCOUNT.pendingTotal = Number(result.pendingTotal) || 0;
         ACCOUNT.signedNotionalByPair = signedExposure;
         ACCOUNT.openTotalUsed = openTotalFromHL;
         ACCOUNT.openSingleUsed = openSingleFromHL;

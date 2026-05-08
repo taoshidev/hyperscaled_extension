@@ -7,6 +7,7 @@
   let activeInfoToast = null;
   let activeLimitBlockToast = null;
   let activeOversizeToast = null;
+  let oversizeDismissed = false;  // sticky until state returns under cap
   let infoToastTimer = null;
   let blockedToastDismissed = false;
   let blockedToastDetailsExpanded = false;
@@ -435,52 +436,83 @@
   // Shown when current open positions already exceed the per-asset or total
   // cap (independent of any new order attempt). Stays up until the breach
   // resolves — call evaluateOversizeState() after every ACCOUNT update.
-  function buildOversizeMessageHtml() {
+  function computeOverCapInfo() {
+    // Toast triggers on filled exposure only. Pending limit orders show
+    // visually in the popup but don't fire the alarm — they may never fill.
     const { fmt, effectiveMaxSingleUsd, effectiveMaxTotalUsd, getMirrorMultiplier } = HF.utils;
-    const pairMax = effectiveMaxSingleUsd();   // HS USD
-    const totalMax = effectiveMaxTotalUsd();   // HS USD
+    const pairMax = effectiveMaxSingleUsd();
+    const totalMax = effectiveMaxTotalUsd();
     const mirror = getMirrorMultiplier();
-    const totalUsedHs = (Number(ACCOUNT.openTotalUsed) || 0) * mirror;
-    const byPair = ACCOUNT.notionalByPair || {};
+    const totalUsedHs = (Number(ACCOUNT.filledTotal) || 0) * mirror;
+    const byPair = ACCOUNT.filledNotionalByPair || {};
     const overAssets = Object.entries(byPair)
       .map(([sym, v]) => ({ sym: String(sym).toUpperCase(), value: (Number(v) || 0) * mirror }))
       .filter(({ value }) => pairMax > 0 && value > pairMax)
       .sort((a, b) => b.value - a.value);
+    const totalOver = totalMax > 0 && totalUsedHs > totalMax;
+    return { fmt, pairMax, totalMax, totalUsedHs, overAssets, totalOver };
+  }
 
-    const parts = [];
+  function buildOversizeDetailsHtml({ fmt, pairMax, totalMax, overAssets, totalUsedHs, totalOver }) {
+    const lines = [];
     if (overAssets.length > 0) {
       const worst = overAssets[0];
       const more = overAssets.length > 1 ? ` (+${overAssets.length - 1} more over cap)` : '';
-      parts.push(
-        '<b>' + worst.sym + '</b> HS exposure <b>' + fmt(worst.value) +
-        '</b> exceeds the per-asset cap of <b>' + fmt(pairMax) + '</b>' + more + '.'
+      lines.push(
+        '<b>' + worst.sym + '</b> HL exposure (current position + open order value) maps to <b>' + fmt(worst.value) +
+        '</b> in HS terms — exceeds the per-pair HS cap of <b>' + fmt(pairMax) + '</b>' + more + '.'
       );
     }
-    if (totalMax > 0 && totalUsedHs > totalMax) {
-      parts.push(
-        'Total HS exposure <b>' + fmt(totalUsedHs) +
-        '</b> exceeds the portfolio cap of <b>' + fmt(totalMax) + '</b>.'
+    if (totalOver) {
+      lines.push(
+        'Total HL exposure maps to <b>' + fmt(totalUsedHs) +
+        '</b> in HS terms — exceeds the portfolio HS cap of <b>' + fmt(totalMax) + '</b>.'
       );
     }
-    parts.push('Reduce or close positions to bring exposure back under the cap.');
-    return parts.join(' ');
+    lines.push('HS positions will be capped at the limit.');
+    lines.push('HL trading is unaffected.');
+    lines.push('HS will resume tracking HL once HL exposure drops below the cap.');
+    return lines.map(l => '<div class="hf-toast-detail-line">' + l + '</div>').join('');
   }
 
   function showOversizeToast() {
-    const messageHtml = buildOversizeMessageHtml();
-    const titleHtml = "Hyperscaled: Position Size Over Cap";
-    const iconHtml = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="#f87171" stroke-width="1.5"/><line x1="8" y1="4.5" x2="8" y2="9" stroke="#f87171" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="11.5" r="0.9" fill="#f87171"/></svg>';
+    const info = computeOverCapInfo();
+    const { fmt, overAssets, pairMax, totalMax, totalUsedHs, totalOver } = info;
+
+    // Compact one-line summary: worst pair, or portfolio if only that breached.
+    let summary;
+    if (overAssets.length > 0) {
+      const w = overAssets[0];
+      const extra = overAssets.length > 1 ? ' +' + (overAssets.length - 1) : '';
+      summary = w.sym + ' ' + fmt(w.value) + ' / ' + fmt(pairMax) + extra;
+    } else {
+      summary = 'Portfolio ' + fmt(totalUsedHs) + ' / ' + fmt(totalMax);
+    }
+
+    const detailsHtml = buildOversizeDetailsHtml(info);
+
     const innerHtml =
-      '<div class="hf-toast-icon">' + iconHtml + '</div>' +
-      '<div class="hf-toast-content">' +
-        '<div class="hf-toast-title">' + titleHtml + '</div>' +
-        '<div class="hf-toast-msg">' + messageHtml + '</div>' +
-      '</div>';
-    const variantClass = "hf-toast hf-toast--warning hf-toast--oversize";
+      '<span class="hf-toast-icon" aria-hidden="true">⚠</span>' +
+      '<span class="hf-toast-summary">Over HS limit · ' + summary + '</span>' +
+      '<button type="button" class="hf-toast-expand" aria-expanded="false" title="Details">▾</button>' +
+      '<button type="button" class="hf-toast-close" title="Dismiss" aria-label="Dismiss">×</button>' +
+      '<div class="hf-toast-details" hidden>' + detailsHtml + '</div>';
+
+    const variantClass = "hf-toast hf-toast--warning hf-toast--oversize hf-toast--compact";
 
     if (activeOversizeToast && activeOversizeToast.parentNode) {
-      activeOversizeToast.className = variantClass + " hf-toast-show";
+      // Preserve expanded state across re-renders so updating the numbers
+      // doesn't collapse the panel under the user's mouse.
+      const wasExpanded = activeOversizeToast.classList.contains('hf-toast--expanded');
+      activeOversizeToast.className = variantClass + " hf-toast-show" + (wasExpanded ? ' hf-toast--expanded' : '');
       activeOversizeToast.innerHTML = innerHtml;
+      wireOversizeControls(activeOversizeToast);
+      if (wasExpanded) {
+        const det = activeOversizeToast.querySelector('.hf-toast-details');
+        if (det) det.hidden = false;
+        const ex = activeOversizeToast.querySelector('.hf-toast-expand');
+        if (ex) ex.setAttribute('aria-expanded', 'true');
+      }
       return;
     }
 
@@ -490,8 +522,30 @@
     toast.innerHTML = innerHtml;
     container.appendChild(toast);
     activeOversizeToast = toast;
+    wireOversizeControls(toast);
     void toast.offsetWidth;
     toast.classList.add("hf-toast-show");
+  }
+
+  function wireOversizeControls(toast) {
+    const expandBtn = toast.querySelector('.hf-toast-expand');
+    const closeBtn = toast.querySelector('.hf-toast-close');
+    const details = toast.querySelector('.hf-toast-details');
+    if (expandBtn && details) {
+      expandBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const expanded = toast.classList.toggle('hf-toast--expanded');
+        details.hidden = !expanded;
+        expandBtn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+      });
+    }
+    if (closeBtn) {
+      closeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        oversizeDismissed = true;
+        dismissOversizeToast();
+      });
+    }
   }
 
   function dismissOversizeToast() {
@@ -505,17 +559,22 @@
   function evaluateOversizeState() {
     if (!HF.state.limitsLoaded) return;
     const { effectiveMaxSingleUsd, effectiveMaxTotalUsd, getMirrorMultiplier } = HF.utils;
-    const pairMax = effectiveMaxSingleUsd();   // HS USD
-    const totalMax = effectiveMaxTotalUsd();   // HS USD
-    const mirror = getMirrorMultiplier();      // HL → HS conversion
+    const pairMax = effectiveMaxSingleUsd();
+    const totalMax = effectiveMaxTotalUsd();
+    const mirror = getMirrorMultiplier();
     if (!(mirror > 0)) return;
-    const totalUsed = (Number(ACCOUNT.openTotalUsed) || 0) * mirror;
-    const byPair = ACCOUNT.notionalByPair || {};
+    // Filled-only check: resting limit orders are hypothetical exposure and
+    // shouldn't fire the breach alarm. Mirror-preview still considers
+    // filled+pending when warning about a brand-new order.
+    const totalUsed = (Number(ACCOUNT.filledTotal) || 0) * mirror;
+    const byPair = ACCOUNT.filledNotionalByPair || {};
     const anyPairOver = pairMax > 0 && Object.values(byPair).some(v => ((Number(v) || 0) * mirror) > pairMax);
     const totalOver = totalMax > 0 && totalUsed > totalMax;
     if (anyPairOver || totalOver) {
+      if (oversizeDismissed && !activeOversizeToast) return;
       showOversizeToast();
     } else {
+      oversizeDismissed = false;
       dismissOversizeToast();
     }
   }
