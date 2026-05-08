@@ -50,7 +50,6 @@
         "content/toast.js",
         "content/banner.js",
         "content/pair-support.js",
-        "content/clamping.js",
         "content/trade-gate.js",
         "content/mirror-preview.js",
         "content/input-binding.js",

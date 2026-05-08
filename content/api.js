@@ -92,21 +92,22 @@
     try {
       const result = await sendToBackground({ action: "fetchTraderLimits", address });
 
+      // Caps live on the HS side. Validator returns static USD figures
+      // (max_*_usd = ratio × starting account_size), so we derive the static
+      // leverage ratio and apply it to the live HS balance. This matches what
+      // the tgbot does and lets the caps track realized PnL.
       const accountBalance = ACCOUNT.accountBalance;
-      const hlEq = ACCOUNT.hlEquity || ACCOUNT.hlBalance || 0;
-
-      // If balance hasn't loaded yet the scaling ratio would be wrong (1x instead of ~73x),
-      // producing inflated limit values ($100k/$200k). Skip and let the next poll retry.
-      if (hlEq <= 0) return;
+      const fundedSize = parseFloat(result.account_size) || ACCOUNT.fundedSize || 0;
       if (!(accountBalance > 0)) return;
+      if (!(fundedSize > 0)) return;
 
-      const scalingRatio = accountBalance / hlEq;
-
-      if (result.max_position_per_pair_usd != null) {
-        ACCOUNT.maxPositionPerPair = (parseFloat(result.max_position_per_pair_usd) || 0) / scalingRatio;
+      const pairUsd = parseFloat(result.max_position_per_pair_usd);
+      const totalUsd = parseFloat(result.max_portfolio_usd);
+      if (Number.isFinite(pairUsd) && pairUsd > 0) {
+        ACCOUNT.maxPositionPerPair = (pairUsd / fundedSize) * accountBalance;
       }
-      if (result.max_portfolio_usd != null) {
-        ACCOUNT.maxPortfolio = (parseFloat(result.max_portfolio_usd) || 0) / scalingRatio;
+      if (Number.isFinite(totalUsd) && totalUsd > 0) {
+        ACCOUNT.maxPortfolio = (totalUsd / fundedSize) * accountBalance;
       }
       HF.state.limitsLoaded = true;
 

@@ -167,48 +167,27 @@ export function applyValidatorData(result, state) {
     const hlBal = Number(state.hlBalance) || 0;
     const mirrorRatio = (hlBal > 0 && accountBalance != null) ? accountBalance / hlBal : 0;
 
-    // ── Trading Capacity ────────────────────────────────────────────────────────
-    // Capacity comes directly from validator limits when available.
-    // Basis is total HL equity — which already includes margin in open positions
-    // and unrealized PnL via HL's crossMarginSummary.accountValue. Don't add
-    // openTotalUsed (notional) on top, that would double-count.
+    // ── HL Exposure (informational; caps live on the HS side now) ──────────────
+    // The HL row used to show "exposure / cap" with a usage bar. Caps no
+    // longer exist on the HL side — orders pass through unchanged and the
+    // HS mirror is what gets capped (warned in mirror-preview). We repurpose
+    // the bar to show "weight" (exposure / hlBalance) so the trader still
+    // sees how much of their HL equity is deployed.
     const basisUsd = Number(state.hlBalance) || 0;
 
-    // Populate multiplier and basis labels
     const perAssetMultiplierEl = document.getElementById('perAssetMultiplier');
     const totalMultiplierEl = document.getElementById('totalMultiplier');
     const capacityBasisValueEl = document.getElementById('capacityBasisValue');
     const infoPerAssetMultEl = document.getElementById('infoPerAssetMultiplier');
     const infoTotalMultEl = document.getElementById('infoTotalMultiplier');
-    let maxPerPair = basisUsd;
-    let maxTotal   = basisUsd;
-    let perPairLevDisplay = '1x';
-    let totalLevDisplay   = '1x';
+    const maxPerPair = basisUsd;
+    const maxTotal   = basisUsd;
 
-    // Validator caps are in HS-USD. Converting them to HL-USD requires
-    // mirrorRatio, which depends on accountBalance. If accountBalance is
-    // missing the conversion would silently treat HS limits as HL limits
-    // (off by ~10x), so leave the HL-row caps at basisUsd and let the HS
-    // column render "--" instead of a wrong number.
-    if (state.traderLimits && mirrorRatio > 0) {
-        const backendPair = parseFloat(state.traderLimits.max_position_per_pair_usd) || 0;
-        const backendTotal = parseFloat(state.traderLimits.max_portfolio_usd) || 0;
-        const backendSize = parseFloat(state.traderLimits.account_size) || accountSize || 1;
-        if (backendPair > 0) {
-            maxPerPair = backendPair / mirrorRatio;
-            perPairLevDisplay = `${(backendPair / backendSize).toFixed(2)}x`;
-        }
-        if (backendTotal > 0) {
-            maxTotal = backendTotal / mirrorRatio;
-            totalLevDisplay = `${(backendTotal / backendSize).toFixed(2)}x`;
-        }
-    }
-
-    if (perAssetMultiplierEl) perAssetMultiplierEl.textContent = `(${perPairLevDisplay} acct)`;
-    if (totalMultiplierEl) totalMultiplierEl.textContent = `(${totalLevDisplay} acct)`;
+    if (perAssetMultiplierEl) perAssetMultiplierEl.textContent = '';
+    if (totalMultiplierEl) totalMultiplierEl.textContent = '';
     if (capacityBasisValueEl) capacityBasisValueEl.textContent = fmtUsd(basisUsd);
-    if (infoPerAssetMultEl) infoPerAssetMultEl.textContent = perPairLevDisplay;
-    if (infoTotalMultEl) infoTotalMultEl.textContent = totalLevDisplay;
+    if (infoPerAssetMultEl) infoPerAssetMultEl.textContent = '--';
+    if (infoTotalMultEl) infoTotalMultEl.textContent = '--';
 
     const hasHlExposureData = (
         (Number(state.openTotalUsed) || 0) > 0 ||
@@ -302,8 +281,20 @@ export function applyValidatorData(result, state) {
     // render "--" rather than a misleading $0.00.
     const r = mirrorRatio;
     const hsAvailable = r > 0;
-    const hsMaxPerPair = maxPerPair * r;
-    const hsMaxTotal   = maxTotal * r;
+    // HS-side caps must track live accountBalance. Computing them as
+    // maxPerPair × r (where maxPerPair = backendPair / r) is a round-trip
+    // that cancels r entirely, freezing the displayed cap at the validator's
+    // static USD figure (= ratio × starting account_size). Apply the
+    // validator's leverage ratio directly to accountBalance instead.
+    let hsMaxPerPair = maxPerPair * r;
+    let hsMaxTotal   = maxTotal * r;
+    if (hsAvailable && state.traderLimits) {
+        const backendPair = parseFloat(state.traderLimits.max_position_per_pair_usd) || 0;
+        const backendTotal = parseFloat(state.traderLimits.max_portfolio_usd) || 0;
+        const backendSize = parseFloat(state.traderLimits.account_size) || accountSize || 0;
+        if (backendSize > 0 && backendPair > 0)  hsMaxPerPair = (backendPair  / backendSize) * accountBalance;
+        if (backendSize > 0 && backendTotal > 0) hsMaxTotal   = (backendTotal / backendSize) * accountBalance;
+    }
     const hsLargestPairNotional = largestPairNotional * r;
     const hsTotalCapacityUsed   = totalCapacityUsed * r;
 

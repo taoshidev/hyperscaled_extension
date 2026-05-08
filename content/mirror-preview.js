@@ -21,16 +21,17 @@
           '<span class="hf-mp-val" id="hf-mp-hl-val">--</span>' +
         '</div>' +
         '<div class="hf-mp-row hf-mp-row--mirror" id="hf-mp-mirror-row">' +
-          '<span class="hf-mp-label">Mirrors to</span>' +
+          '<span class="hf-mp-label">Mirrors to HS</span>' +
           '<span class="hf-mp-val-group">' +
             '<span class="hf-mp-val hf-mp-val--accent" id="hf-mp-hs-val">--</span>' +
             '<span class="hf-mp-ratio" id="hf-mp-ratio"></span>' +
           '</span>' +
         '</div>' +
       '</div>' +
+      '<div class="hf-mp-warning" id="hf-mp-warning" style="display:none"></div>' +
       '<div class="hf-mp-capacity hf-mp-capacity--pair" id="hf-mp-pair-section">' +
         '<div class="hf-mp-cap-header">' +
-          '<span class="hf-mp-cap-title" id="hf-mp-pair-title">PAIR LIMIT</span>' +
+          '<span class="hf-mp-cap-title" id="hf-mp-pair-title">HS PAIR LIMIT</span>' +
           '<span class="hf-mp-cap-pct" id="hf-mp-pair-pct">--</span>' +
         '</div>' +
         '<div class="hf-mp-bar">' +
@@ -41,7 +42,7 @@
       '</div>' +
       '<div class="hf-mp-capacity">' +
         '<div class="hf-mp-cap-header">' +
-          '<span class="hf-mp-cap-title">PORTFOLIO</span>' +
+          '<span class="hf-mp-cap-title">HS PORTFOLIO</span>' +
           '<span class="hf-mp-cap-pct" id="hf-mp-cap-pct">--</span>' +
         '</div>' +
         '<div class="hf-mp-bar">' +
@@ -85,11 +86,10 @@
     return previewEl;
   }
 
+  // Live mirror multiplier — HS = HL × (accountBalance / hlBalance).
+  // Tracks current PnL because both sides are live equity figures.
   function getMirrorRatio() {
-    const hlBalance = Number(ACCOUNT.hlBalance) || 0;
-    const fundedSize = Number(ACCOUNT.fundedSize) || 0;
-    if (hlBalance <= 0 || fundedSize <= 0) return 0;
-    return fundedSize / hlBalance;
+    return HF.utils.getMirrorMultiplier();
   }
 
   function capColor(pct) {
@@ -147,33 +147,38 @@
 
     console.log('[Hyperscaled][MirrorPreview] Showing card', { notional, ratio: getMirrorRatio() });
 
+    // Caps and exposures are compared in HS units. Convert HL exposure /
+    // pending order to HS via mirrorMultiplier; caps already come in HS USD
+    // from effectiveMax*Usd.
     const ratio = getMirrorRatio();
-    const mirroredValue = ratio > 0 ? notional * ratio : 0;
+    const hsOrder = ratio > 0 ? notional * ratio : 0;
     const { fmt, getCurrentSymbol, effectiveMaxSingleUsd, effectiveMaxTotalUsd, getActiveOrderSide } = HF.utils;
 
     const symbol = getCurrentSymbol();
     const side = getActiveOrderSide(input);
     const isSell = side === 'sell';
 
-    // Per-pair capacity — selling reduces exposure, buying adds
+    // Per-pair capacity (HS units) — selling reduces exposure, buying adds
     const resolvedSymbol = HF.utils.resolveExposureSymbol(symbol);
-    const pairUsed = (resolvedSymbol && ACCOUNT.notionalByPair[resolvedSymbol]) || 0;
+    const pairUsedHl = (resolvedSymbol && ACCOUNT.notionalByPair[resolvedSymbol]) || 0;
+    const pairUsed = pairUsedHl * ratio;
     const pairMax = effectiveMaxSingleUsd();
-    const pairAfter = isSell ? Math.max(pairUsed - notional, 0) : pairUsed + notional;
+    const pairAfter = isSell ? Math.max(pairUsed - hsOrder, 0) : pairUsed + hsOrder;
     const pairUsedPct = pairMax > 0 ? Math.min((pairUsed / pairMax) * 100, 100) : 0;
     const pairPendingPct = isSell
       ? -(pairMax > 0 ? Math.min(((pairUsed - pairAfter) / pairMax) * 100, pairUsedPct) : 0)
-      : (pairMax > 0 ? Math.min((notional / pairMax) * 100, 100 - pairUsedPct) : 0);
+      : (pairMax > 0 ? Math.min((hsOrder / pairMax) * 100, 100 - pairUsedPct) : 0);
     const pairTotalPct = pairMax > 0 ? Math.min((pairAfter / pairMax) * 100, 100) : 0;
 
-    // Portfolio capacity — same logic
-    const currentUsed = Number(ACCOUNT.openTotalUsed) || 0;
+    // Portfolio capacity (HS units) — same logic
+    const currentUsedHl = Number(ACCOUNT.openTotalUsed) || 0;
+    const currentUsed = currentUsedHl * ratio;
     const maxTotal = effectiveMaxTotalUsd();
-    const afterOrder = isSell ? Math.max(currentUsed - notional, 0) : currentUsed + notional;
+    const afterOrder = isSell ? Math.max(currentUsed - hsOrder, 0) : currentUsed + hsOrder;
     const usedPct = maxTotal > 0 ? Math.min((currentUsed / maxTotal) * 100, 100) : 0;
     const pendingPct = isSell
       ? -(maxTotal > 0 ? Math.min(((currentUsed - afterOrder) / maxTotal) * 100, usedPct) : 0)
-      : (maxTotal > 0 ? Math.min((notional / maxTotal) * 100, 100 - usedPct) : 0);
+      : (maxTotal > 0 ? Math.min((hsOrder / maxTotal) * 100, 100 - usedPct) : 0);
     const totalPct = maxTotal > 0 ? Math.min((afterOrder / maxTotal) * 100, 100) : 0;
 
     const el = ensurePreviewEl(input);
@@ -194,15 +199,43 @@
       if (mirrorRow) mirrorRow.style.display = '';
       const hsVal = el.querySelector('#hf-mp-hs-val');
       const ratioEl = el.querySelector('#hf-mp-ratio');
-      if (hsVal) hsVal.textContent = fmt(mirroredValue);
-      if (ratioEl) ratioEl.textContent = '(' + ratio.toFixed(1) + 'x)';
+      if (hsVal) hsVal.textContent = fmt(hsOrder);
+      if (ratioEl) ratioEl.textContent = '(' + ratio.toFixed(2) + 'x)';
     } else {
       if (mirrorRow) mirrorRow.style.display = 'none';
     }
 
+    // Cap warning — HL goes through unchanged, HS mirror gets capped.
+    // Surface the shortfall so the trader knows what fraction of the order
+    // will actually mirror to HS before they confirm.
+    const reducing = HF.utils.isReduceIntent(symbol, side);
+    const overPair  = !reducing && pairMax  > 0 && pairAfter  > pairMax  + 0.01;
+    const overTotal = !reducing && maxTotal > 0 && afterOrder > maxTotal + 0.01;
+    const warningEl = el.querySelector('#hf-mp-warning');
+    if (warningEl) {
+      if (overPair || overTotal) {
+        const which = overPair && overTotal ? 'pair & portfolio' : (overPair ? 'pair' : 'portfolio');
+        const cap = overPair && !overTotal ? pairMax : (overTotal && !overPair ? maxTotal : Math.min(pairMax, maxTotal));
+        const headroom = Math.max(0, cap - (overPair ? pairUsed : currentUsed));
+        const cappedHsOrder = Math.max(0, headroom);
+        const cappedHlOrder = ratio > 0 ? cappedHsOrder / ratio : 0;
+        warningEl.innerHTML =
+          '<span class="hf-mp-warning-icon">⚠</span>' +
+          '<span class="hf-mp-warning-text">' +
+            'Exceeds HS ' + which + ' limit. HL order goes through at <b>' + fmt(notional) + '</b>; ' +
+            'only <b>' + fmt(cappedHsOrder) + '</b> mirrors to HS' +
+            (cappedHlOrder > 0 ? ' (≈ <b>' + fmt(cappedHlOrder) + '</b> HL to stay within cap).' : '.') +
+          '</span>';
+        warningEl.style.display = '';
+      } else {
+        warningEl.style.display = 'none';
+        warningEl.innerHTML = '';
+      }
+    }
+
     // Per-pair capacity
     const pairTitle = el.querySelector('#hf-mp-pair-title');
-    if (pairTitle) pairTitle.textContent = (symbol || 'PAIR') + ' LIMIT';
+    if (pairTitle) pairTitle.textContent = 'HS ' + (symbol || 'PAIR') + ' LIMIT';
     const pairPctEl = el.querySelector('#hf-mp-pair-pct');
     const pairBarCurrent = el.querySelector('#hf-mp-pair-bar-current');
     const pairBarPending = el.querySelector('#hf-mp-pair-bar-pending');
@@ -236,26 +269,10 @@
     }
     if (capDetail) capDetail.textContent = fmt(afterOrder) + ' / ' + fmt(maxTotal);
 
-    // Cache notional for the click-handler fallback in getPendingNotional()
+    // Cache notional for getPendingNotional() — banner / toast still consume it.
+    // Cap-based blocking is gone: HL orders pass through, the warning above is
+    // the only feedback path before confirm.
     HF.state.pendingNotional = notional;
-
-    // Block/unblock directly from already-computed values — don't call checkAndBlockButtons()
-    // which re-reads the DOM and can get a stale "Order Value" from before React re-renders
-    // (e.g. user goes 1373→1372→1373: DOM still shows 1372 when the second 1373 input fires).
-    // Reduce-intent orders never block, even if current exposure already exceeds cap.
-    if (HF.tradeGate && HF.state.balanceVerified && HF.state.validatorDataLoaded && !HF.state._unsupportedPairBlocked) {
-      const reducing = HF.utils.isReduceIntent(symbol, side);
-      const wouldExceed = !reducing && (pairAfter > pairMax || afterOrder > maxTotal);
-      if (wouldExceed) {
-        HF.state.shouldBlockTrade = true;
-      } else if (!HF.state.forcedTradeBlock) {
-        HF.state.shouldBlockTrade = false;
-        HF.toast.dismissLimitBlockToast();
-      }
-      HF.tradeGate.enforceTradeBlock();
-      HF.tradeGate.startTradeBlockObserver();
-      HF.tradeGate.installTradeGuards();
-    }
 
     if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
     void el.offsetWidth;
@@ -266,7 +283,6 @@
     if (!previewEl) return;
     previewEl.classList.remove('hf-mirror-show');
     HF.state.pendingNotional = 0;
-    HF.toast.dismissLimitBlockToast();
   }
 
   function onSizeInputChange(input) {

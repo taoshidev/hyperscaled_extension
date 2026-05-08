@@ -325,11 +325,12 @@
       // Re-evaluate synchronously so state is fresh even if scheduleUpdate hasn't fired
       if (!HF.state._unsupportedPairBlocked) checkAndBlockButtons();
 
-      // Hard gate: catches cases where button detection fails (role=button, child targets, etc.)
-      // shouldBlockTrade is set reliably by mirror-preview directly from computed values
+      // Hard gate: catches cases where button detection fails (role=button,
+      // child targets, etc.) The over-cap flow no longer blocks — this only
+      // fires for unsupported pairs (which have their own overlay) or
+      // explicit forceBlockTrade calls (none in the cap path now).
       if (HF.state.shouldBlockTrade && isTradeInteractionTarget(e.target)) {
         cancelBlockedTrade(e);
-        HF.toast.showLimitBlockToast();
         return;
       }
 
@@ -365,6 +366,11 @@
   }
 
   function checkAndBlockButtons() {
+    // HL orders are no longer blocked when they exceed the HS cap — the
+    // mirror-preview card surfaces the over-cap state as a warning and the
+    // user can still confirm. Real blocks remain for unsupported pairs and
+    // explicit `forceBlockTrade` calls (e.g., drawdown breach handling, if
+    // wired up later).
     if (HF.state._unsupportedPairBlocked) {
       HF.state.shouldBlockTrade = true;
       enforceTradeBlock();
@@ -373,52 +379,8 @@
       return;
     }
 
-    if (!HF.state.balanceVerified) return;
-    if (!HF.state.validatorDataLoaded) return;
-
-    if (HF.utils.isTpSlOrderType()) {
-      HF.state.shouldBlockTrade = HF.state.forcedTradeBlock;
-      enforceTradeBlock();
-      startTradeBlockObserver();
-      installTradeGuards();
-      return;
-    }
-
-    const { getHLLeverage, getCurrentSymbol, effectiveMaxSingleUsd, effectiveMaxTotalUsd,
-            readOrderValueFromDOM, getActiveOrderSide, isReduceIntent } = HF.utils;
-
-    const hlLev = getHLLeverage();
-    const pending = HF.banner.getPendingNotional();
-    const symbol = getCurrentSymbol();
-    const resolvedSymbol = HF.utils.resolveExposureSymbol(symbol);
-    const currentPairNotional = (resolvedSymbol && ACCOUNT.notionalByPair[resolvedSymbol]) || 0;
-
-    const maxNotionalPerPair = effectiveMaxSingleUsd();
-    const maxNotionalTotal = effectiveMaxTotalUsd();
-
-    const leftSingle = maxNotionalPerPair - currentPairNotional;
-    const leftTotal = maxNotionalTotal - ACCOUNT.openTotalUsed;
-
-    // Reduce-intent bypass: if the active order side is opposite the current
-    // position, the order will reduce exposure — never block it on cap, even
-    // when current exposure is already over cap.
-    const activeSide = getActiveOrderSide();
-    const reducing = isReduceIntent(symbol, activeSide);
-
-    const alreadyAtLimit = !reducing && (leftSingle <= 0 || leftTotal <= 0);
-    const overSingle = !reducing && pending > 0 && pending >= leftSingle;
-    const overTotal = !reducing && pending > 0 && pending >= leftTotal;
-    const orderValue = readOrderValueFromDOM();
-    const maxAllowedFromCurrent = Math.max(Math.min(leftSingle, leftTotal), 0);
-    const overByOrderValue = !reducing && orderValue > maxAllowedFromCurrent + 0.01;
-
-    HF.state.shouldBlockTrade = HF.state.forcedTradeBlock || alreadyAtLimit || overSingle || overTotal || overByOrderValue;
-    logTradeGateDiagnostics({
-      source: "checkAndBlockButtons",
-      pendingNotional: pending,
-      orderValue,
-      details: { alreadyAtLimit, overSingle, overTotal, overByOrderValue, reducing, activeSide },
-    });
+    HF.state.shouldBlockTrade = HF.state.forcedTradeBlock || false;
+    logTradeGateDiagnostics({ source: "checkAndBlockButtons" });
     enforceTradeBlock();
     startTradeBlockObserver();
     installTradeGuards();

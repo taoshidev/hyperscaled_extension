@@ -53,15 +53,17 @@ function barPendingBg(pct) {
   return 'rgba(100, 102, 241, 0.4)';
 }
 
-// Cap resolution — mirrors effectiveMaxSingleUsd / effectiveMaxTotalUsd
-function effectiveMaxSingleUsd({ limitsLoaded, maxPositionPerPair, hlEquity }) {
+// Cap resolution — mirrors effectiveMaxSingleUsd / effectiveMaxTotalUsd.
+// Caps are HS-USD now (= ratio × accountBalance); fallback is the live HS
+// balance, not HL equity.
+function effectiveMaxSingleUsd({ limitsLoaded, maxPositionPerPair, accountBalance }) {
   if (limitsLoaded && maxPositionPerPair > 0) return maxPositionPerPair;
-  return Number(hlEquity) || 0;
+  return Number(accountBalance) || 0;
 }
 
-function effectiveMaxTotalUsd({ limitsLoaded, maxPortfolio, hlEquity }) {
+function effectiveMaxTotalUsd({ limitsLoaded, maxPortfolio, accountBalance }) {
   if (limitsLoaded && maxPortfolio > 0) return maxPortfolio;
-  return Number(hlEquity) || 0;
+  return Number(accountBalance) || 0;
 }
 
 // ─── isReduceIntent ──────────────────────────────────────────────────────────
@@ -247,23 +249,23 @@ describe('effectiveMaxSingleUsd', () => {
     expect(effectiveMaxSingleUsd({
       limitsLoaded: true,
       maxPositionPerPair: 686,
-      hlEquity: 1372,
+      accountBalance: 1372,
     })).toBe(686);
   });
 
-  it('falls back to hlEquity when limits not loaded', () => {
+  it('falls back to accountBalance when limits not loaded', () => {
     expect(effectiveMaxSingleUsd({
       limitsLoaded: false,
       maxPositionPerPair: 686,
-      hlEquity: 1372,
+      accountBalance: 1372,
     })).toBe(1372);
   });
 
-  it('falls back to hlEquity when maxPositionPerPair is 0', () => {
+  it('falls back to accountBalance when maxPositionPerPair is 0', () => {
     expect(effectiveMaxSingleUsd({
       limitsLoaded: true,
       maxPositionPerPair: 0,
-      hlEquity: 1372,
+      accountBalance: 1372,
     })).toBe(1372);
   });
 });
@@ -273,15 +275,15 @@ describe('effectiveMaxTotalUsd', () => {
     expect(effectiveMaxTotalUsd({
       limitsLoaded: true,
       maxPortfolio: 2744,
-      hlEquity: 1372,
+      accountBalance: 1372,
     })).toBe(2744);
   });
 
-  it('falls back to hlEquity when limits not loaded', () => {
+  it('falls back to accountBalance when limits not loaded', () => {
     expect(effectiveMaxTotalUsd({
       limitsLoaded: false,
       maxPortfolio: 2744,
-      hlEquity: 1372,
+      accountBalance: 1372,
     })).toBe(1372);
   });
 });

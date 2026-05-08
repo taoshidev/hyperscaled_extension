@@ -38,14 +38,14 @@ function applyTraderLimits({ accountBalance, hlEq, max_position_per_pair_usd, ma
 
 // ─── Inline effectiveMaxSingleUsd / effectiveMaxTotalUsd ────────────────────
 
-function effectiveMaxSingleUsd({ limitsLoaded, maxPositionPerPair, hlEquity }) {
+function effectiveMaxSingleUsd({ limitsLoaded, maxPositionPerPair, accountBalance }) {
   if (limitsLoaded && maxPositionPerPair > 0) return maxPositionPerPair;
-  return Number(hlEquity) || 0;
+  return Number(accountBalance) || 0;
 }
 
-function effectiveMaxTotalUsd({ limitsLoaded, maxPortfolio, hlEquity }) {
+function effectiveMaxTotalUsd({ limitsLoaded, maxPortfolio, accountBalance }) {
   if (limitsLoaded && maxPortfolio > 0) return maxPortfolio;
-  return Number(hlEquity) || 0;
+  return Number(accountBalance) || 0;
 }
 
 // ─── Scaling ratio ────────────────────────────────────────────────────────────
@@ -176,29 +176,29 @@ describe('portfolio cap scaling', () => {
 
 describe('effectiveMaxSingleUsd', () => {
   it('returns maxPositionPerPair when limits loaded and > 0', () => {
-    expect(effectiveMaxSingleUsd({ limitsLoaded: true, maxPositionPerPair: 686, hlEquity: 1372 })).toBe(686);
+    expect(effectiveMaxSingleUsd({ limitsLoaded: true, maxPositionPerPair: 686, accountBalance: 1372 })).toBe(686);
   });
 
-  it('falls back to hlEquity when limits NOT loaded', () => {
-    expect(effectiveMaxSingleUsd({ limitsLoaded: false, maxPositionPerPair: 686, hlEquity: 1372 })).toBe(1372);
+  it('falls back to accountBalance when limits NOT loaded', () => {
+    expect(effectiveMaxSingleUsd({ limitsLoaded: false, maxPositionPerPair: 686, accountBalance: 1372 })).toBe(1372);
   });
 
-  it('falls back to hlEquity when maxPositionPerPair = 0', () => {
-    expect(effectiveMaxSingleUsd({ limitsLoaded: true, maxPositionPerPair: 0, hlEquity: 1372 })).toBe(1372);
+  it('falls back to accountBalance when maxPositionPerPair = 0', () => {
+    expect(effectiveMaxSingleUsd({ limitsLoaded: true, maxPositionPerPair: 0, accountBalance: 1372 })).toBe(1372);
   });
 
-  it('returns 0 when hlEquity is 0 and limits not loaded', () => {
-    expect(effectiveMaxSingleUsd({ limitsLoaded: false, maxPositionPerPair: 0, hlEquity: 0 })).toBe(0);
+  it('returns 0 when accountBalance is 0 and limits not loaded', () => {
+    expect(effectiveMaxSingleUsd({ limitsLoaded: false, maxPositionPerPair: 0, accountBalance: 0 })).toBe(0);
   });
 });
 
 describe('effectiveMaxTotalUsd', () => {
   it('returns maxPortfolio when limits loaded', () => {
-    expect(effectiveMaxTotalUsd({ limitsLoaded: true, maxPortfolio: 2744, hlEquity: 1372 })).toBe(2744);
+    expect(effectiveMaxTotalUsd({ limitsLoaded: true, maxPortfolio: 2744, accountBalance: 1372 })).toBe(2744);
   });
 
-  it('falls back to hlEquity when limits NOT loaded', () => {
-    expect(effectiveMaxTotalUsd({ limitsLoaded: false, maxPortfolio: 2744, hlEquity: 1372 })).toBe(1372);
+  it('falls back to accountBalance when limits NOT loaded', () => {
+    expect(effectiveMaxTotalUsd({ limitsLoaded: false, maxPortfolio: 2744, accountBalance: 1372 })).toBe(1372);
   });
 });
 

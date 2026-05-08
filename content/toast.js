@@ -436,13 +436,14 @@
   // cap (independent of any new order attempt). Stays up until the breach
   // resolves — call evaluateOversizeState() after every ACCOUNT update.
   function buildOversizeMessageHtml() {
-    const { fmt, effectiveMaxSingleUsd, effectiveMaxTotalUsd } = HF.utils;
-    const pairMax = effectiveMaxSingleUsd();
-    const totalMax = effectiveMaxTotalUsd();
-    const totalUsed = Number(ACCOUNT.openTotalUsed) || 0;
+    const { fmt, effectiveMaxSingleUsd, effectiveMaxTotalUsd, getMirrorMultiplier } = HF.utils;
+    const pairMax = effectiveMaxSingleUsd();   // HS USD
+    const totalMax = effectiveMaxTotalUsd();   // HS USD
+    const mirror = getMirrorMultiplier();
+    const totalUsedHs = (Number(ACCOUNT.openTotalUsed) || 0) * mirror;
     const byPair = ACCOUNT.notionalByPair || {};
     const overAssets = Object.entries(byPair)
-      .map(([sym, v]) => ({ sym: String(sym).toUpperCase(), value: Number(v) || 0 }))
+      .map(([sym, v]) => ({ sym: String(sym).toUpperCase(), value: (Number(v) || 0) * mirror }))
       .filter(({ value }) => pairMax > 0 && value > pairMax)
       .sort((a, b) => b.value - a.value);
 
@@ -451,13 +452,13 @@
       const worst = overAssets[0];
       const more = overAssets.length > 1 ? ` (+${overAssets.length - 1} more over cap)` : '';
       parts.push(
-        '<b>' + worst.sym + '</b> exposure <b>' + fmt(worst.value) +
+        '<b>' + worst.sym + '</b> HS exposure <b>' + fmt(worst.value) +
         '</b> exceeds the per-asset cap of <b>' + fmt(pairMax) + '</b>' + more + '.'
       );
     }
-    if (totalMax > 0 && totalUsed > totalMax) {
+    if (totalMax > 0 && totalUsedHs > totalMax) {
       parts.push(
-        'Total exposure <b>' + fmt(totalUsed) +
+        'Total HS exposure <b>' + fmt(totalUsedHs) +
         '</b> exceeds the portfolio cap of <b>' + fmt(totalMax) + '</b>.'
       );
     }
@@ -503,12 +504,14 @@
 
   function evaluateOversizeState() {
     if (!HF.state.limitsLoaded) return;
-    const { effectiveMaxSingleUsd, effectiveMaxTotalUsd } = HF.utils;
-    const pairMax = effectiveMaxSingleUsd();
-    const totalMax = effectiveMaxTotalUsd();
-    const totalUsed = Number(ACCOUNT.openTotalUsed) || 0;
+    const { effectiveMaxSingleUsd, effectiveMaxTotalUsd, getMirrorMultiplier } = HF.utils;
+    const pairMax = effectiveMaxSingleUsd();   // HS USD
+    const totalMax = effectiveMaxTotalUsd();   // HS USD
+    const mirror = getMirrorMultiplier();      // HL → HS conversion
+    if (!(mirror > 0)) return;
+    const totalUsed = (Number(ACCOUNT.openTotalUsed) || 0) * mirror;
     const byPair = ACCOUNT.notionalByPair || {};
-    const anyPairOver = pairMax > 0 && Object.values(byPair).some(v => (Number(v) || 0) > pairMax);
+    const anyPairOver = pairMax > 0 && Object.values(byPair).some(v => ((Number(v) || 0) * mirror) > pairMax);
     const totalOver = totalMax > 0 && totalUsed > totalMax;
     if (anyPairOver || totalOver) {
       showOversizeToast();
