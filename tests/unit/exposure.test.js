@@ -8,6 +8,7 @@
  *  - positionValue present vs absent (markPx fallback)
  *  - Dust filtering (size ≤ 1e-12)
  *  - Multiple positions same coin (aggregation)
+ *  - totalUnrealizedPnl aggregation (Diff #4 — drops nl-derived PnL)
  *  - normalizePerpSymbol edge cases
  */
 
@@ -29,6 +30,7 @@ function extractExposureFromAssetPositions(perpsData) {
   const perAsset = {};
   const perAssetSigned = {};
   let total = 0;
+  let totalUnrealizedPnl = 0;
   let openCount = 0;
   const assetPositions = Array.isArray(perpsData?.assetPositions) ? perpsData.assetPositions : [];
 
@@ -45,6 +47,9 @@ function extractExposureFromAssetPositions(perpsData) {
     const notional = Math.abs(Number.isFinite(directNotional) ? directNotional : fallbackNotional);
     if (!(notional > 0)) continue;
 
+    const upnl = parseFloat(pos?.unrealizedPnl ?? pos?.unrealized_pnl ?? row?.unrealizedPnl);
+    if (Number.isFinite(upnl)) totalUnrealizedPnl += upnl;
+
     const symbol = normalizePerpSymbol(pos?.coin ?? pos?.asset ?? pos?.name ?? row?.coin ?? row?.asset);
     if (symbol) {
       perAsset[symbol] = (perAsset[symbol] || 0) + notional;
@@ -57,7 +62,14 @@ function extractExposureFromAssetPositions(perpsData) {
   }
 
   const maxSingle = Object.values(perAsset).reduce((m, v) => Math.max(m, Number(v) || 0), 0);
-  return { openTotalUsed: total, openSingleUsed: maxSingle, notionalByPair: perAsset, signedNotionalByPair: perAssetSigned, openPositionCount: openCount };
+  return {
+    openTotalUsed: total,
+    openSingleUsed: maxSingle,
+    notionalByPair: perAsset,
+    signedNotionalByPair: perAssetSigned,
+    totalUnrealizedPnl,
+    openPositionCount: openCount,
+  };
 }
 
 // ─── Inline remapToDisplaySymbols (content/api.js checkBalance) ──────────────
@@ -89,9 +101,10 @@ const HL_COIN_TO_DISPLAY = {
   'SOL': 'SOL',
 };
 
-function makePosition(coin, szi, positionValue = null, markPx = 0) {
+function makePosition(coin, szi, positionValue = null, markPx = 0, unrealizedPnl = null) {
   const pos = { coin, szi: String(szi), markPx: String(markPx) };
   if (positionValue !== null) pos.positionValue = String(positionValue);
+  if (unrealizedPnl !== null) pos.unrealizedPnl = String(unrealizedPnl);
   return { position: pos };
 }
 
@@ -116,7 +129,7 @@ describe('normalizePerpSymbol', () => {
 describe('extractExposureFromAssetPositions — native crypto perps', () => {
   it('extracts BTC long position', () => {
     const data = { assetPositions: [makePosition('BTC', '1.5', '97500')] };
-    const { notionalByPair, signedNotionalByPair, openTotalUsed, openSingleUsed, openPositionCount } =
+    const { notionalByPair, signedNotionalByPair, openTotalUsed, openSingleUsed, openPositionCount, totalUnrealizedPnl } =
       extractExposureFromAssetPositions(data);
 
     expect(notionalByPair['BTC']).toBeCloseTo(97500);
@@ -124,6 +137,7 @@ describe('extractExposureFromAssetPositions — native crypto perps', () => {
     expect(openTotalUsed).toBeCloseTo(97500);
     expect(openSingleUsed).toBeCloseTo(97500);
     expect(openPositionCount).toBe(1);
+    expect(totalUnrealizedPnl).toBe(0);  // no unrealizedPnl on fixture
   });
 
   it('extracts ETH short position — negative signedNotional', () => {
@@ -258,6 +272,103 @@ describe('extractExposureFromAssetPositions — notional fallback calculation', 
     };
     const { notionalByPair } = extractExposureFromAssetPositions(data);
     expect(notionalByPair['SOL']).toBeCloseTo(14000);
+  });
+});
+
+// ─── totalUnrealizedPnl aggregation ───────────────────────────────────────────
+//
+// Diff #4 (2026-05): drops the validator's `nl × accountSize` PnL derivation.
+// HL's per-position `unrealizedPnl` is now the single source of truth for
+// total open-position PnL. Sums across all positions; missing field counts
+// as 0; null/NaN don't poison the sum.
+
+describe('extractExposureFromAssetPositions — totalUnrealizedPnl', () => {
+  it('sums unrealizedPnl across all positions', () => {
+    const data = {
+      assetPositions: [
+        makePosition('BTC', '1', '97500', 65000, '125.50'),
+        makePosition('ETH', '-5', '18000', 3600, '-42.30'),
+      ],
+    };
+    const { totalUnrealizedPnl } = extractExposureFromAssetPositions(data);
+    expect(totalUnrealizedPnl).toBeCloseTo(125.50 - 42.30);  // 83.20
+  });
+
+  it('positive PnL: long winning', () => {
+    const data = { assetPositions: [makePosition('BTC', '1', '100000', 100000, '500.00')] };
+    expect(extractExposureFromAssetPositions(data).totalUnrealizedPnl).toBeCloseTo(500);
+  });
+
+  it('negative PnL: long losing', () => {
+    const data = { assetPositions: [makePosition('BTC', '1', '95000', 95000, '-5000.00')] };
+    expect(extractExposureFromAssetPositions(data).totalUnrealizedPnl).toBeCloseTo(-5000);
+  });
+
+  it('returns 0 when no positions', () => {
+    expect(extractExposureFromAssetPositions({ assetPositions: [] }).totalUnrealizedPnl).toBe(0);
+  });
+
+  it('returns 0 when all positions lack unrealizedPnl field', () => {
+    const data = {
+      assetPositions: [
+        makePosition('BTC', '1', '97500'),
+        makePosition('ETH', '-5', '18000'),
+      ],
+    };
+    expect(extractExposureFromAssetPositions(data).totalUnrealizedPnl).toBe(0);
+  });
+
+  it('skips positions with non-finite unrealizedPnl (e.g. "NaN" or missing)', () => {
+    const data = {
+      assetPositions: [
+        makePosition('BTC', '1', '97500', 65000, '125.50'),
+        // Position with no unrealizedPnl at all — counts as 0 contribution
+        makePosition('ETH', '-5', '18000'),
+      ],
+    };
+    const { totalUnrealizedPnl } = extractExposureFromAssetPositions(data);
+    expect(totalUnrealizedPnl).toBeCloseTo(125.50);
+  });
+
+  it('accepts unrealized_pnl (snake_case) as fallback', () => {
+    const data = {
+      assetPositions: [{
+        position: { coin: 'BTC', szi: '1', positionValue: '100000', unrealized_pnl: '250' },
+      }],
+    };
+    expect(extractExposureFromAssetPositions(data).totalUnrealizedPnl).toBeCloseTo(250);
+  });
+
+  it('accepts unrealizedPnl from row level (not nested under position)', () => {
+    const data = {
+      assetPositions: [{
+        position: { coin: 'BTC', szi: '1', positionValue: '100000' },
+        unrealizedPnl: '300',
+      }],
+    };
+    expect(extractExposureFromAssetPositions(data).totalUnrealizedPnl).toBeCloseTo(300);
+  });
+
+  it('skips dust positions from PnL aggregation (size ≤ 1e-12)', () => {
+    const data = {
+      assetPositions: [
+        makePosition('BTC', '1', '97500', 65000, '100'),
+        makePosition('ETH', '1e-13', '0.001', 1, '50'),  // dust → filtered before PnL accumulation
+      ],
+    };
+    const { totalUnrealizedPnl } = extractExposureFromAssetPositions(data);
+    expect(totalUnrealizedPnl).toBeCloseTo(100);
+  });
+
+  it('does NOT derive PnL from net_leverage (banned forever)', () => {
+    // A position with no unrealizedPnl field but with a net_leverage-shaped
+    // value contributes 0 to totalUnrealizedPnl — never `nl × accountSize`.
+    const data = {
+      assetPositions: [{
+        position: { coin: 'BTC', szi: '1', positionValue: '100000', net_leverage: '0.07' },
+      }],
+    };
+    expect(extractExposureFromAssetPositions(data).totalUnrealizedPnl).toBe(0);
   });
 });
 

@@ -92,20 +92,22 @@
     try {
       const result = await sendToBackground({ action: "fetchTraderLimits", address });
 
+      // Caps live on the HS side. Validator returns static USD figures
+      // (max_*_usd = ratio × starting account_size), so we derive the static
+      // leverage ratio and apply it to the live HS balance. This matches what
+      // the tgbot does and lets the caps track realized PnL.
+      const accountBalance = ACCOUNT.accountBalance;
       const fundedSize = parseFloat(result.account_size) || ACCOUNT.fundedSize || 0;
-      const hlEq = ACCOUNT.hlEquity || ACCOUNT.hlBalance || 0;
+      if (!(accountBalance > 0)) return;
+      if (!(fundedSize > 0)) return;
 
-      // If balance hasn't loaded yet the scaling ratio would be wrong (1x instead of ~73x),
-      // producing inflated limit values ($100k/$200k). Skip and let the next poll retry.
-      if (hlEq <= 0) return;
-
-      const scalingRatio = fundedSize > 0 ? fundedSize / hlEq : 1;
-
-      if (result.max_position_per_pair_usd != null) {
-        ACCOUNT.maxPositionPerPair = (parseFloat(result.max_position_per_pair_usd) || 0) / scalingRatio;
+      const pairUsd = parseFloat(result.max_position_per_pair_usd);
+      const totalUsd = parseFloat(result.max_portfolio_usd);
+      if (Number.isFinite(pairUsd) && pairUsd > 0) {
+        ACCOUNT.maxPositionPerPair = (pairUsd / fundedSize) * accountBalance;
       }
-      if (result.max_portfolio_usd != null) {
-        ACCOUNT.maxPortfolio = (parseFloat(result.max_portfolio_usd) || 0) / scalingRatio;
+      if (Number.isFinite(totalUsd) && totalUsd > 0) {
+        ACCOUNT.maxPortfolio = (totalUsd / fundedSize) * accountBalance;
       }
       HF.state.limitsLoaded = true;
 
@@ -196,53 +198,14 @@
       const positionsRaw = result.positions;
       const positions = Array.isArray(positionsRaw) ? positionsRaw : (positionsRaw?.positions || []);
       console.log("[Hyperscaled] Validator data loaded, account_size:", ACCOUNT.fundedSize, "positions total:", positions.length);
-      const openPositions = positions.filter(p => !p.is_closed_position && !p.close_ms);
-      const accountSizeData = result.account_size_data;
-      const capUsed = accountSizeData?.capital_used;
-      const levSum = openPositions.reduce((s, p) => {
-        return s + Math.abs(parseFloat(p.net_leverage ?? p.leverage) || 0);
-      }, 0);
 
-      let totalUnrealizedPnl = 0;
-      let totalNotional = 0;
-      let maxSingleNotional = 0;
-
-      const notionalByPair = {};
-      const signedNotionalByPair = {};
-      for (const pos of openPositions) {
-        const rawLev = parseFloat(pos.net_leverage ?? pos.leverage);
-        const notional = pos.net_leverage != null
-          ? Math.abs(rawLev) * ACCOUNT.fundedSize
-          : (pos.filled_orders || []).reduce((s, o) => s + Math.abs(parseFloat(o.value) || 0), 0);
-        // Validator's net_leverage is signed: long > 0, short < 0. Preserve the
-        // sign so reduce-intent gating can compare against order side.
-        const signedNotional = Number.isFinite(rawLev) && rawLev !== 0
-          ? Math.sign(rawLev) * notional
-          : notional;
-
-        const r = parseFloat(pos.current_return) || 1;
-        let pnl;
-        if (capUsed != null && capUsed > 0 && levSum > 0) {
-          const lev = Math.abs(rawLev) || 0;
-          const share = lev / levSum;
-          pnl = (r - 1) * capUsed * share;
-        } else if (capUsed != null && capUsed > 0 && openPositions.length > 0) {
-          pnl = (r - 1) * (capUsed / openPositions.length);
-        } else {
-          pnl = (r - 1) * ACCOUNT.fundedSize;
-        }
-
-        totalUnrealizedPnl += pnl;
-        totalNotional += notional;
-        if (notional > maxSingleNotional) maxSingleNotional = notional;
-
-        const tp = pos.trade_pair || "";
-        const coin = (typeof tp === "string" ? tp : (tp[0] || "")).replace(/\/.*$/, "").replace(/USD[CT]?$/, "").toUpperCase();
-        if (coin) {
-          notionalByPair[coin] = (notionalByPair[coin] || 0) + notional;
-          signedNotionalByPair[coin] = (signedNotionalByPair[coin] || 0) + signedNotional;
-        }
-      }
+      // Note: the validator's per-position payload (`net_leverage`,
+      // `current_return`) is intentionally NOT used to derive notional or
+      // PnL here. HL's clearinghouseState — already piped through
+      // `checkBalance` into ACCOUNT.filledNotionalByPair and friends — is
+      // the source of truth for size × price and unrealized PnL. When HL
+      // hasn't loaded yet, downstream UI shows "--" rather than backfill
+      // from `net_leverage × account_size`.
 
       ACCOUNT.isRegistered = true;
       ACCOUNT.registrationChecked = true;
@@ -250,7 +213,14 @@
 
       const dd = result.drawdown || {};
       const currentEquity = parseFloat(dd.current_equity) || 1;
-      ACCOUNT.validatorEquity = accountSizeData?.balance ?? (ACCOUNT.fundedSize * currentEquity);
+      const accountSizeData = result.account_size_data || null;
+      const balanceField = parseFloat(accountSizeData?.balance);
+      ACCOUNT.accountBalance = Number.isFinite(balanceField) && balanceField > 0 ? balanceField : null;
+      const dailyOpen = parseFloat(dd.daily_open_equity);
+      const eodHwm = parseFloat(dd.eod_hwm);
+      ACCOUNT.dailyOpenRatio = Number.isFinite(dailyOpen) && dailyOpen > 0 ? dailyOpen : null;
+      ACCOUNT.eodHwmRatio = Number.isFinite(eodHwm) && eodHwm > 0 ? eodHwm : null;
+      ACCOUNT.validatorEquity = ACCOUNT.accountBalance;
       ACCOUNT.challengeCurrent = (currentEquity - 1) * 100;
       ACCOUNT.drawdownCurrent = parseFloat(dd.intraday_drawdown_pct) || 0;
       ACCOUNT.drawdownMax = parseFloat(dd.intraday_threshold_pct) || ACCOUNT.drawdownMax;
@@ -261,13 +231,18 @@
       ACCOUNT.intraday_threshold_pct = parseFloat(dd.intraday_threshold_pct) || ACCOUNT.intraday_threshold_pct;
       ACCOUNT.eod_threshold_pct = parseFloat(dd.eod_threshold_pct) || ACCOUNT.eod_threshold_pct;
 
-      if (ACCOUNT.exposureSource !== "hyperliquid-assetPositions") {
-        ACCOUNT.notionalByPair = notionalByPair;
-        ACCOUNT.signedNotionalByPair = signedNotionalByPair;
-        ACCOUNT.openTotalUsed = totalNotional;
-        ACCOUNT.openSingleUsed = maxSingleNotional;
-        ACCOUNT.exposureSource = "validator-net-leverage";
-      }
+      // Exposure (notionalByPair, signedNotionalByPair, openTotalUsed,
+      // openSingleUsed) is populated only by checkBalance() from HL's
+      // clearinghouseState. The validator's `net_leverage` is not used as a
+      // fallback — better to leave them at their initial values (downstream
+      // shows "--" / 0) than to display HS-scale numbers labelled HL.
+
+      // HS per-pair position values come pre-computed from background's
+      // fetchValidatorData (strict size × price = sum of signed `q` ×
+      // current HL mid price). Same form for both content and popup
+      // consumers; no local derivation here.
+      ACCOUNT.hsPositionsByCoin = (result.hsPositionsByCoin && typeof result.hsPositionsByCoin === 'object')
+        ? result.hsPositionsByCoin : {};
 
       HF.state.validatorDataLoaded = true;
       HF.banner.updateBannerFromValidator();
@@ -314,6 +289,14 @@
           result.notionalByPair && typeof result.notionalByPair === "object"
             ? result.notionalByPair : {}
         );
+        const filledExposure = remapKeys(
+          result.filledNotionalByPair && typeof result.filledNotionalByPair === "object"
+            ? result.filledNotionalByPair : {}
+        );
+        const pendingExposure = remapKeys(
+          result.pendingNotionalByPair && typeof result.pendingNotionalByPair === "object"
+            ? result.pendingNotionalByPair : {}
+        );
         const signedExposure = remapKeys(
           result.signedNotionalByPair && typeof result.signedNotionalByPair === "object"
             ? result.signedNotionalByPair : {}
@@ -321,9 +304,15 @@
         const openTotalFromHL = Number(result.openTotalUsed) || 0;
         const openSingleFromHL = Number(result.openSingleUsed) || 0;
         ACCOUNT.notionalByPair = mappedExposure;
+        ACCOUNT.filledNotionalByPair = filledExposure;
+        ACCOUNT.pendingNotionalByPair = pendingExposure;
+        ACCOUNT.filledTotal = Number(result.filledTotal) || 0;
+        ACCOUNT.pendingTotal = Number(result.pendingTotal) || 0;
         ACCOUNT.signedNotionalByPair = signedExposure;
         ACCOUNT.openTotalUsed = openTotalFromHL;
         ACCOUNT.openSingleUsed = openSingleFromHL;
+        const upnl = parseFloat(result.totalUnrealizedPnl);
+        ACCOUNT.totalUnrealizedPnl = Number.isFinite(upnl) ? upnl : null;
         ACCOUNT.exposureSource = typeof result.exposureSource === "string" && result.exposureSource
           ? result.exposureSource
           : "hyperliquid-balance";
@@ -374,6 +363,9 @@
       ACCOUNT.hlBalance = 0;
       ACCOUNT.hlEquity = 0;
       ACCOUNT.fundedSize = 0;
+      ACCOUNT.accountBalance = null;
+      ACCOUNT.dailyOpenRatio = null;
+      ACCOUNT.eodHwmRatio = null;
       ACCOUNT.challengeCurrent = 0;
       ACCOUNT.drawdownCurrent = 0;
       ACCOUNT.daily_loss_pct = 0;
@@ -385,6 +377,8 @@
       ACCOUNT.exposureSource = "none";
       ACCOUNT.notionalByPair = {};
       ACCOUNT.signedNotionalByPair = {};
+      ACCOUNT.totalUnrealizedPnl = null;
+      ACCOUNT.hsPositionsByCoin = {};
       ACCOUNT.inChallenge = false;
       ACCOUNT.isRegistered = false;
       ACCOUNT.registrationChecked = false;

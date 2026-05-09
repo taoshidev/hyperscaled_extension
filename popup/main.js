@@ -1,7 +1,7 @@
 // Popup entry point
 import { fmtUsd, truncateAddress } from './format.js';
 import { safeSendMessage, getCachedData, loadAddress, saveAddress } from './api.js';
-import { applyValidatorData, renderPositions } from './dashboard.js';
+import { applyValidatorData } from './dashboard.js';
 import { refreshEvents, renderEvents, initEventsPagination } from './events.js';
 import { showDashboard, hideDashboard, showUnregistered, hideUnregistered, showEliminated, hideEliminated, setPlaceholders } from './screens.js';
 import { showPositionNotification, setupNotificationClickHandler } from './notifications.js';
@@ -15,6 +15,19 @@ const state = {
     openTotalUsed: 0,
     openSingleUsed: 0,
     notionalByPair: {},
+    filledNotionalByPair: {},
+    pendingNotionalByPair: {},
+    filledTotal: 0,
+    pendingTotal: 0,
+    // Sum of HL per-position unrealizedPnl. null until HL clearinghouse
+    // returns — display "--" rather than fabricate from validator's
+    // `net_leverage × account_size`.
+    totalUnrealizedPnl: null,
+    // HS per-coin position values, pre-computed by background as strict
+    // size × price (sum of signed `q` × current HL mid price). Map:
+    // { COIN_UPPER: { quantity, value, side } }. Empty until validator +
+    // mid prices return.
+    hsPositionsByCoin: {},
     refreshIntervalId: null,
     dashboardShown: false,
 };
@@ -39,6 +52,14 @@ async function restoreFromCache() {
         state.notionalByPair = balanceCache.data.notionalByPair && typeof balanceCache.data.notionalByPair === 'object'
             ? balanceCache.data.notionalByPair
             : {};
+        state.filledNotionalByPair = balanceCache.data.filledNotionalByPair && typeof balanceCache.data.filledNotionalByPair === 'object'
+            ? balanceCache.data.filledNotionalByPair : {};
+        state.pendingNotionalByPair = balanceCache.data.pendingNotionalByPair && typeof balanceCache.data.pendingNotionalByPair === 'object'
+            ? balanceCache.data.pendingNotionalByPair : {};
+        state.filledTotal = Number(balanceCache.data.filledTotal) || 0;
+        state.pendingTotal = Number(balanceCache.data.pendingTotal) || 0;
+        const cachedUpnl = parseFloat(balanceCache.data.totalUnrealizedPnl);
+        state.totalUnrealizedPnl = Number.isFinite(cachedUpnl) ? cachedUpnl : null;
         const hlBalanceEl = document.getElementById('hlBalance');
         if (hlBalanceEl) hlBalanceEl.textContent = fmtUsd(state.hlBalance);
     }
@@ -74,6 +95,14 @@ async function refreshBalance() {
         state.notionalByPair = response.notionalByPair && typeof response.notionalByPair === 'object'
             ? response.notionalByPair
             : {};
+        state.filledNotionalByPair = response.filledNotionalByPair && typeof response.filledNotionalByPair === 'object'
+            ? response.filledNotionalByPair : {};
+        state.pendingNotionalByPair = response.pendingNotionalByPair && typeof response.pendingNotionalByPair === 'object'
+            ? response.pendingNotionalByPair : {};
+        state.filledTotal = Number(response.filledTotal) || 0;
+        state.pendingTotal = Number(response.pendingTotal) || 0;
+        const upnl = parseFloat(response.totalUnrealizedPnl);
+        state.totalUnrealizedPnl = Number.isFinite(upnl) ? upnl : null;
         const hlBalanceEl = document.getElementById('hlBalance');
         if (hlBalanceEl) hlBalanceEl.textContent = fmtUsd(state.hlBalance);
     } catch (e) {
@@ -128,7 +157,7 @@ function updateData() {
     refreshBalance();
     refreshValidatorData();
     refreshTraderLimits();
-    refreshEvents(state.storedAddress);
+    // refreshEvents(state.storedAddress);  // Order Events section commented out — re-enable with HTML in popup.html / sidepanel.html
 }
 
 // ── Wallet UI helpers ────────────────────────────────────────────────────────
@@ -169,6 +198,8 @@ function disconnectWallet() {
     state.openTotalUsed = 0;
     state.openSingleUsed = 0;
     state.notionalByPair = {};
+    state.totalUnrealizedPnl = null;
+    state.hsPositionsByCoin = {};
     if (state.refreshIntervalId) {
         clearInterval(state.refreshIntervalId);
         state.refreshIntervalId = null;
@@ -194,7 +225,7 @@ function disconnectWallet() {
 document.addEventListener('DOMContentLoaded', async function() {
     console.log('Hyperscaled extension loaded');
     initExplainers();
-    initEventsPagination();
+    // initEventsPagination();  // Order Events section commented out
 
     const addressInput = document.getElementById('walletAddress');
     const saveBtn = document.getElementById('walletSave');
@@ -298,27 +329,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
     }
 
-    // Capacity HL/HS toggle
-    const capacityToggle = document.getElementById('capacityToggle');
-    if (capacityToggle) {
-        capacityToggle.addEventListener('click', (e) => {
-            const btn = e.target.closest('.capacity-toggle-btn');
-            if (!btn) return;
-            const view = btn.dataset.view;
-            const hlView = document.getElementById('capacityViewHl');
-            const hsView = document.getElementById('capacityViewHs');
-            capacityToggle.querySelectorAll('.capacity-toggle-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            if (view === 'hs') {
-                hlView.hidden = true;
-                hsView.hidden = false;
-            } else {
-                hlView.hidden = false;
-                hsView.hidden = true;
-            }
-        });
-    }
-
     // Pin to side panel
     const pinSideBtn = document.getElementById('pinSideBtn');
     if (pinSideBtn && chrome.sidePanel) {
@@ -344,7 +354,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     refreshBalance();
     refreshValidatorData();
     refreshTraderLimits();
-    refreshEvents(state.storedAddress);
+    // refreshEvents(state.storedAddress);  // Order Events section commented out
     state.refreshIntervalId = setInterval(updateData, 10000);
 });
 

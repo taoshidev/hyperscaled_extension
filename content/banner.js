@@ -62,7 +62,17 @@
     const trailing = ACCOUNT.eod_trailing_loss_pct || 0;
     const intradayLimit = ACCOUNT.intraday_threshold_pct || 5;
     const eodLimit = ACCOUNT.eod_threshold_pct || 5;
-    const equity = ACCOUNT.validatorEquity || 0;
+    // Day-open / HWM are reported by the validator as ratios relative to the
+    // starting funded size. Multiplying by fundedSize yields the actual $
+    // figures the drawdown rules are checked against. If either ratio or
+    // fundedSize is missing we have no honest answer — show "--" rather than
+    // fall back to a wrong number.
+    const fundedSize = Number(ACCOUNT.fundedSize) || 0;
+    const dayOpenRatio = ACCOUNT.dailyOpenRatio;
+    const hwmRatio = ACCOUNT.eodHwmRatio;
+    const dayOpenUsd = (fundedSize > 0 && dayOpenRatio > 0) ? fundedSize * dayOpenRatio : null;
+    const hwmUsd = (fundedSize > 0 && hwmRatio > 0) ? fundedSize * hwmRatio : null;
+    const fmtOrDash = (v) => (v == null ? '--' : fmt(v));
 
     const dailyBadge = document.getElementById('hf-dd-daily-badge');
     if (dailyBadge) {
@@ -79,22 +89,22 @@
     }
 
     const dayOpen = document.getElementById('hf-dd-day-open');
-    if (dayOpen) dayOpen.textContent = fmt(equity);
+    if (dayOpen) dayOpen.textContent = fmtOrDash(dayOpenUsd);
     const dailyBreach = document.getElementById('hf-dd-daily-breach');
-    if (dailyBreach) dailyBreach.textContent = fmt(equity * (1 - intradayLimit / 100));
+    if (dailyBreach) dailyBreach.textContent = fmtOrDash(dayOpenUsd != null ? dayOpenUsd * (1 - intradayLimit / 100) : null);
     const dailyLoss = document.getElementById('hf-dd-daily-loss');
-    if (dailyLoss) dailyLoss.textContent = fmt(equity * daily / 100) + ' (' + daily.toFixed(2) + '%)';
+    if (dailyLoss) dailyLoss.textContent = fmtOrDash(dayOpenUsd != null ? dayOpenUsd * daily / 100 : null) + ' (' + daily.toFixed(2) + '%)';
     const dailyBuffer = document.getElementById('hf-dd-daily-buffer');
-    if (dailyBuffer) dailyBuffer.textContent = fmt(equity * (intradayLimit - daily) / 100);
+    if (dailyBuffer) dailyBuffer.textContent = fmtOrDash(dayOpenUsd != null ? dayOpenUsd * (intradayLimit - daily) / 100 : null);
 
     const hwm = document.getElementById('hf-dd-hwm');
-    if (hwm) hwm.textContent = fmt(equity);
+    if (hwm) hwm.textContent = fmtOrDash(hwmUsd);
     const trailingBreach = document.getElementById('hf-dd-trailing-breach');
-    if (trailingBreach) trailingBreach.textContent = fmt(equity * (1 - eodLimit / 100));
+    if (trailingBreach) trailingBreach.textContent = fmtOrDash(hwmUsd != null ? hwmUsd * (1 - eodLimit / 100) : null);
     const trailingLoss = document.getElementById('hf-dd-trailing-loss');
-    if (trailingLoss) trailingLoss.textContent = fmt(equity * trailing / 100) + ' (' + trailing.toFixed(2) + '%)';
+    if (trailingLoss) trailingLoss.textContent = fmtOrDash(hwmUsd != null ? hwmUsd * trailing / 100 : null) + ' (' + trailing.toFixed(2) + '%)';
     const trailingBuffer = document.getElementById('hf-dd-trailing-buffer');
-    if (trailingBuffer) trailingBuffer.textContent = fmt(equity * (eodLimit - trailing) / 100);
+    if (trailingBuffer) trailingBuffer.textContent = fmtOrDash(hwmUsd != null ? hwmUsd * (eodLimit - trailing) / 100 : null);
   }
 
   function getBannerHTML() {
@@ -109,6 +119,12 @@
     const targetMax = ACCOUNT.challengeTarget || 10;
     const targetPct = targetMax > 0 ? Math.max(0, Math.min((target / targetMax) * 100, 100)) : 0;
     const equity = ACCOUNT.validatorEquity || 0;
+    const fundedSize = Number(ACCOUNT.fundedSize) || 0;
+    const dayOpenRatio = ACCOUNT.dailyOpenRatio;
+    const hwmRatio = ACCOUNT.eodHwmRatio;
+    const dayOpenUsd = (fundedSize > 0 && dayOpenRatio > 0) ? fundedSize * dayOpenRatio : null;
+    const hwmUsd = (fundedSize > 0 && hwmRatio > 0) ? fundedSize * hwmRatio : null;
+    const fmtOrDash = (v) => (v == null ? '--' : fmt(v));
 
     return `
       <div class="hf-bar">
@@ -116,19 +132,19 @@
         ${ACCOUNT.registrationChecked ? `<span class="hf-status-badge${ACCOUNT.isRegistered ? '' : ' hf-status-badge--unregistered'}">● ${ACCOUNT.isRegistered ? (ACCOUNT.inChallenge ? 'In Challenge' : 'Funded') : 'Unregistered'}</span>` : ''}
         <span class="hf-divider"></span>
         <div class="hf-stat-group">
-          <span class="hf-stat-label">EQUITY</span>
+          <span class="hf-stat-label">HS BALANCE</span>
           <span class="hf-stat-value" id="hf-equity">${fmt(equity)}</span>
         </div>
         <span class="hf-divider"></span>
         <div class="hf-dd-stack hf-dd-trigger" id="hf-dd-trigger">
           <div class="hf-dd-row">
-            <span class="hf-dd-label">DAILY</span>
+            <span class="hf-dd-label">INTRADAY DD</span>
             <span class="hf-dd-value" id="hf-daily" style="color:${ddColor(dailyUsage)} !important">${daily.toFixed(3)}%</span>
             <span class="hf-dd-suffix">/ ${intradayLimit.toFixed(0)}%</span>
             ${dailyUsage > 80 ? `<span class="hf-dd-warn" style="color:${ddColor(dailyUsage)} !important">\u26a0</span>` : ''}
           </div>
           <div class="hf-dd-row">
-            <span class="hf-dd-label">TRAILING</span>
+            <span class="hf-dd-label">EOD TRAILING DD</span>
             <span class="hf-dd-value" id="hf-trailing" style="color:${ddColor(trailingUsage)} !important">${trailing.toFixed(3)}%</span>
             <span class="hf-dd-suffix">/ ${eodLimit.toFixed(0)}%</span>
             ${trailingUsage > 80 ? `<span class="hf-dd-warn" style="color:${ddColor(trailingUsage)} !important">\u26a0</span>` : ''}
@@ -147,10 +163,10 @@
                 <span class="hf-dd-panel-badge" id="hf-dd-daily-badge">Safe</span>
               </div>
               <div class="hf-dd-panel-rows">
-                <div class="hf-dd-panel-row"><span class="hf-dd-panel-key">Day open equity</span><span class="hf-dd-panel-val" id="hf-dd-day-open">${fmt(equity)}</span></div>
-                <div class="hf-dd-panel-row"><span class="hf-dd-panel-key">Breach level</span><span class="hf-dd-panel-val hf-dd-panel-val--red" id="hf-dd-daily-breach">${fmt(equity * (1 - intradayLimit / 100))}</span></div>
-                <div class="hf-dd-panel-row"><span class="hf-dd-panel-key">Current loss</span><span class="hf-dd-panel-val" id="hf-dd-daily-loss">${fmt(equity * daily / 100)} (${daily.toFixed(2)}%)</span></div>
-                <div class="hf-dd-panel-row"><span class="hf-dd-panel-key">Buffer remaining</span><span class="hf-dd-panel-val hf-dd-panel-val--accent" id="hf-dd-daily-buffer">${fmt(equity * (intradayLimit - daily) / 100)}</span></div>
+                <div class="hf-dd-panel-row"><span class="hf-dd-panel-key">Day open equity</span><span class="hf-dd-panel-val" id="hf-dd-day-open">${fmtOrDash(dayOpenUsd)}</span></div>
+                <div class="hf-dd-panel-row"><span class="hf-dd-panel-key">Breach level</span><span class="hf-dd-panel-val hf-dd-panel-val--red" id="hf-dd-daily-breach">${fmtOrDash(dayOpenUsd != null ? dayOpenUsd * (1 - intradayLimit / 100) : null)}</span></div>
+                <div class="hf-dd-panel-row"><span class="hf-dd-panel-key">Current loss</span><span class="hf-dd-panel-val" id="hf-dd-daily-loss">${fmtOrDash(dayOpenUsd != null ? dayOpenUsd * daily / 100 : null)} (${daily.toFixed(2)}%)</span></div>
+                <div class="hf-dd-panel-row"><span class="hf-dd-panel-key">Buffer remaining</span><span class="hf-dd-panel-val hf-dd-panel-val--accent" id="hf-dd-daily-buffer">${fmtOrDash(dayOpenUsd != null ? dayOpenUsd * (intradayLimit - daily) / 100 : null)}</span></div>
               </div>
               <div class="hf-dd-panel-note">Checked intraday in real-time. Resets 00:00 UTC.</div>
             </div>
@@ -161,10 +177,10 @@
                 <span class="hf-dd-panel-badge" id="hf-dd-trailing-badge">Safe</span>
               </div>
               <div class="hf-dd-panel-rows">
-                <div class="hf-dd-panel-row"><span class="hf-dd-panel-key">EOD high water mark</span><span class="hf-dd-panel-val" id="hf-dd-hwm">${fmt(equity)}</span></div>
-                <div class="hf-dd-panel-row"><span class="hf-dd-panel-key">Breach level</span><span class="hf-dd-panel-val hf-dd-panel-val--red" id="hf-dd-trailing-breach">${fmt(equity * (1 - eodLimit / 100))}</span></div>
-                <div class="hf-dd-panel-row"><span class="hf-dd-panel-key">Drawdown from HWM</span><span class="hf-dd-panel-val" id="hf-dd-trailing-loss">${fmt(equity * trailing / 100)} (${trailing.toFixed(2)}%)</span></div>
-                <div class="hf-dd-panel-row"><span class="hf-dd-panel-key">Buffer remaining</span><span class="hf-dd-panel-val hf-dd-panel-val--accent" id="hf-dd-trailing-buffer">${fmt(equity * (eodLimit - trailing) / 100)}</span></div>
+                <div class="hf-dd-panel-row"><span class="hf-dd-panel-key">EOD high water mark</span><span class="hf-dd-panel-val" id="hf-dd-hwm">${fmtOrDash(hwmUsd)}</span></div>
+                <div class="hf-dd-panel-row"><span class="hf-dd-panel-key">Breach level</span><span class="hf-dd-panel-val hf-dd-panel-val--red" id="hf-dd-trailing-breach">${fmtOrDash(hwmUsd != null ? hwmUsd * (1 - eodLimit / 100) : null)}</span></div>
+                <div class="hf-dd-panel-row"><span class="hf-dd-panel-key">Drawdown from HWM</span><span class="hf-dd-panel-val" id="hf-dd-trailing-loss">${fmtOrDash(hwmUsd != null ? hwmUsd * trailing / 100 : null)} (${trailing.toFixed(2)}%)</span></div>
+                <div class="hf-dd-panel-row"><span class="hf-dd-panel-key">Buffer remaining</span><span class="hf-dd-panel-val hf-dd-panel-val--accent" id="hf-dd-trailing-buffer">${fmtOrDash(hwmUsd != null ? hwmUsd * (eodLimit - trailing) / 100 : null)}</span></div>
               </div>
               <div class="hf-dd-panel-note">Checked at end of day. HWM trails upward with equity gains.</div>
             </div>
@@ -172,9 +188,9 @@
           <div class="hf-dd-panel-footer">
             <span>Trading day resets 00:00 UTC</span>
             <span class="hf-dd-panel-sep">|</span>
-            <span>Daily = intraday real-time</span>
+            <span>Intraday checked in real-time</span>
             <span class="hf-dd-panel-sep">|</span>
-            <span>Trailing = checked at EOD</span>
+            <span>EOD trailing checked at end of day</span>
           </div>
         </div>
         <span class="hf-divider"></span>

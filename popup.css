@@ -88,7 +88,7 @@ body {
     background: var(--bg);
     color: var(--text-primary);
     font-family: var(--font-ui);
-    font-size: 14px;
+    font-size: 15px;
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
 }
@@ -141,7 +141,7 @@ body {
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 16px;
+    font-size: 17px;
     font-weight: 400;
     color: var(--text-primary);
     letter-spacing: -0.32px;
@@ -165,7 +165,7 @@ body {
     border: 1px solid var(--accent-border);
     border-radius: var(--radius-card);
     color: var(--accent);
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 500;
     line-height: 16.5px;
     white-space: nowrap;
@@ -174,7 +174,7 @@ body {
 
 .header-meta {
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: 11px;
     color: var(--text-dim);
 }
 
@@ -202,7 +202,7 @@ body {
 
 /* ── Capacity Basis Note ───────────────────────────── */
 .capacity-basis-note {
-    font-size: 10px;
+    font-size: 11px;
     font-family: var(--font-ui);
     color: var(--text-faint);
     margin-bottom: var(--space-2);
@@ -214,13 +214,6 @@ body {
     font-variant-numeric: tabular-nums;
 }
 
-.capacity-multiplier {
-    font-size: 10px;
-    font-family: var(--font-mono);
-    color: var(--text-subtle);
-    font-weight: 400;
-    margin-left: 4px;
-}
 
 /* ── Wallet Config ──────────────────────────────────── */
 .wallet-config {
@@ -239,13 +232,13 @@ body {
 }
 
 .wallet-config-label {
-    font-size: 11px;
+    font-size: 12px;
     color: var(--text-label);
     font-weight: 400;
 }
 
 .wallet-status {
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 500;
     padding: 2px 7px;
     border-radius: 4px;
@@ -263,7 +256,7 @@ body {
     border: 1px solid var(--input-border);
     border-radius: 5px;
     color: var(--text-primary);
-    font-size: 11px;
+    font-size: 12px;
     font-family: var(--font-ui);
     outline: none;
     transition: border-color 0.2s ease;
@@ -283,7 +276,7 @@ body {
     border: 1px solid var(--border-card);
     border-radius: 5px;
     color: var(--text-subtle);
-    font-size: 11px;
+    font-size: 12px;
     font-family: var(--font-ui);
     font-weight: 500;
     cursor: pointer;
@@ -310,14 +303,14 @@ body {
 }
 
 .wallet-inline-address {
-    font-size: 10px;
+    font-size: 11px;
     font-family: var(--font-mono);
     color: var(--text-dim);
     letter-spacing: 0.01em;
 }
 
 .wallet-inline-balance {
-    font-size: 12px;
+    font-size: 13px;
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.36px;
@@ -341,14 +334,14 @@ body {
 }
 
 .not-registered-icon {
-    font-size: 28px;
+    font-size: 30px;
     color: var(--accent);
     margin-bottom: var(--space-2);
 }
 
 .not-registered-title {
     font-family: var(--font-ui);
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 700;
     color: var(--text-strong);
     margin-bottom: var(--space-2);
@@ -356,7 +349,7 @@ body {
 
 .not-registered-body {
     font-family: var(--font-ui);
-    font-size: 12px;
+    font-size: 13px;
     line-height: 1.7;
     color: var(--text-body);
     max-width: 280px;
@@ -378,7 +371,7 @@ body {
 
 .not-registered-label {
     font-family: var(--font-ui);
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
     color: var(--text-label);
 }
@@ -388,7 +381,7 @@ body {
     display: block;
     box-sizing: border-box;
     font-family: var(--font-mono);
-    font-size: 12px;
+    font-size: 13px;
     background: var(--bg);
     border: 1px solid var(--border-card);
     border-radius: var(--radius-sm);
@@ -415,7 +408,7 @@ body {
     border-radius: var(--radius-sm);
     color: var(--text-subtle);
     font-family: var(--font-ui);
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.15s ease;
@@ -434,13 +427,13 @@ body {
 
 .not-registered-signup-text {
     font-family: var(--font-ui);
-    font-size: 11px;
+    font-size: 12px;
     color: var(--text-subtle);
 }
 
 .not-registered-signup-link {
     font-family: var(--font-ui);
-    font-size: 11px;
+    font-size: 12px;
     color: var(--accent);
     text-decoration: none;
     cursor: pointer;
@@ -468,20 +461,20 @@ body {
 }
 
 .pending-icon {
-    font-size: 24px;
+    font-size: 26px;
     margin-bottom: var(--space-2);
 }
 
 .pending-title {
     font-family: var(--font-ui);
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 700;
     color: var(--text-strong);
 }
 
 .pending-body {
     font-family: var(--font-ui);
-    font-size: 12px;
+    font-size: 13px;
     line-height: 1.7;
     color: var(--text-body);
     margin-top: var(--space-2);
@@ -504,7 +497,7 @@ body {
 
 .pending-sublabel {
     font-family: var(--font-ui);
-    font-size: 10px;
+    font-size: 11px;
     color: var(--amber);
     margin-top: var(--space-1);
 }
@@ -518,7 +511,7 @@ body {
 
 .pending-details-title {
     font-family: var(--font-ui);
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 600;
     color: var(--text-label);
     text-transform: uppercase;
@@ -540,20 +533,20 @@ body {
 
 .pending-detail-key {
     font-family: var(--font-ui);
-    font-size: 12px;
+    font-size: 13px;
     color: var(--text-subtle);
 }
 
 .pending-detail-value {
     font-family: var(--font-ui);
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 600;
     color: var(--text-primary);
 }
 
 .pending-footer-note {
     font-family: var(--font-ui);
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.6;
     color: var(--text-ghost);
     text-align: center;
@@ -576,14 +569,14 @@ body {
 }
 
 .unregistered-icon {
-    font-size: 24px;
+    font-size: 26px;
     color: var(--red);
     margin-bottom: var(--space-2);
 }
 
 .unregistered-title {
     font-family: var(--font-ui);
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 600;
     color: var(--red);
     margin-bottom: var(--space-2);
@@ -591,7 +584,7 @@ body {
 
 .unregistered-body {
     font-family: var(--font-ui);
-    font-size: 12px;
+    font-size: 13px;
     color: var(--text-secondary);
     line-height: 1.5;
 }
@@ -615,7 +608,7 @@ body {
     border-radius: var(--radius-sm);
     color: var(--accent);
     font-family: var(--font-ui);
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 600;
     text-align: center;
     text-decoration: none;
@@ -635,7 +628,7 @@ body {
     border: none;
     color: var(--text-muted);
     font-family: var(--font-ui);
-    font-size: 11px;
+    font-size: 12px;
     text-align: center;
     cursor: pointer;
     transition: color 0.15s;
@@ -661,7 +654,7 @@ body {
 }
 
 .eliminated-icon {
-    font-size: 24px;
+    font-size: 26px;
     color: var(--red);
     margin-bottom: var(--space-2);
     font-weight: 600;
@@ -669,7 +662,7 @@ body {
 
 .eliminated-title {
     font-family: var(--font-ui);
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 600;
     color: var(--red);
     margin-bottom: var(--space-2);
@@ -677,7 +670,7 @@ body {
 
 .eliminated-body {
     font-family: var(--font-ui);
-    font-size: 12px;
+    font-size: 13px;
     color: var(--text-secondary);
     line-height: 1.5;
 }
@@ -701,7 +694,7 @@ body {
     border-radius: var(--radius-sm);
     color: var(--accent);
     font-family: var(--font-ui);
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 600;
     text-align: center;
     text-decoration: none;
@@ -721,7 +714,7 @@ body {
     border: none;
     color: var(--text-muted);
     font-family: var(--font-ui);
-    font-size: 11px;
+    font-size: 12px;
     text-align: center;
     cursor: pointer;
     transition: color 0.15s;
@@ -749,19 +742,19 @@ body {
     50% { border-color: rgba(239, 68, 68, 0.5); }
 }
 
-.low-balance-warning-icon { font-size: 18px; flex-shrink: 0; }
+.low-balance-warning-icon { font-size: 20px; flex-shrink: 0; }
 
 .low-balance-warning-body { flex: 1; min-width: 0; }
 
 .low-balance-warning-title {
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
     color: var(--red);
     margin-bottom: 2px;
 }
 
 .low-balance-warning-detail {
-    font-size: 10px;
+    font-size: 11px;
     color: rgba(252, 165, 165, 0.8);
 }
 
@@ -785,7 +778,7 @@ body {
     align-items: center;
     gap: var(--space-1);
     white-space: nowrap;
-    font-size: 10px;
+    font-size: 11px;
     font-family: var(--font-ui);
     font-weight: 400;
     color: var(--text-label);
@@ -795,7 +788,7 @@ body {
 }
 
 .balance-value {
-    font-size: 19px;
+    font-size: 21px;
     font-weight: 700;
     font-family: var(--font-mono);
     letter-spacing: -0.38px;
@@ -804,7 +797,7 @@ body {
 }
 
 .balance-change {
-    font-size: 11px;
+    font-size: 12px;
     font-family: var(--font-ui);
     font-weight: 400;
     margin-top: var(--space-1);
@@ -815,7 +808,7 @@ body {
 .balance-change.neutral  { color: var(--text-neutral); }
 
 .balance-sublabel {
-    font-size: 11px;
+    font-size: 12px;
     font-family: var(--font-ui);
     color: var(--text-ghost);
     margin-top: var(--space-1);
@@ -839,45 +832,10 @@ body {
 }
 
 .capacity-title {
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 600;
     font-family: var(--font-ui);
     color: var(--text-strong);
-}
-
-.capacity-toggle {
-    display: flex;
-    background: rgba(255, 255, 255, 0.04);
-    border-radius: 6px;
-    padding: 2px;
-    gap: 2px;
-}
-
-.capacity-toggle-btn {
-    font-size: 10px;
-    font-family: var(--font-ui);
-    font-weight: 500;
-    color: var(--text-faint);
-    background: none;
-    border: none;
-    padding: 3px 10px;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: color 0.15s ease, background 0.15s ease;
-    white-space: nowrap;
-}
-
-.capacity-toggle-btn:hover {
-    color: var(--text-subtle);
-}
-
-.capacity-toggle-btn.active {
-    background: rgba(255, 255, 255, 0.08);
-    color: var(--text-body);
-}
-
-.capacity-view[hidden] {
-    display: none;
 }
 
 .capacity-row {
@@ -896,7 +854,7 @@ body {
 }
 
 .capacity-row-label {
-    font-size: 11px;
+    font-size: 12px;
     font-family: var(--font-ui);
     font-weight: 500;
     color: var(--text-faint);
@@ -905,51 +863,63 @@ body {
 }
 
 .capacity-row-value {
-    font-size: 11px;
+    font-size: 12px;
     font-family: var(--font-mono);
     color: var(--text-secondary);
 }
 
 .capacity-fill--pair {
-    background: var(--indigo);
+    background: var(--accent);
 }
 
 .capacity-bar {
     height: 10px;
-    background: var(--indigo-bg);
+    background: var(--bar-bg);
     border-radius: 5px;
     overflow: hidden;
     margin-top: var(--space-1);
     margin-bottom: var(--space-1);
+    position: relative;
 }
 
 .capacity-fill {
     height: 100%;
     border-radius: 5px;
-    transition: width 0.3s ease;
+    transition: width 0.3s ease, background 0.3s ease;
+    position: absolute;
+    top: 0;
+    left: 0;
 }
 
+/* Default fill color is teal (safe). JS overrides inline based on severity:
+   teal (< 70%) → amber (70–90%) → red (≥ 90% or over-cap). Matches the
+   banner DD scale. */
 .capacity-fill--total {
-    background: var(--indigo);
+    background: var(--accent);
 }
 
+/* Shared grid across all rows so symbol / bar / value columns size against
+   the widest content in each column — every bar's track is the same width
+   regardless of which row's pending text happens to be longest. Without
+   this the per-row `auto 1fr auto` made BTC's bar (no pending) wider than
+   ETH's bar (with pending), so a yellow (warn) bar could visually appear
+   shorter than a green (safe) bar — breaking the severity-by-length read. */
 .capacity-asset-list {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    column-gap: var(--space-2);
+    row-gap: 6px;
+    align-items: center;
     margin-top: 6px;
     margin-bottom: var(--space-1);
 }
 
 .capacity-asset-row {
-    display: grid;
-    grid-template-columns: auto 1fr auto;
-    column-gap: var(--space-2);
-    align-items: center;
+    display: contents;
 }
 
 .capacity-asset-symbol {
-    font-size: 10px;
+    font-size: 11px;
     font-family: var(--font-mono);
     font-weight: 600;
     color: var(--text-secondary);
@@ -960,15 +930,40 @@ body {
 .capacity-asset-track {
     height: 6px;
     border-radius: 3px;
-    background: rgba(100, 102, 241, 0.16);
+    background: var(--bar-bg);
     overflow: hidden;
+    position: relative;
 }
 
 .capacity-asset-fill {
     height: 100%;
     border-radius: 3px;
-    background: var(--indigo);
-    transition: width 0.3s ease;
+    background: var(--accent);
+    transition: width 0.3s ease, background 0.3s ease;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+/* Pending = resting limit orders. Striped overlay so it visually reads as
+   "would-be exposure if these fill" without the alarm of real exposure.
+   Default stripe is teal; JS sets the actual gradient inline based on
+   severity of the after-fill % so the color matches the rest of the bar. */
+.capacity-asset-fill--pending,
+.capacity-fill--pending {
+    background: repeating-linear-gradient(
+        45deg,
+        rgba(0, 198, 167, 0.55),
+        rgba(0, 198, 167, 0.55) 4px,
+        rgba(0, 198, 167, 0.18) 4px,
+        rgba(0, 198, 167, 0.18) 8px
+    );
+}
+
+.capacity-asset-pending {
+    font-family: var(--font-mono);
+    font-weight: 500;
+    /* color set inline by JS to match severity of after-fill % */
 }
 
 /* Oversized state — applies to both wide capacity bars and asset sub-bars
@@ -991,7 +986,7 @@ body {
 }
 
 .capacity-asset-value {
-    font-size: 10px;
+    font-size: 11px;
     font-family: var(--font-mono);
     color: var(--text-faint);
     white-space: nowrap;
@@ -1008,14 +1003,14 @@ body {
 }
 
 .capacity-used {
-    font-size: 11px;
+    font-size: 12px;
     font-family: var(--font-ui);
     color: var(--text-faint);
     white-space: nowrap;
 }
 
 .capacity-remaining {
-    font-size: 11px;
+    font-size: 12px;
     font-family: var(--font-ui);
     color: var(--text-faint);
 }
@@ -1032,14 +1027,14 @@ body {
 }
 
 .section-title {
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 600;
     font-family: var(--font-ui);
     color: var(--text-strong);
 }
 
 .section-value {
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 700;
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
@@ -1083,7 +1078,7 @@ body {
 }
 
 .drawdown-row-label {
-    font-size: 10px;
+    font-size: 11px;
     font-family: var(--font-ui);
     font-weight: 600;
     color: var(--text-faint);
@@ -1092,14 +1087,14 @@ body {
 }
 
 .drawdown-row-value {
-    font-size: 11px;
+    font-size: 12px;
     font-family: var(--font-mono);
     color: var(--amber);
     font-variant-numeric: tabular-nums;
 }
 
 .progress-label {
-    font-size: 11px;
+    font-size: 12px;
     color: var(--text-faint);
 }
 
@@ -1109,7 +1104,7 @@ body {
 }
 
 .section-title--uppercase {
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 400;
     font-family: var(--font-ui);
     color: var(--text-label);
@@ -1140,7 +1135,7 @@ body {
 }
 
 .symbol-name {
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 700;
     font-family: var(--font-mono);
     color: var(--text-primary);
@@ -1149,7 +1144,7 @@ body {
 .position-badge {
     padding: 2px 6px;
     border-radius: 4px;
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 700;
     font-family: var(--font-ui);
     text-transform: uppercase;
@@ -1168,7 +1163,7 @@ body {
 }
 
 .position-pnl {
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 700;
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
@@ -1196,14 +1191,14 @@ body {
 .detail-col--right  { align-items: flex-end; }
 
 .detail-label {
-    font-size: 10px;
+    font-size: 11px;
     font-family: var(--font-mono);
     color: var(--text-dim);
     line-height: 15px;
 }
 
 .detail-value {
-    font-size: 10px;
+    font-size: 11px;
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     color: var(--text-subtle);
@@ -1226,13 +1221,13 @@ body {
 }
 
 .position-mirror {
-    font-size: 10px;
+    font-size: 11px;
     font-family: var(--font-ui);
     color: var(--accent);
 }
 
 .position-view-link {
-    font-size: 11px;
+    font-size: 12px;
     font-family: var(--font-ui);
     color: var(--accent);
     text-decoration: none;
@@ -1247,7 +1242,7 @@ body {
 .no-more-positions {
     padding: var(--space-4);
     text-align: center;
-    font-size: 11px;
+    font-size: 12px;
     font-family: var(--font-ui);
     color: var(--text-ghost);
 }
@@ -1274,7 +1269,7 @@ body {
 }
 
 .payout-label {
-    font-size: 10px;
+    font-size: 11px;
     font-family: var(--font-ui);
     font-weight: 400;
     color: var(--text-label);
@@ -1284,7 +1279,7 @@ body {
 }
 
 .payout-value {
-    font-size: 18px;
+    font-size: 20px;
     font-weight: 700;
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
@@ -1293,13 +1288,13 @@ body {
 }
 
 .payout-arrow {
-    font-size: 18px;
+    font-size: 20px;
     color: var(--accent);
 }
 
 /* ── Event Cards ────────────────────────────────────── */
 .events-count {
-    font-size: 11px;
+    font-size: 12px;
     color: rgba(255, 255, 255, 0.4);
     background: rgba(255, 255, 255, 0.05);
     padding: 2px 7px;
@@ -1336,13 +1331,13 @@ body {
 }
 
 .event-pair-name {
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 500;
     color: #ffffff;
 }
 
 .event-status-badge {
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 600;
     padding: 2px 7px;
     border-radius: 4px;
@@ -1360,20 +1355,20 @@ body {
 }
 
 .event-error {
-    font-size: 11px;
+    font-size: 12px;
     color: rgba(252, 165, 165, 0.8);
     margin-top: 4px;
 }
 
 .event-fill {
-    font-size: 10px;
+    font-size: 11px;
     color: rgba(255, 255, 255, 0.3);
     font-family: monospace;
     margin-top: 2px;
 }
 
 .event-time {
-    font-size: 10px;
+    font-size: 11px;
     color: rgba(255, 255, 255, 0.3);
     margin-top: 4px;
 }
@@ -1389,7 +1384,7 @@ body {
 }
 
 .events-page-label {
-    font-size: 11px;
+    font-size: 12px;
     font-variant-numeric: tabular-nums;
     color: var(--text-faint);
     min-width: 7.5em;
@@ -1403,7 +1398,7 @@ body {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 18px;
+    font-size: 20px;
     line-height: 1;
     color: var(--text-subtle);
     background: transparent;
@@ -1445,13 +1440,13 @@ body {
 }
 
 .analytics-title {
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 500;
     color: var(--text-primary);
 }
 
 .analytics-subtitle {
-    font-size: 11px;
+    font-size: 12px;
     color: var(--text-faint);
     margin-top: 2px;
 }
@@ -1473,13 +1468,13 @@ body {
 
 
 .footer-text {
-    font-size: 11px;
+    font-size: 12px;
     color: var(--text-ghost);
     text-align: center;
 }
 
 .footer-version {
-    font-size: 10px;
+    font-size: 11px;
     color: var(--text-secondary);
     text-align: center;
     margin-top: -6px;
@@ -1501,14 +1496,14 @@ body {
 }
 
 .positions-title {
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 700;
     font-family: var(--font-ui);
     color: var(--text-strong);
 }
 
 .positions-count-badge {
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 700;
     font-family: var(--font-ui);
     color: var(--accent);
@@ -1519,14 +1514,14 @@ body {
 }
 
 .positions-sublabel {
-    font-size: 11px;
+    font-size: 12px;
     font-family: var(--font-ui);
     color: var(--text-ghost);
     margin-top: calc(-1 * var(--space-1));
 }
 
 .positions-empty {
-    font-size: 11px;
+    font-size: 12px;
     font-family: var(--font-ui);
     color: var(--text-ghost);
     text-align: center;
@@ -1547,14 +1542,14 @@ body {
 }
 
 .positions-capacity-title {
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 600;
     font-family: var(--font-ui);
     color: var(--text-strong);
 }
 
 .positions-capacity-pct {
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
     font-family: var(--font-ui);
     color: var(--indigo);
@@ -1577,7 +1572,7 @@ body {
 }
 
 .positions-capacity-note {
-    font-size: 11px;
+    font-size: 12px;
     font-family: var(--font-ui);
     color: var(--text-faint);
 }
@@ -1599,7 +1594,7 @@ body {
 }
 
 .payouts-claimable-label {
-    font-size: 10px;
+    font-size: 11px;
     font-family: var(--font-ui);
     font-weight: 400;
     color: var(--text-label);
@@ -1609,7 +1604,7 @@ body {
 }
 
 .payouts-claimable-value {
-    font-size: 28px;
+    font-size: 30px;
     font-weight: 800;
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
@@ -1618,7 +1613,7 @@ body {
 }
 
 .payouts-claimable-wallet {
-    font-size: 11px;
+    font-size: 12px;
     font-family: var(--font-ui);
     color: var(--text-subtle);
     margin-top: var(--space-1);
@@ -1633,7 +1628,7 @@ body {
     border-radius: var(--radius-sm);
     color: var(--text-subtle);
     font-family: var(--font-ui);
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.15s ease;
@@ -1650,13 +1645,13 @@ body {
 }
 
 .payouts-kyc-text {
-    font-size: 11px;
+    font-size: 12px;
     font-family: var(--font-ui);
     color: var(--text-subtle);
 }
 
 .payouts-kyc-link {
-    font-size: 11px;
+    font-size: 12px;
     font-family: var(--font-ui);
     color: var(--accent);
     text-decoration: none;
@@ -1669,7 +1664,7 @@ body {
 }
 
 .payouts-history-label {
-    font-size: 11px;
+    font-size: 12px;
     font-family: var(--font-ui);
     font-weight: 400;
     color: var(--text-label);
@@ -1696,7 +1691,7 @@ body {
 }
 
 .payouts-history-amount {
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 600;
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
@@ -1704,7 +1699,7 @@ body {
 }
 
 .payouts-history-date {
-    font-size: 11px;
+    font-size: 12px;
     font-family: var(--font-ui);
     color: var(--text-subtle);
     margin-top: var(--space-1);
@@ -1715,7 +1710,7 @@ body {
 }
 
 .payouts-history-badge {
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
     font-family: var(--font-ui);
     color: var(--accent);
@@ -1727,7 +1722,7 @@ body {
 }
 
 .payouts-history-tx {
-    font-size: 10px;
+    font-size: 11px;
     font-family: var(--font-mono);
     color: var(--text-ghost);
     margin-top: var(--space-1);
@@ -1749,7 +1744,7 @@ body {
 }
 
 .settings-back-arrow {
-    font-size: 18px;
+    font-size: 20px;
     color: var(--text-subtle);
     cursor: pointer;
     transition: color 0.15s ease;
@@ -1760,7 +1755,7 @@ body {
 }
 
 .settings-back-title {
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 700;
     font-family: var(--font-ui);
     color: var(--text-strong);
@@ -1774,7 +1769,7 @@ body {
 }
 
 .settings-section-label {
-    font-size: 11px;
+    font-size: 12px;
     font-family: var(--font-ui);
     font-weight: 400;
     color: var(--text-label);
@@ -1784,7 +1779,7 @@ body {
 }
 
 .settings-field-label {
-    font-size: 11px;
+    font-size: 12px;
     font-family: var(--font-ui);
     color: var(--text-subtle);
     margin-bottom: var(--space-1);
@@ -1801,7 +1796,7 @@ body {
 
 .settings-input {
     flex: 1;
-    font-size: 11px;
+    font-size: 12px;
     font-family: var(--font-mono);
     background: var(--bg);
     border: 1px solid var(--border-card);
@@ -1827,7 +1822,7 @@ body {
     border-radius: var(--radius-sm);
     color: var(--text-subtle);
     font-family: var(--font-ui);
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.15s ease;
@@ -1840,7 +1835,7 @@ body {
 }
 
 .settings-notif-desc {
-    font-size: 11px;
+    font-size: 12px;
     font-family: var(--font-ui);
     color: var(--text-subtle);
     line-height: 1.6;
@@ -1866,7 +1861,7 @@ body {
 }
 
 .settings-toggle-label {
-    font-size: 12px;
+    font-size: 13px;
     font-family: var(--font-ui);
     color: var(--text-primary);
 }
@@ -1908,7 +1903,7 @@ body {
     border: none;
     color: var(--text-subtle);
     font-family: var(--font-ui);
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 500;
     cursor: pointer;
     transition: color 0.15s ease;
@@ -1927,7 +1922,7 @@ body {
     border-radius: var(--radius-sm);
     color: var(--text-subtle);
     font-family: var(--font-ui);
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.15s ease;
@@ -1940,7 +1935,7 @@ body {
 }
 
 .settings-footer {
-    font-size: 10px;
+    font-size: 11px;
     font-family: var(--font-ui);
     color: var(--text-ghost);
     text-align: center;
@@ -1976,7 +1971,7 @@ body {
     overflow: hidden;
     transition: max-height 0.25s ease;
     font-family: var(--font-ui);
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.6;
     color: var(--text-subtle);
     padding: 0;

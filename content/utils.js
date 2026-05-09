@@ -4,10 +4,21 @@
   const { ACCOUNT } = HF.state;
 
   function marginLimitBasisUsd() {
-    // Total HL equity already includes margin used in open positions and
-    // unrealized PnL (via HL's crossMarginSummary.accountValue). Don't add
-    // open notional on top — that would double-count and inflate the basis.
-    return Number(ACCOUNT.hlEquity) || 0;
+    // Caps live on the HS side now (= ratio × accountBalance), so the
+    // fallback basis when validator limits haven't loaded is the live HS
+    // balance. Trade-gate / mirror-preview compare HS-mapped exposure to
+    // this, not raw HL equity.
+    return Number(ACCOUNT.accountBalance) || 0;
+  }
+
+  // Multiplier that converts HL-side notional to HS-side notional.
+  // HS_value = HL_value × mirrorMultiplier — mirrors tgbot's `weight × hs_bal`
+  // expressed as a single up-front multiply.
+  function getMirrorMultiplier() {
+    const hlBal = Number(ACCOUNT.hlBalance) || 0;
+    const accountBalance = Number(ACCOUNT.accountBalance) || 0;
+    if (hlBal <= 0 || accountBalance <= 0) return 0;
+    return accountBalance / hlBal;
   }
 
   // Resolves a URL symbol (e.g. "XYZ:WTIOIL") or HL coin (e.g. "XYZ:CL") to
@@ -516,6 +527,7 @@
 
   HF.utils = {
     marginLimitBasisUsd,
+    getMirrorMultiplier,
     resolveExposureSymbol,
     isReduceIntent,
     resolveChallengeModeFromValidator,

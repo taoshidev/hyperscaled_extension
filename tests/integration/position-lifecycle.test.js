@@ -383,22 +383,31 @@ describe('Add-to-position cap enforcement — xyz pair (BRENTOIL bug regression)
     expect(standardExp.notionalByPair['XYZ:GOLD'] ?? 0).toBe(0); // confirms the pre-fix problem
   }, 15000);
 
-  it.skipIf(SKIP)('JS cap enforcement: $300 existing + $500 new > per-pair cap → blocked', async () => {
+  it.skipIf(SKIP)('JS cap enforcement: $300 existing + $500 new (HS-scaled) exceeds per-pair cap', async () => {
     if (!firstOrderFilled) return;
-    const [limitsRaw, hlState] = await Promise.all([
+    const [limitsRaw, hlState, validatorRaw] = await Promise.all([
       validatorGet(VALIDATOR_URL, `/hl-traders/${VAULT_ADDRESS}/limits`),
       hlPost(HL_URL, { type: 'clearinghouseState', user: VAULT_ADDRESS }),
+      validatorGet(VALIDATOR_URL, `/hl-traders/${VAULT_ADDRESS}`),
     ]);
     const hlEq = parseFloat(hlState.crossMarginSummary?.accountValue ?? 0);
+    const accountBalance = parseFloat(validatorRaw?.dashboard?.account_size_data?.balance) || 0;
+    const fundedSize = limitsRaw.account_size;
+
+    // HS-scale caps: (pair_usd / fundedSize) × accountBalance
     const caps = applyTraderLimits({
-      fundedSize: limitsRaw.account_size,
-      hlEq,
+      accountBalance,
+      fundedSize,
       max_position_per_pair_usd: limitsRaw.max_position_per_pair_usd,
       max_portfolio_usd: limitsRaw.max_portfolio_usd,
     });
     expect(caps).not.toBeNull();
-    // $300 existing + $500 second order should exceed the per-pair cap (~$680 on $1360 account)
-    expect(300 + 500).toBeGreaterThan(caps.maxPositionPerPair);
+
+    // Mirror multiplier: HL$ → HS$ at current live balances.
+    const mirror = hlEq > 0 && accountBalance > 0 ? accountBalance / hlEq : 0;
+    const projectedHsPair = (300 + 500) * mirror;
+    expect(mirror).toBeGreaterThan(0);
+    expect(projectedHsPair).toBeGreaterThan(caps.maxPositionPerPair);
   }, 15000);
 
   it.skipIf(SKIP)('validator rejects second order that would exceed cap', () => {

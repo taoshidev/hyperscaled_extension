@@ -117,15 +117,14 @@ Red signals: blocked, critical, loss, unsafe to trade.
 
 ## Indigo Surface
 
-Indigo (`#6466f1`) is used exclusively for the Trading Capacity bar — a neutral, non-semantic indicator distinct from teal (positive/active) and amber/red (warning/loss).
+Indigo (`#6466f1`) is reserved for the positions-screen capacity reminder block (`.positions-capacity-*`) — a static, non-semantic accent. Capacity bars elsewhere now use the DD-aligned severity scale (teal/amber/red) so the trader reads a single proximity-to-limit signal across all surfaces.
 
 | Token | Value | Use when |
 |-------|-------|----------|
-| `--indigo` | `#6466f1` | Capacity bar fill (gradient start) |
-| `--indigo-bg` | `rgba(100, 102, 241, 0.1)` | Capacity bar track background |
+| `--indigo` | `#6466f1` | Positions-screen capacity reminder fill |
+| `--indigo-bg` | `rgba(100, 102, 241, 0.1)` | Positions-screen capacity reminder track |
 
-**Rule:** Do not use `--indigo` for any semantic purpose (it has no directional meaning). It is a visual separator from teal and amber — one color per indicator type.
-For Trading Capacity "Per Asset", use indigo for both the main utilization bar and asset-level sub-bars only; vary depth with opacity (track at 10-16% tint), not hue changes.
+**Rule:** Do not use `--indigo` for any semantic purpose — it has no directional meaning. Both the popup Leverage & Buying Power block (`.capacity-fill`) and the injected mirror preview bar (`.hf-mp-bar`) use the DD severity scale (`capColor()`), not indigo. The two indigo tokens above survive only for the positions reminder block.
 
 ---
 
@@ -135,13 +134,13 @@ Layered surfaces create depth without heavy shadows. Use the lowest opacity that
 
 | Token | Value | Use when |
 |-------|-------|----------|
-| `--card-bg` | 3% white | Primary/elevated card only (Funded Account, Position cards) |
+| `--card-bg` | 3% white | Primary/elevated card only (HS Account, Position cards) |
 | `--card-bg-subtle` | 2% white | Setup/config cards (wallet config form) |
 | `--border-card` | 6% white | Standard card border |
 | `--border-outer` | 8% white | Container border, stronger dividers |
 | `--bar-bg` | 6% white | Progress bar tracks |
 
-**Card usage rule:** Use cards for: Funded Account balance card, HL Account balance card (2-column grid), Position cards (grouped interactive data), Next Payout card (navigational destination), Analytics link (navigational destination), Wallet Config form (first-run setup). Everything else — Trading Capacity, Challenge Progress, Drawdown — breathes directly on the background.
+**Card usage rule:** Use cards for: HS Account balance card, HL Account balance card (2-column grid), Position cards (grouped interactive data), Next Payout card (navigational destination), Analytics link (navigational destination), Wallet Config form (first-run setup). Everything else — Leverage & Buying Power, Challenge Progress, Drawdown — breathes directly on the background.
 
 **Never** add box-shadows to cards — depth comes from opacity layering only.
 
@@ -181,8 +180,8 @@ Fixed-position toasts injected on the Hyperliquid trading page (`content.css` �
 | Payout value (claimable hero) | Menlo | 28px | 800 | tracking -0.56px, tabular-nums, `--accent` |
 | Balance change / P&L delta | UI | 11px | 400 | `--green` or `--red` |
 | Section titles (Challenge Progress, Drawdown, Capacity) | UI | 12px | 600 | `--text-strong` |
-| Section values (percentages, gauge readings) | Menlo | 12px | 700 | tabular-nums; challenge header = `--accent`; drawdown uses `--amber` on Daily/Trailing row values only |
-| Drawdown row values (Daily / Trailing) | Menlo | 11px | 400 | tabular-nums; `--amber`, paired with row labels in UI font |
+| Section values (percentages, gauge readings) | Menlo | 12px | 700 | tabular-nums; challenge header = `--accent`; drawdown uses `--amber` on Intraday / EOD Trailing row values only |
+| Drawdown row values (Intraday / EOD Trailing) | Menlo | 11px | 400 | tabular-nums; `--amber`, paired with row labels in UI font |
 | Balance card label | UI | 10px | 400 | `--text-label`, uppercase, letter-spacing 0.08em |
 | Body / misc | UI | 14px | 400 | |
 | Capacity footer values | UI | 11px | 400 | `--text-faint` |
@@ -283,13 +282,13 @@ The popup has three mutually exclusive screen states, toggled via `style.display
 
 ### Progress bar height
 
-All progress bars use a uniform `10px` height for visual consistency. No height-based hierarchy — bar purpose is distinguished by color alone (teal = challenge, amber = drawdown/pending, indigo = capacity). Current Drawdown is represented as two stacked amber bars (Daily and Trailing), each still `10px`.
+All progress bars use a uniform `10px` height for visual consistency. No height-based hierarchy — bar purpose is distinguished by color alone (teal = challenge, amber = drawdown/pending, indigo = capacity). Current Drawdown is represented as two stacked amber bars (Intraday and EOD Trailing), each still `10px`.
 
 ---
 
 ## Banner Dropdown Panel
 
-The injected banner's Daily/Trailing stat group is clickable and opens a dropdown panel with detailed drawdown rules.
+The injected banner's Intraday / EOD Trailing stat group is clickable and opens a dropdown panel with detailed drawdown rules.
 
 ### Trigger
 - `.hf-dd-trigger` on the `.hf-dd-stack` element
@@ -420,34 +419,47 @@ The dashboard **Order Events** section shows validator order activity. When ther
 
 ---
 
-## Trading Capacity — Unified Block with Toggle
+## Leverage & Buying Power — Hyperscaled-Side Block
 
-Trading capacity is a single block with a segmented toggle (`HL | Hyperscaled`) in the header. Both views share the same indigo bar pattern and structure; the toggle swaps which scale is visible.
-
-1. **HL view** (default) — based on HL spot + perps equity. These are the enforced limits the trader works within.
-2. **Hyperscaled view** — the same limits mirrored proportionally to the funded account size (`HL values × mirrorRatio`). Speaks the same scale as challenge target and drawdown.
+A single block showing the validator-enforced leverage limits on the funded HS account. HL has no per-pair or portfolio limit (orders pass through unchanged), so a separate HL block was removed — a bar with no real ceiling was misleading. HL exposure data is still available on HL's own UI and in the injected mirror preview at order entry.
 
 | Element | Treatment |
 |---------|-----------|
-| Toggle container | `rgba(255,255,255,0.04)` bg, `border-radius: 6px`, `padding: 2px`, `gap: 2px` |
-| Toggle button | `10px`, `--font-ui`, `500 weight`, `--text-faint` default, `--text-body` when active |
-| Toggle active bg | `rgba(255,255,255,0.08)`, `border-radius: 4px` |
-| Basis note (HL) | `10px`, `--font-ui`, `--text-faint` — e.g. "Based on HL equity of $1,000" |
-| Basis note (HS) | Same style — e.g. "Mirrored from HL at 10.0x — based on account size of $100,000" |
+| Block class | `.capacity-block .capacity-block--hs` |
+| Title | `Leverage & Buying Power` |
+| Basis note | `10px`, `--font-ui`, `--text-faint` — `Scaling ratio: HS balance $X ÷ HL equity $Y = Zx` (no trailing "HL trading is unrestricted" — that meaning lives in the info-expand instead) |
 | Basis values | `--font-mono`, `--text-body` — inline monospace for dollar amounts and ratios |
-| Multiplier badge | `10px`, `--font-mono`, `--text-subtle`, `margin-left: 4px` — on HL view row labels only |
+| Bar fill (filled) | DD severity scale via JS — teal `#00c6a7` < 70%, amber `#ffb900` 70–90%, red `rgb(239,68,68)` ≥ 90% or breached. Same `capColor()` thresholds as banner DD and the mirror preview |
+| Bar overlay (pending) | 45° striped gradient in the severity color of the after-fill % — pending = "would-be exposure if these limits fill", not real exposure, so it stays striped |
+| Bar track | `--bar-bg` (neutral white at 6%) |
+| Pending text color | Severity color of after-fill % — matches the stripe color, set inline by JS |
 
-**Rule:** "Total Portfolio" is renamed to **"Total Available Size"** in both views to avoid confusion with the trader's overall portfolio.
+**Rule:** The basis note shows the scaling ratio explicitly as a formula (`HS balance ÷ HL equity = ratio`) rather than a single derived number. Surfacing the inputs lets the trader sanity-check the ratio against their own equity readings.
 
-**Rule:** The HS view mirrors HL values by a constant ratio — the percentage fills are identical between the two views (same utilization, different scale). This lets the trader see "$625 used on HL = $6,250 on my $100k account" at a glance.
+**Rule:** The phrase "HL trading is unrestricted" replaces the older "no HL-side cap". The trader needs to know HL orders won't be blocked at the exchange — the validator only enforces caps on the HS mirror at fill time.
 
-**Rule:** The toggle uses `hidden` attribute on `.capacity-view` containers. Both views remain in the DOM and are populated on every data refresh — the toggle only controls visibility.
+**Rule:** Two rows: **Per Pair Limit** (validator's per-pair cap) and **Portfolio Limit** (validator's portfolio cap). Both are HS-scale.
+
+**Rule:** Bars consume `hsPositionsByCoin` (validator's authoritative size × price) for filled exposure and HL's resting-order notional × mirror ratio for the pending overlay. The validator records pending only at fill time, so projected pending must come from HL clearinghouse.
+
+**Rule:** Pending is projected against current SIGNED exposure using the same `add | reduce | flip | new` branch logic as the injected mirror preview (`content/mirror-preview.js`). Background's `extractPendingBuyNotional` only emits buy-side resting orders, so a buy pending against a short position must be treated as **reduce** (or **flip** if larger), never as additive exposure. Per-pair after-magnitude is `|currentSigned + pendingBuy|`, then clamped by `pair_cap` and `portfolio_room`. The total row aggregates per-pair after-magnitudes (also clamped at portfolio cap) — never the raw sum of pending notional.
+
+**Rule:** Bar segments per branch:
+- **add / new** — solid = current magnitude, overlay = (after − current) growth, stripe in severity color of after %
+- **reduce** — solid = after magnitude (smaller), overlay = (current − after) closing tail in teal stripes (matches mirror preview's "fading away" cue)
+- **flip** — solid = after magnitude on the new side, no overlay (the bar snaps to the new size; the side flip itself isn't visualized through 0)
+
+**Rule:** The `± $X pending` text shows the net magnitude delta (`afterMag − currentMag`) — what the bar visually represents — with a `+` for growths and `−` for reductions, separated from the value by a single space (`+ $171.94 pending`, not `+$171.94 pending`). It is inserted *between* filled and `/ cap` so the right-hand side reads as a math-style expression on a single line: `$filled + $pending pending / $cap`. Same format on per-pair and portfolio rows. When `pair_cap` or `portfolio_room` binds the projection, append `(capped)`.
+
+**Rule:** Per-asset row labels show the full Vanta pair name (`BTC/USDC`, `ETH/USDC`, `WTIOIL/USDC`), not the bare coin. The trader may also hold unmirrored pairs on HL (e.g. `BTC/USDT`); the explicit quote currency makes clear which exposure is reflected.
+
+**Rule:** Per-asset rows share grid columns via `display: grid` on `.capacity-asset-list` and `display: contents` on each `.capacity-asset-row`. Without this, each row's `auto 1fr auto` would size independently and bars whose right-side text is longer (e.g. `+ $X pending`) end up narrower than bars without pending text — a smaller yellow-zone bar could appear shorter than a larger green-zone bar, breaking severity comparison. Track widths must be uniform across rows.
 
 ---
 
 ## Mirror Preview Card (Content Script)
 
-A floating card that appears below the order size input on the Hyperliquid trading page. Shows the HL order notional, mirrored amount on the funded account, and a capacity impact bar.
+A floating card that appears below the order size input on the Hyperliquid trading page. Shows the HL order notional, mirrored amount on the HS account, and a capacity impact bar.
 
 | Property | Value |
 |----------|-------|
@@ -462,15 +474,27 @@ A floating card that appears below the order size input on the Hyperliquid tradi
 | Mirror value | `12px / 600`, Menlo, `#00c6a7` (teal) |
 | Mirror ratio | `10px`, Menlo, `rgba(255,255,255,0.3)`, parenthesized |
 | Capacity title | `9px / 600`, uppercase, `rgba(255,255,255,0.3)` |
-| Capacity pct | `11px / 600`, Menlo, color shifts with usage (indigo → amber → red) |
-| Capacity bar | `5px` height, indigo fill, two segments (current + pending) |
+| Capacity pct | `11px / 600`, Menlo, color shifts with after-fill % (teal → amber → red) |
+| Capacity bar | `5px` height, two segments (current + delta), DD-style severity colors |
 | Capacity detail | `10px`, Menlo, `rgba(255,255,255,0.35)` |
 | Transition | `opacity 0.15s ease`, `translateY 0.15s ease` |
 | Pointer events | None (does not interfere with order entry) |
 
-**Capacity bar colors:** Default indigo (`#6466f1`), pending segment at 40% opacity. Above 70% usage: amber (`#ffb900`). Above 90%: red (`rgb(239,68,68)`).
+**Capacity bar colors (DD-aligned severity scale):**
+
+The bar reads "are you about to breach a hard limit?", so it uses the same teal/amber/red scale as banner DD (`ddColor()`), not popup-style neutral indigo. Two segments encode direction:
+
+| Segment | Width represents | Background |
+|---------|------------------|------------|
+| Solid (`.hf-mp-bar-current`) | The portion that exists both before and after the order. For add/new: current %. For reduce/flip: after %. | `capColor(solid%)` — teal `#00c6a7` < 70%, amber `#ffb900` 70–90%, red `rgb(239,68,68)` ≥ 90%. |
+| Delta — adding (`.hf-mp-bar-pending`) | `afterPct − currentPct`, drawn right of the solid. Color reflects severity of after %. | `barPendingBg(after%)` — teal `rgba(0,198,167,0.4)` < 70%, amber `rgba(255,185,0,0.4)` 70–90%, red `rgba(239,68,68,0.5)` ≥ 90%. |
+| Delta — reducing (`.hf-mp-bar-pending`) | `currentPct − afterPct`, drawn right of the solid. The chunk being closed. | `repeating-linear-gradient(135deg, rgba(0,198,167,0.55) 0 2px, rgba(0,198,167,0.15) 2px 4px)` — teal stripes, "fading away" cue. |
+
+**Rule:** Direction is encoded by the delta's visual treatment (solid = adding, striped = reducing). Severity is encoded by the delta's hue (teal/amber/red by after %). Combined: a striped tail always means "you're closing"; a solid amber/red overlay always means "this order is pushing into warning/breach".
 
 **Rule:** The card is non-interactive (`pointer-events: none`). It disappears 1.5s after the input loses focus. If mirror ratio is unavailable (data loading), the mirror row is hidden but HL order and capacity still display. Uses solid-background approach to avoid host CSS interference.
+
+**Rule:** Pair name is rendered with the full Vanta pair label (`BTC/USDC`, `ETH/USDC`, `WTIOIL/USDC`) in both the header symbol and the per-pair limit title (`HS BTC/USDC LIMIT`). Same convention as the popup capacity bar — the explicit `/USDC` quote distinguishes the mirrored pair from any unmirrored holdings the trader may carry on HL.
 
 ---
 

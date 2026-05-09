@@ -3,7 +3,6 @@
   const HF = window.__HF;
 
   const bound = new WeakSet();
-  let clampDebounceTimer = null;
   let bindLoop = null;
   let updateTimer = null;
 
@@ -41,35 +40,21 @@
       }, opts);
       input.addEventListener("input", () => {
         HF.state.lastEditedInput = input;
-        HF.toast.resetBlockedToastDismissed();
-        HF.tradeGate.releaseForcedTradeBlock();
         scheduleUpdate();
-        clearTimeout(clampDebounceTimer);
-        if (HF.utils.isLikelySizeInput(input)) {
-          clampDebounceTimer = setTimeout(() => HF.clamping.clampInputIfNeeded(input), 400);
+        if (HF.utils.isLikelySizeInput(input) || isLikelyPriceInput(input)) {
           HF.mirrorPreview.onSizeInputChange(input);
-        } else if (isLikelyPriceInput(input)) {
-          // Limit price changed — re-check cap so block state reflects size × limit_price
-          // rather than waiting for the 500ms polling interval.
-          clampDebounceTimer = setTimeout(() => HF.clamping.checkAndClampOrderValue(), 200);
         }
       }, opts);
       input.addEventListener("keydown", () => { HF.state.lastEditedInput = input; scheduleUpdate(); }, opts);
       input.addEventListener("keyup", () => { HF.state.lastEditedInput = input; scheduleUpdate(); }, opts);
       input.addEventListener("change", () => {
         HF.state.lastEditedInput = input;
-        if (HF.utils.isLikelySizeInput(input)) {
-          HF.clamping.clampInputIfNeeded(input);
+        if (HF.utils.isLikelySizeInput(input) || isLikelyPriceInput(input)) {
           HF.mirrorPreview.onSizeInputChange(input);
-        } else if (isLikelyPriceInput(input)) {
-          HF.clamping.checkAndClampOrderValue();
         }
         scheduleUpdate();
       }, opts);
       input.addEventListener("blur", () => {
-        clearTimeout(clampDebounceTimer);
-        if (HF.utils.isLikelySizeInput(input)) HF.clamping.clampInputIfNeeded(input);
-        else if (isLikelyPriceInput(input)) HF.clamping.checkAndClampOrderValue();
         HF.mirrorPreview.onSizeInputBlur(input);
       }, opts);
     }
@@ -82,7 +67,6 @@
       if (!document.getElementById(HF.state.BANNER_ID)) return;
       bindInputsOnce();
       HF.pairSupport.checkPairSupport();
-      HF.clamping.checkAndClampOrderValue();
     }, 500);
   }
 

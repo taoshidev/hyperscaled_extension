@@ -12,6 +12,9 @@
     hlBalance: 0,
     hlEquity: 0,
     fundedSize: 0,
+    accountBalance: null,
+    dailyOpenRatio: null,
+    eodHwmRatio: null,
     challengeTarget: 10,
     challengeCurrent: 0,
     drawdownCurrent: 0,
@@ -29,7 +32,26 @@
     maxPositionPerPair: 0,
     maxPortfolio: 0,
     notionalByPair: {},
+    filledNotionalByPair: {},
+    pendingNotionalByPair: {},
+    filledTotal: 0,
+    pendingTotal: 0,
     signedNotionalByPair: {},
+    // Aggregate unrealized PnL across all HL open positions (sum of HL's
+    // per-position unrealizedPnl). null until HL clearinghouse has loaded —
+    // downstream displays "--" rather than fabricating a value from the
+    // validator's `net_leverage × account_size`.
+    totalUnrealizedPnl: null,
+    // HS-side actual position values, derived strictly as size × price:
+    //   size  = sum of signed `q` (quantity) across the position's filled orders
+    //   price = current HL mid price for the coin
+    // Map: { COIN_UPPER: { quantity, value, side } }
+    //   quantity: signed coin units
+    //   value:    abs(quantity × price), USD
+    //   side:     'long' | 'short'
+    // Populated by fetchValidatorData when both validator positions and
+    // midPrices are available. Empty until then.
+    hsPositionsByCoin: {},
     inChallenge: false,
     isRegistered: false,
     registrationChecked: false,
