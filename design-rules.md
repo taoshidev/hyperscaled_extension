@@ -117,7 +117,7 @@ Red signals: blocked, critical, loss, unsafe to trade.
 
 ## Indigo Surface
 
-Indigo (`#6466f1`) is used exclusively for the Trading Capacity bar — a neutral, non-semantic indicator distinct from teal (positive/active) and amber/red (warning/loss).
+Indigo (`#6466f1`) is used for the popup's Trading Capacity bar — a neutral, non-semantic indicator distinct from teal (positive/active) and amber/red (warning/loss).
 
 | Token | Value | Use when |
 |-------|-------|----------|
@@ -126,6 +126,8 @@ Indigo (`#6466f1`) is used exclusively for the Trading Capacity bar — a neutra
 
 **Rule:** Do not use `--indigo` for any semantic purpose (it has no directional meaning). It is a visual separator from teal and amber — one color per indicator type.
 For Trading Capacity "Per Asset", use indigo for both the main utilization bar and asset-level sub-bars only; vary depth with opacity (track at 10-16% tint), not hue changes.
+
+**Exception — Injected mirror preview bar:** The order preview bar shown on the Hyperliquid page (`#hf-mirror-preview` / `.hf-mp-bar`) does not use indigo. It uses the same teal/amber/red severity scale as the banner's drawdown indicator (`ddColor()`), because in that context the bar reads as "are you about to breach a hard limit?" — a directional safety signal, not a neutral utilization indicator. See "Injected Mirror Preview Bar" below.
 
 ---
 
@@ -462,13 +464,23 @@ A floating card that appears below the order size input on the Hyperliquid tradi
 | Mirror value | `12px / 600`, Menlo, `#00c6a7` (teal) |
 | Mirror ratio | `10px`, Menlo, `rgba(255,255,255,0.3)`, parenthesized |
 | Capacity title | `9px / 600`, uppercase, `rgba(255,255,255,0.3)` |
-| Capacity pct | `11px / 600`, Menlo, color shifts with usage (indigo → amber → red) |
-| Capacity bar | `5px` height, indigo fill, two segments (current + pending) |
+| Capacity pct | `11px / 600`, Menlo, color shifts with after-fill % (teal → amber → red) |
+| Capacity bar | `5px` height, two segments (current + delta), DD-style severity colors |
 | Capacity detail | `10px`, Menlo, `rgba(255,255,255,0.35)` |
 | Transition | `opacity 0.15s ease`, `translateY 0.15s ease` |
 | Pointer events | None (does not interfere with order entry) |
 
-**Capacity bar colors:** Default indigo (`#6466f1`), pending segment at 40% opacity. Above 70% usage: amber (`#ffb900`). Above 90%: red (`rgb(239,68,68)`).
+**Capacity bar colors (DD-aligned severity scale):**
+
+The bar reads "are you about to breach a hard limit?", so it uses the same teal/amber/red scale as banner DD (`ddColor()`), not popup-style neutral indigo. Two segments encode direction:
+
+| Segment | Width represents | Background |
+|---------|------------------|------------|
+| Solid (`.hf-mp-bar-current`) | The portion that exists both before and after the order. For add/new: current %. For reduce/flip: after %. | `capColor(solid%)` — teal `#00c6a7` < 70%, amber `#ffb900` 70–90%, red `rgb(239,68,68)` ≥ 90%. |
+| Delta — adding (`.hf-mp-bar-pending`) | `afterPct − currentPct`, drawn right of the solid. Color reflects severity of after %. | `barPendingBg(after%)` — teal `rgba(0,198,167,0.4)` < 70%, amber `rgba(255,185,0,0.4)` 70–90%, red `rgba(239,68,68,0.5)` ≥ 90%. |
+| Delta — reducing (`.hf-mp-bar-pending`) | `currentPct − afterPct`, drawn right of the solid. The chunk being closed. | `repeating-linear-gradient(135deg, rgba(0,198,167,0.55) 0 2px, rgba(0,198,167,0.15) 2px 4px)` — teal stripes, "fading away" cue. |
+
+**Rule:** Direction is encoded by the delta's visual treatment (solid = adding, striped = reducing). Severity is encoded by the delta's hue (teal/amber/red by after %). Combined: a striped tail always means "you're closing"; a solid amber/red overlay always means "this order is pushing into warning/breach".
 
 **Rule:** The card is non-interactive (`pointer-events: none`). It disappears 1.5s after the input loses focus. If mirror ratio is unavailable (data loading), the mirror row is hidden but HL order and capacity still display. Uses solid-background approach to avoid host CSS interference.
 

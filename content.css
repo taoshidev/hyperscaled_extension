@@ -193,7 +193,7 @@
   font-weight: 400 !important;
   color: var(--text-label) !important;
   text-transform: uppercase !important;
-  width: 52px !important;
+  width: 88px !important;
   flex-shrink: 0 !important;
   white-space: nowrap !important;
 }
@@ -1128,8 +1128,8 @@ button.hf-trade-blocked:disabled {
 #hf-mirror-preview .hf-mp-bar-current {
   display: block;
   height: 100%;
-  background: #6466f1;
-  transition: width 0.2s ease;
+  background: #00c6a7;
+  transition: width 0.2s ease, background 0.2s ease;
   min-width: 0;
   margin: 0; padding: 0;
   border-radius: 0;
@@ -1137,7 +1137,7 @@ button.hf-trade-blocked:disabled {
 #hf-mirror-preview .hf-mp-bar-pending {
   display: block;
   height: 100%;
-  background: rgba(100, 102, 241, 0.4);
+  background: rgba(0, 198, 167, 0.4);
   transition: width 0.2s ease, background 0.2s ease;
   min-width: 0;
   margin: 0; padding: 0;

@@ -92,17 +92,27 @@
     return HF.utils.getMirrorMultiplier();
   }
 
+  // Severity color matches the banner's ddColor() — teal/amber/red by proximity
+  // to the cap. The injected mirror preview bar reads "are you about to breach?"
+  // (DD-style semantic), unlike the popup's neutral indigo capacity bar.
   function capColor(pct) {
     if (pct >= 90) return 'rgb(239, 68, 68)';
     if (pct >= 70) return '#ffb900';
-    return '#6466f1';
+    return '#00c6a7';
   }
 
   function barPendingBg(pct) {
     if (pct >= 90) return 'rgba(239, 68, 68, 0.5)';
     if (pct >= 70) return 'rgba(255, 185, 0, 0.4)';
-    return 'rgba(100, 102, 241, 0.4)';
+    return 'rgba(0, 198, 167, 0.4)';
   }
+
+  // Reductions overlay the closing chunk in striped teal — a "fading away"
+  // visual that's distinguishable from a teal-solid addition in the safe zone.
+  const REDUCE_STRIPE =
+    'repeating-linear-gradient(135deg, ' +
+    'rgba(0, 198, 167, 0.55) 0, rgba(0, 198, 167, 0.55) 2px, ' +
+    'rgba(0, 198, 167, 0.15) 2px, rgba(0, 198, 167, 0.15) 4px)';
 
   function showMirrorPreview(input) {
     console.log('[Hyperscaled][MirrorPreview] showMirrorPreview called', {
@@ -395,11 +405,14 @@
       pairOverlayIsReduction = false;
     }
 
-    if (pairBarCurrent) pairBarCurrent.style.width = pairSolid.toFixed(2) + '%';
+    if (pairBarCurrent) {
+      pairBarCurrent.style.width = pairSolid.toFixed(2) + '%';
+      pairBarCurrent.style.background = capColor(pairSolid);
+    }
     if (pairBarPending) {
       pairBarPending.style.width = pairOverlay.toFixed(2) + '%';
       pairBarPending.style.background = pairOverlayIsReduction
-        ? 'rgba(0, 198, 167, 0.35)'
+        ? REDUCE_STRIPE
         : barPendingBg(pairAfterPct);
     }
 
@@ -461,11 +474,14 @@
       portOverlayIsReduction = false;
     }
 
-    if (barCurrent) barCurrent.style.width = portSolid.toFixed(2) + '%';
+    if (barCurrent) {
+      barCurrent.style.width = portSolid.toFixed(2) + '%';
+      barCurrent.style.background = capColor(portSolid);
+    }
     if (barPending) {
       barPending.style.width = portOverlay.toFixed(2) + '%';
       barPending.style.background = portOverlayIsReduction
-        ? 'rgba(0, 198, 167, 0.35)'
+        ? REDUCE_STRIPE
         : barPendingBg(portAfterPct);
     }
 

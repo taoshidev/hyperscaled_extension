@@ -213,13 +213,14 @@
 
       const dd = result.drawdown || {};
       const currentEquity = parseFloat(dd.current_equity) || 1;
+      const accountSizeData = result.account_size_data || null;
       const balanceField = parseFloat(accountSizeData?.balance);
       ACCOUNT.accountBalance = Number.isFinite(balanceField) && balanceField > 0 ? balanceField : null;
       const dailyOpen = parseFloat(dd.daily_open_equity);
       const eodHwm = parseFloat(dd.eod_hwm);
       ACCOUNT.dailyOpenRatio = Number.isFinite(dailyOpen) && dailyOpen > 0 ? dailyOpen : null;
       ACCOUNT.eodHwmRatio = Number.isFinite(eodHwm) && eodHwm > 0 ? eodHwm : null;
-      ACCOUNT.validatorEquity = accountSizeData?.balance ?? (ACCOUNT.fundedSize * currentEquity);
+      ACCOUNT.validatorEquity = ACCOUNT.accountBalance;
       ACCOUNT.challengeCurrent = (currentEquity - 1) * 100;
       ACCOUNT.drawdownCurrent = parseFloat(dd.intraday_drawdown_pct) || 0;
       ACCOUNT.drawdownMax = parseFloat(dd.intraday_threshold_pct) || ACCOUNT.drawdownMax;
