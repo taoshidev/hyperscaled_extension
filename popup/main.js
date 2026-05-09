@@ -157,7 +157,7 @@ function updateData() {
     refreshBalance();
     refreshValidatorData();
     refreshTraderLimits();
-    refreshEvents(state.storedAddress);
+    // refreshEvents(state.storedAddress);  // Order Events section commented out — re-enable with HTML in popup.html / sidepanel.html
 }
 
 // ── Wallet UI helpers ────────────────────────────────────────────────────────
@@ -225,7 +225,7 @@ function disconnectWallet() {
 document.addEventListener('DOMContentLoaded', async function() {
     console.log('Hyperscaled extension loaded');
     initExplainers();
-    initEventsPagination();
+    // initEventsPagination();  // Order Events section commented out
 
     const addressInput = document.getElementById('walletAddress');
     const saveBtn = document.getElementById('walletSave');
@@ -329,27 +329,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
     }
 
-    // Capacity HL/HS toggle
-    const capacityToggle = document.getElementById('capacityToggle');
-    if (capacityToggle) {
-        capacityToggle.addEventListener('click', (e) => {
-            const btn = e.target.closest('.capacity-toggle-btn');
-            if (!btn) return;
-            const view = btn.dataset.view;
-            const hlView = document.getElementById('capacityViewHl');
-            const hsView = document.getElementById('capacityViewHs');
-            capacityToggle.querySelectorAll('.capacity-toggle-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            if (view === 'hs') {
-                hlView.hidden = true;
-                hsView.hidden = false;
-            } else {
-                hlView.hidden = false;
-                hsView.hidden = true;
-            }
-        });
-    }
-
     // Pin to side panel
     const pinSideBtn = document.getElementById('pinSideBtn');
     if (pinSideBtn && chrome.sidePanel) {
@@ -375,7 +354,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     refreshBalance();
     refreshValidatorData();
     refreshTraderLimits();
-    refreshEvents(state.storedAddress);
+    // refreshEvents(state.storedAddress);  // Order Events section commented out
     state.refreshIntervalId = setInterval(updateData, 10000);
 });
 

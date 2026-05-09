@@ -188,9 +188,9 @@
           <div class="hf-dd-panel-footer">
             <span>Trading day resets 00:00 UTC</span>
             <span class="hf-dd-panel-sep">|</span>
-            <span>Daily = intraday real-time</span>
+            <span>Intraday checked in real-time</span>
             <span class="hf-dd-panel-sep">|</span>
-            <span>Trailing = checked at EOD</span>
+            <span>EOD trailing checked at end of day</span>
           </div>
         </div>
         <span class="hf-divider"></span>

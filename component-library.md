@@ -16,12 +16,12 @@ An inline expandable explanation panel paired with a section header. Users click
 <div class="info-expand" id="info-challengeProgress" hidden>Explanation text goes here. Keep it to 2–3 sentences.</div>
 ```
 
-For multi-item explanations (e.g. Trading Capacity):
+For multi-item explanations (e.g. Leverage & Buying Power):
 
 ```html
 <div class="info-expand" id="info-tradingCapacity" hidden>Overview text.
-    <span class="info-expand-item"><strong>Per Asset</strong> — explanation of this sub-metric.</span>
-    <span class="info-expand-item"><strong>Total Portfolio</strong> — explanation of this sub-metric.</span>
+    <span class="info-expand-item"><strong>Per Pair Limit</strong> — explanation of this sub-metric.</span>
+    <span class="info-expand-item"><strong>Portfolio Limit</strong> — explanation of this sub-metric.</span>
 </div>
 ```
 
@@ -42,59 +42,41 @@ The `data-info` attribute on the button matches the `id="info-{key}"` on the pan
 
 ---
 
-## Trading Capacity Block (Unified with Toggle)
+## Leverage & Buying Power Block (HS-side)
 
-A single capacity block with a segmented `HL | Hyperscaled` toggle in the header. Both views use the same indigo bar pattern. The toggle swaps between HL (enforced exchange limits) and Hyperscaled (same values mirrored to funded account scale).
+A single block showing the validator-enforced leverage limits on the funded HS account. HL has no limits post-faca41c (orders pass through unchanged), so the previous HL/HS toggle block was collapsed to a single HS-only block. HL exposure data still appears in the injected mirror preview at order entry, where it actually informs an action.
 
 ### HTML structure
 
 ```html
-<div class="capacity-block">
+<div class="capacity-block capacity-block--hs">
     <div class="capacity-header">
-        <span class="capacity-title">Trading Capacity</span>
-        <div class="capacity-toggle" id="capacityToggle">
-            <button class="capacity-toggle-btn active" data-view="hl">HL</button>
-            <button class="capacity-toggle-btn" data-view="hs">Hyperscaled</button>
+        <span class="capacity-title">Leverage &amp; Buying Power</span>
+    </div>
+    <div class="capacity-basis-note">
+        Scaling ratio: HS balance <span id="hsBasisValue">$1,002.26</span> &divide; HL equity <span id="hsBasisHlEquity">$47.99</span> = <span id="hsBasisRatio">20.9x</span>
+    </div>
+    <div class="capacity-row">
+        <div class="capacity-row-header">
+            <span class="capacity-row-label">Per Pair Limit</span>
+        </div>
+        <div class="capacity-asset-list" id="hsPerPairSubBars"><!-- one sub-bar per open asset --></div>
+        <div class="capacity-footer">
+            <span class="capacity-used" id="hsPerPairBreakdown">No open positions</span>
+            <span class="capacity-remaining"><span id="hsPerPairRemaining">--</span> left</span>
         </div>
     </div>
-
-    <!-- HL view (default visible) -->
-    <div class="capacity-view" id="capacityViewHl">
-        <div class="capacity-basis-note">
-            Based on HL equity of <span id="capacityBasisValue">$1,000.00</span>
+    <div class="capacity-row">
+        <div class="capacity-row-header">
+            <span class="capacity-row-label">Portfolio Limit</span>
+            <span class="capacity-row-value"><span id="hsCapacityUsed">$302.72</span> / <span id="hsCapacityMax">$2,004.51</span></span>
         </div>
-        <div class="capacity-row">
-            <div class="capacity-row-header">
-                <span class="capacity-row-label">Per Asset <span class="capacity-multiplier">(0.625x HL bal)</span></span>
-            </div>
-            <!-- ...sub-bars, footer... -->
+        <div class="capacity-bar">
+            <div class="capacity-fill capacity-fill--total" id="hsCapacityFill" style="width: 15%;"></div>
         </div>
-        <div class="capacity-row">
-            <div class="capacity-row-header">
-                <span class="capacity-row-label">Total Available Size <span class="capacity-multiplier">(1.25x HL bal)</span></span>
-                <span class="capacity-row-value">$468 / $1,250</span>
-            </div>
-            <!-- ...bar, footer... -->
-        </div>
-    </div>
-
-    <!-- HS view (hidden by default) -->
-    <div class="capacity-view" id="capacityViewHs" hidden>
-        <div class="capacity-basis-note">
-            Mirrored from HL at <span id="hsBasisRatio">10.0x</span> — based on account size of <span id="hsBasisValue">$100,000</span>
-        </div>
-        <div class="capacity-row">
-            <div class="capacity-row-header">
-                <span class="capacity-row-label">Per Asset</span>
-            </div>
-            <!-- ...sub-bars with mirrored values, footer... -->
-        </div>
-        <div class="capacity-row">
-            <div class="capacity-row-header">
-                <span class="capacity-row-label">Total Available Size</span>
-                <span class="capacity-row-value">$4,680 / $12,500</span>
-            </div>
-            <!-- ...bar, footer... -->
+        <div class="capacity-footer">
+            <span class="capacity-used">All positions</span>
+            <span class="capacity-remaining"><span id="hsCapacityRemaining">$1,701.79</span> left</span>
         </div>
     </div>
 </div>
@@ -111,14 +93,14 @@ A single capacity block with a segmented `HL | Hyperscaled` toggle in the header
 | Row label | Font size / weight | `11px / 500` |
 | Row label | Color | `--text-faint` |
 | Row label | Text transform | `uppercase`, `letter-spacing: 0.03em` |
-| Multiplier badge | Font / size / color | `--font-mono` / `10px` / `--text-subtle` (HL block only) |
-| Bar track | Background | `--indigo-bg` |
-| Bar fill | Background | `--indigo` (flat, no gradient) |
+| Bar track | Background | `--bar-bg` (neutral white at 6%) |
+| Bar fill | Background | DD severity color via JS — teal `#00c6a7` < 70%, amber `#ffb900` 70–90%, red `rgb(239,68,68)` ≥ 90% or breached |
+| Pending overlay | Background | 45° stripe in severity color of after-fill %, opacities `0.55 / 0.18` |
 | Bar height | — | `10px` |
 | Bar radius | — | `5px` |
 | Bar spacing | — | `margin-top: --space-1`, `margin-bottom: --space-1` |
-| Asset sub-bar track | Background | `rgba(100, 102, 241, 0.16)` |
-| Asset sub-bar fill | Background | `--indigo` |
+| Asset sub-bar track | Background | `--bar-bg` |
+| Asset sub-bar fill | Background | DD severity color via JS (same scale as the total bar) |
 | Asset sub-bar height | — | `6px` |
 | Asset labels | Font | `10px`, Menlo |
 | Footer labels | Color | `--text-faint` |
@@ -126,15 +108,19 @@ A single capacity block with a segmented `HL | Hyperscaled` toggle in the header
 
 ### Rules
 
-- Never use teal or amber for this bar — indigo keeps capacity visually separate from P&L and challenge indicators.
-- Two rows per view: "Per Asset" and "Total Available Size".
-- The HL view shows multiplier badges and the HL equity basis. The HS view shows the mirror ratio and account size basis instead.
-- The HS view computes all values as `hlValue × (accountSize / hlBalance)`. The percentage fills are identical between the two views — same utilization, different scale.
-- The HS view creates continuity: challenge target ($10k on a $100k acct), drawdown ($5k), and capacity ($12,500 total) all speak the same language.
-- When open positions exist, render one sub-bar per asset in the "Per Asset" row; each sub-bar scales against per-asset max capacity and is sorted descending by notional.
-- Per Asset header is label-only (no right value). Each asset sub-row right value is `$used / $max` for that same per-asset cap.
-- The toggle uses `hidden` attribute on `.capacity-view` containers. Both views stay in the DOM — only visibility changes. HL is the default view.
-- Bar fill width is set inline via `style="width: XX%;"` calculated from JS.
+- Bars use the DD severity scale (teal/amber/red) — same `capColor()` thresholds as the banner DD bars and the injected mirror preview, so proximity-to-cap reads consistently across surfaces. JS sets the fill `background` inline based on severity.
+- Two rows: "Per Pair Limit" and "Portfolio Limit".
+- The basis note shows the scaling ratio as a formula (`HS balance ÷ HL equity = ratio`) so the trader can verify the conversion against their own readings.
+- "HL trading is unrestricted" replaces the earlier "no HL-side cap" — same meaning, framed positively (what the trader can do, not what's missing).
+- Filled exposure comes from `hsPositionsByCoin` (validator's authoritative size × price). Pending overlay comes from HL resting-orders × mirror ratio (validator only records pending at fill time, so HL clearinghouse is the source).
+- Pending is projected against signed current exposure using the mirror-preview branch logic (`add | reduce | flip | new`). A buy pending against a short is **reduce** or **flip**, not additive. Each pair's after-magnitude is then clamped by `pair_cap` and shared `portfolio_room`. The total row aggregates per-pair after-magnitudes — never the raw sum of pending notional.
+- Bar segments per branch: add/new = solid current + overlay growth (severity stripe); reduce = solid after + overlay closing tail (teal stripe matching mirror preview); flip = solid jumps to after on new side, no overlay.
+- The `± $X pending` text shows the net magnitude delta (sign indicates direction). Insert it *between* filled and `/ cap` so the row reads as a math expression: `$filled + $pending pending / $cap`. Sign and value are space-separated (`+ $171.94`). Same format applies to per-pair and portfolio rows. Append `(capped)` when `pair_cap` or `portfolio_room` binds the projection.
+- Per-asset row labels show the full Vanta pair name with `/USDC` suffix (e.g. `BTC/USDC`, `ETH/USDC`) so the trader can tell mirrored pairs apart from any unmirrored holdings (`BTC/USDT` etc.) on HL.
+- When open positions exist, render one sub-bar per asset in the "Per Pair Limit" row; each sub-bar scales against per-pair max capacity and is sorted descending by notional.
+- Per Pair Limit header is label-only (no right value). Each asset sub-row right value is `$used / $max` for that same per-pair cap.
+- The asset list uses a single CSS grid (`display: grid` on `.capacity-asset-list`, `display: contents` on each `.capacity-asset-row`). Symbol / track / value share columns across all rows so every bar's track is the same width — otherwise the row with longer pending text would have a narrower bar, and a smaller yellow segment could visually appear shorter than a larger green segment, breaking severity-by-length comparison.
+- Bar fill width and background are set inline via `style="width: XX%; background: ..."` calculated from JS.
 
 ### Oversized state modifiers
 
@@ -196,7 +182,7 @@ The toast is built dynamically in `content/toast.js` (`showOversizeToast()`). Re
 
 ## Metric Section
 
-A self-contained section displaying a tracked metric with a title and optional right-hand header value, one or more progress bars, and a sublabel. Challenge Progress uses a title/value header; Current Drawdown is title-only in the header (details live in Daily/Trailing rows).
+A self-contained section displaying a tracked metric with a title and optional right-hand header value, one or more progress bars, and a sublabel. Challenge Progress uses a title/value header; Current Drawdown is title-only in the header (details live in Intraday / EOD Trailing rows).
 
 ### HTML structure
 
@@ -230,11 +216,11 @@ A self-contained section displaying a tracked metric with a title and optional r
 
 ### Variants
 
-**Drawdown variant** — section header is title-only; two stacked bars (Daily + Trailing) with amber fill and amber-tinted tracks:
+**Drawdown variant** — section header is title-only; two stacked bars (Intraday + EOD Trailing) with amber fill and amber-tinted tracks. Labels are written in title case in HTML; CSS uppercases them on render:
 ```html
 <div class="drawdown-row">
   <div class="drawdown-row-header">
-    <span class="drawdown-row-label">Daily</span>
+    <span class="drawdown-row-label">Intraday</span>
     <span class="drawdown-row-value">2.3% / 5%</span>
   </div>
   <div class="progress-bar drawdown-bar">
@@ -244,7 +230,7 @@ A self-contained section displaying a tracked metric with a title and optional r
 
 <div class="drawdown-row">
   <div class="drawdown-row-header">
-    <span class="drawdown-row-label">Trailing</span>
+    <span class="drawdown-row-label">EOD Trailing</span>
     <span class="drawdown-row-value">2.9% / 5%</span>
   </div>
   <div class="progress-bar drawdown-bar">
@@ -306,11 +292,11 @@ Never show the full wallet-config card when an address is already saved. `showWa
 ## Accent Card Block
 
 Card treatment is **reserved** for:
-- Funded Account balance card (primary KPI — the one number that matters most)
+- HS Account balance card (primary KPI — the one number that matters most)
 - Position cards (grouped interactive data)
 - Wallet Config form (setup UI, first-run only)
 
-Everything else — Trading Capacity, Challenge Progress, Drawdown, HL Account, Analytics link — breathes directly on the background. No card needed.
+Everything else — Leverage & Buying Power, Challenge Progress, Drawdown, HL Account, Analytics link — breathes directly on the background. No card needed.
 
 ### Position card HTML
 
@@ -329,7 +315,7 @@ Everything else — Trading Capacity, Challenge Progress, Drawdown, HL Account, 
 
 ### Variants
 
-**Primary card** (stronger surface — used by Funded Account balance card):
+**Primary card** (stronger surface — used by HS Account balance card):
 ```css
 background: var(--card-bg);
 border-color: rgba(255,255,255,0.1);
@@ -410,14 +396,14 @@ Hover reveals a teal border as the only accent signal — confirming interactivi
 
 ## Balance Grid
 
-A 2-column grid displaying the Funded Account and HL Account as separate cards. Each card is a label/value/sublabel stack.
+A 2-column grid displaying the HS Account and HL Account as separate cards. Each card is a label/value/sublabel stack.
 
 ### HTML structure
 
 ```html
 <div class="balance-grid">
     <div class="balance-card">
-        <div class="balance-label">Funded Account</div>
+        <div class="balance-label">HS Account</div>
         <div class="balance-value"><span id="fundedBalance">--</span></div>
         <div class="balance-change positive"><span id="fundedChange">--</span></div>
     </div>
@@ -454,7 +440,7 @@ A vertically stacked label-above-value pattern used wherever data is displayed: 
 
 ```html
 <!-- Balance card -->
-<div class="balance-label">Funded Account</div>
+<div class="balance-label">HS Account</div>
 <div class="balance-value">$106,456.78</div>
 <div class="balance-change positive">+$6,456.78 (6.45%)</div>
 

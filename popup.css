@@ -214,13 +214,6 @@ body {
     font-variant-numeric: tabular-nums;
 }
 
-.capacity-multiplier {
-    font-size: 10px;
-    font-family: var(--font-mono);
-    color: var(--text-subtle);
-    font-weight: 400;
-    margin-left: 4px;
-}
 
 /* ── Wallet Config ──────────────────────────────────── */
 .wallet-config {
@@ -845,41 +838,6 @@ body {
     color: var(--text-strong);
 }
 
-.capacity-toggle {
-    display: flex;
-    background: rgba(255, 255, 255, 0.04);
-    border-radius: 6px;
-    padding: 2px;
-    gap: 2px;
-}
-
-.capacity-toggle-btn {
-    font-size: 10px;
-    font-family: var(--font-ui);
-    font-weight: 500;
-    color: var(--text-faint);
-    background: none;
-    border: none;
-    padding: 3px 10px;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: color 0.15s ease, background 0.15s ease;
-    white-space: nowrap;
-}
-
-.capacity-toggle-btn:hover {
-    color: var(--text-subtle);
-}
-
-.capacity-toggle-btn.active {
-    background: rgba(255, 255, 255, 0.08);
-    color: var(--text-body);
-}
-
-.capacity-view[hidden] {
-    display: none;
-}
-
 .capacity-row {
     margin-bottom: var(--space-2);
 }
@@ -911,12 +869,12 @@ body {
 }
 
 .capacity-fill--pair {
-    background: var(--indigo);
+    background: var(--accent);
 }
 
 .capacity-bar {
     height: 10px;
-    background: var(--indigo-bg);
+    background: var(--bar-bg);
     border-radius: 5px;
     overflow: hidden;
     margin-top: var(--space-1);
@@ -927,29 +885,37 @@ body {
 .capacity-fill {
     height: 100%;
     border-radius: 5px;
-    transition: width 0.3s ease;
+    transition: width 0.3s ease, background 0.3s ease;
     position: absolute;
     top: 0;
     left: 0;
 }
 
+/* Default fill color is teal (safe). JS overrides inline based on severity:
+   teal (< 70%) → amber (70–90%) → red (≥ 90% or over-cap). Matches the
+   banner DD scale. */
 .capacity-fill--total {
-    background: var(--indigo);
+    background: var(--accent);
 }
 
+/* Shared grid across all rows so symbol / bar / value columns size against
+   the widest content in each column — every bar's track is the same width
+   regardless of which row's pending text happens to be longest. Without
+   this the per-row `auto 1fr auto` made BTC's bar (no pending) wider than
+   ETH's bar (with pending), so a yellow (warn) bar could visually appear
+   shorter than a green (safe) bar — breaking the severity-by-length read. */
 .capacity-asset-list {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    column-gap: var(--space-2);
+    row-gap: 6px;
+    align-items: center;
     margin-top: 6px;
     margin-bottom: var(--space-1);
 }
 
 .capacity-asset-row {
-    display: grid;
-    grid-template-columns: auto 1fr auto;
-    column-gap: var(--space-2);
-    align-items: center;
+    display: contents;
 }
 
 .capacity-asset-symbol {
@@ -964,7 +930,7 @@ body {
 .capacity-asset-track {
     height: 6px;
     border-radius: 3px;
-    background: rgba(100, 102, 241, 0.16);
+    background: var(--bar-bg);
     overflow: hidden;
     position: relative;
 }
@@ -972,31 +938,32 @@ body {
 .capacity-asset-fill {
     height: 100%;
     border-radius: 3px;
-    background: var(--indigo);
-    transition: width 0.3s ease;
+    background: var(--accent);
+    transition: width 0.3s ease, background 0.3s ease;
     position: absolute;
     top: 0;
     left: 0;
 }
 
-/* Pending = resting limit orders. Striped indigo overlay so it visually
-   reads as "would-be exposure if these fill" without the alarm color of
-   real exposure (which only filled positions own). */
+/* Pending = resting limit orders. Striped overlay so it visually reads as
+   "would-be exposure if these fill" without the alarm of real exposure.
+   Default stripe is teal; JS sets the actual gradient inline based on
+   severity of the after-fill % so the color matches the rest of the bar. */
 .capacity-asset-fill--pending,
 .capacity-fill--pending {
     background: repeating-linear-gradient(
         45deg,
-        rgba(100, 102, 241, 0.55),
-        rgba(100, 102, 241, 0.55) 4px,
-        rgba(100, 102, 241, 0.18) 4px,
-        rgba(100, 102, 241, 0.18) 8px
-    ) !important;
+        rgba(0, 198, 167, 0.55),
+        rgba(0, 198, 167, 0.55) 4px,
+        rgba(0, 198, 167, 0.18) 4px,
+        rgba(0, 198, 167, 0.18) 8px
+    );
 }
 
 .capacity-asset-pending {
-    color: rgba(100, 102, 241, 0.85);
     font-family: var(--font-mono);
     font-weight: 500;
+    /* color set inline by JS to match severity of after-fill % */
 }
 
 /* Oversized state — applies to both wide capacity bars and asset sub-bars

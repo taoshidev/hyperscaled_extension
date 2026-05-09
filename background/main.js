@@ -17,19 +17,24 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 // ── Alarms ───────────────────────────────────────────────────────────────────
-chrome.alarms.create('pollEvents', { periodInMinutes: EVENT_POLL_INTERVAL_MINUTES });
+// Order Events polling suspended along with the popup section — the
+// entity-miner /events endpoint was returning empty for live accounts and
+// the popup UI is commented out. To restore: re-enable pollEvents alarm
+// creation + handler + startup call here, plus refreshEvents() and
+// initEventsPagination() in popup/main.js, and uncomment the HTML in
+// popup.html / sidepanel.html.
+// chrome.alarms.create('pollEvents', { periodInMinutes: EVENT_POLL_INTERVAL_MINUTES });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === 'pollEvents') {
-    pollEventsForStoredAddress();
-  }
+  // if (alarm.name === 'pollEvents') {
+  //   pollEventsForStoredAddress();
+  // }
   if (alarm.name === 'hl-verify-poll') {
     attemptBackgroundVerification();
   }
 });
 
-// Poll events on service worker startup
-pollEventsForStoredAddress();
+// pollEventsForStoredAddress();
 
 // ── Message router ───────────────────────────────────────────────────────────
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
