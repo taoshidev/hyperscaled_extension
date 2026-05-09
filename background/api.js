@@ -573,6 +573,29 @@ export async function fetchHLBalance(address) {
     console.warn('[Hyperscaled BG] Open orders fetch failed, pending orders excluded:', e.message);
   }
 
+  // Remap HL coin keys (e.g. "XYZ:CL") to validator-friendly names (e.g.
+  // "WTIOIL") so popup and content script consumers see consistent labels
+  // matching the validator's `trade_pair` form. Native pairs pass through
+  // (BTC → BTC). Without this, the popup unions hsPositionsByCoin
+  // (friendly-keyed) with pendingNotionalByPair (HL-keyed), and the same
+  // pair shows up under two labels (e.g. "WTIOIL" and "XYZCL").
+  const friendlyToHlMap = await getFriendlyToHlCoin();
+  const hlToFriendly = {};
+  for (const [friendly, hlCoin] of Object.entries(friendlyToHlMap)) {
+    if (hlCoin) hlToFriendly[String(hlCoin).toUpperCase()] = friendly;
+  }
+  const remapHlKeys = (obj) => {
+    const out = {};
+    for (const [k, v] of Object.entries(obj || {})) {
+      const friendly = hlToFriendly[String(k).toUpperCase()] || k;
+      out[friendly] = (out[friendly] || 0) + (Number(v) || 0);
+    }
+    return out;
+  };
+  pendingNotionalByPair = remapHlKeys(pendingNotionalByPair);
+  exposure.notionalByPair = remapHlKeys(exposure.notionalByPair);
+  exposure.signedNotionalByPair = remapHlKeys(exposure.signedNotionalByPair);
+
   const filledNotionalByPair = { ...exposure.notionalByPair };
   const filledTotal = exposure.openTotalUsed;
 

@@ -114,6 +114,19 @@
     'rgba(0, 198, 167, 0.55) 0, rgba(0, 198, 167, 0.55) 2px, ' +
     'rgba(0, 198, 167, 0.15) 2px, rgba(0, 198, 167, 0.15) 4px)';
 
+  // Vanta API pairs are USDC-quoted on HL. Display the full pair name so the
+  // trader can distinguish from any unmirrored USDT pair they might also
+  // hold. URL-form symbols (e.g. "XYZ:WTIOIL" from HL routes) and HL API
+  // names (e.g. "XYZ:CL") map back to the validator's friendly name (e.g.
+  // "WTIOIL") via HF.state.hlCoinToDisplay. Native pairs pass through.
+  function formatPairLabel(coin) {
+    if (!coin) return '';
+    const display = (HF.state && HF.state.hlCoinToDisplay) || {};
+    const upper = String(coin).toUpperCase();
+    const friendly = display[upper] || display[coin] || coin;
+    return `${friendly}/USDC`;
+  }
+
   function showMirrorPreview(input) {
     console.log('[Hyperscaled][MirrorPreview] showMirrorPreview called', {
       isRegistered: ACCOUNT.isRegistered,
@@ -274,7 +287,7 @@
 
     // ── Header ────────────────────────────────────────────────────────────
     const symbolEl = el.querySelector('#hf-mp-symbol');
-    if (symbolEl) symbolEl.textContent = symbol || '—';
+    if (symbolEl) symbolEl.textContent = formatPairLabel(symbol) || '—';
     const modeEl = el.querySelector('#hf-mp-mode');
     if (modeEl) modeEl.textContent = ACCOUNT.inChallenge ? 'Challenge' : 'Funded';
 
@@ -360,7 +373,7 @@
     // get an arrow. Detail line shows transition $-amounts.
     const pairTitle = el.querySelector('#hf-mp-pair-title');
     if (pairTitle) {
-      let titleText = 'HS ' + (symbol || 'PAIR') + ' LIMIT';
+      let titleText = 'HS ' + (formatPairLabel(symbol) || 'PAIR') + ' LIMIT';
       if (branch === 'flip' && currentSide && flippedSide) {
         titleText += ' · ' + currentSide.toUpperCase() + ' → ' + flippedSide.toUpperCase();
       } else if (branch === 'reduce' && !flippedSide) {

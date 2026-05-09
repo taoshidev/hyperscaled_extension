@@ -494,6 +494,8 @@ The bar reads "are you about to breach a hard limit?", so it uses the same teal/
 
 **Rule:** The card is non-interactive (`pointer-events: none`). It disappears 1.5s after the input loses focus. If mirror ratio is unavailable (data loading), the mirror row is hidden but HL order and capacity still display. Uses solid-background approach to avoid host CSS interference.
 
+**Rule:** Pair name is rendered with the full Vanta pair label (`BTC/USDC`, `ETH/USDC`, `WTIOIL/USDC`) in both the header symbol and the per-pair limit title (`HS BTC/USDC LIMIT`). Same convention as the popup capacity bar — the explicit `/USDC` quote distinguishes the mirrored pair from any unmirrored holdings the trader may carry on HL.
+
 ---
 
 ## Side Panel
