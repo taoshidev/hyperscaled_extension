@@ -8,6 +8,7 @@
  * Sources:
  *   normalizePerpSymbol, extractExposureFromAssetPositions  → background/api.js
  *   transformTraderResponse                                 → background/api.js
+ *   deriveHsPositionsByCoin, buildFriendlyToHlCoin           → background/api.js
  *   buildHlCoinToDisplay                                    → content/api.js (fetchTradePairs)
  *   applyTraderLimits                                       → content/api.js (fetchTraderLimits)
  *   remapKeys                                               → content/api.js (checkBalance)
@@ -50,6 +51,7 @@ export function extractExposureFromAssetPositions(perpsData) {
   const perAsset = {};
   const perAssetSigned = {};
   let total = 0;
+  let totalUnrealizedPnl = 0;
   let openCount = 0;
   const assetPositions = Array.isArray(perpsData?.assetPositions) ? perpsData.assetPositions : [];
 
@@ -65,6 +67,9 @@ export function extractExposureFromAssetPositions(perpsData) {
     const notional = Math.abs(Number.isFinite(directNotional) ? directNotional : fallbackNotional);
     if (!(notional > 0)) continue;
 
+    const upnl = parseFloat(pos?.unrealizedPnl ?? pos?.unrealized_pnl ?? row?.unrealizedPnl);
+    if (Number.isFinite(upnl)) totalUnrealizedPnl += upnl;
+
     const symbol = normalizePerpSymbol(pos?.coin ?? pos?.asset ?? pos?.name ?? row?.coin ?? row?.asset);
     if (symbol) {
       perAsset[symbol] = (perAsset[symbol] || 0) + notional;
@@ -77,7 +82,14 @@ export function extractExposureFromAssetPositions(perpsData) {
   }
 
   const maxSingle = Object.values(perAsset).reduce((m, v) => Math.max(m, Number(v) || 0), 0);
-  return { openTotalUsed: total, openSingleUsed: maxSingle, notionalByPair: perAsset, signedNotionalByPair: perAssetSigned, openPositionCount: openCount };
+  return {
+    openTotalUsed: total,
+    openSingleUsed: maxSingle,
+    notionalByPair: perAsset,
+    signedNotionalByPair: perAssetSigned,
+    totalUnrealizedPnl,
+    openPositionCount: openCount,
+  };
 }
 
 // ── background/api.js — transformTraderResponse ──────────────────────────────
@@ -112,6 +124,7 @@ export function transformTraderResponse(raw) {
       filled_orders: p.fo
         ? Object.entries(p.fo).map(([oid, o]) => ({
             order_uuid: oid, order_type: o.t, value: o.v,
+            quantity: o.q,
             execution_type: o.e, processed_ms: o.p, leverage: o.l, price: o.pr,
           }))
         : [],
@@ -178,18 +191,87 @@ export function buildHlCoinToDisplay(tradePairsResponse) {
 }
 
 // ── content/api.js — applyTraderLimits (from fetchTraderLimits) ───────────────
+//
+// Diff #2/#3 (2026-05): caps moved to the HS side. The validator returns
+// USD figures in starting-account-size scale (e.g. $5,000 / $20,000 on a
+// $10,000 funded account). We derive the static ratio (pair_usd / fundedSize)
+// and apply it to the live HS balance, so caps track realised PnL.
+//
+//   maxPositionPerPair = (pair_usd       / fundedSize) × accountBalance
+//   maxPortfolio       = (portfolio_usd  / fundedSize) × accountBalance
 
-export function applyTraderLimits({ accountBalance, hlEq, max_position_per_pair_usd, max_portfolio_usd }) {
-  if (hlEq <= 0) return null;
+export function applyTraderLimits({ accountBalance, fundedSize, max_position_per_pair_usd, max_portfolio_usd }) {
   if (!(accountBalance > 0)) return null;
-  const scalingRatio = accountBalance / hlEq;
+  if (!(fundedSize > 0)) return null;
   const maxPositionPerPair = max_position_per_pair_usd != null
-    ? (parseFloat(max_position_per_pair_usd) || 0) / scalingRatio
+    ? (parseFloat(max_position_per_pair_usd) || 0) / fundedSize * accountBalance
     : null;
   const maxPortfolio = max_portfolio_usd != null
-    ? (parseFloat(max_portfolio_usd) || 0) / scalingRatio
+    ? (parseFloat(max_portfolio_usd) || 0) / fundedSize * accountBalance
     : null;
-  return { maxPositionPerPair, maxPortfolio, scalingRatio };
+  return { maxPositionPerPair, maxPortfolio };
+}
+
+// ── background/api.js — deriveHsPositionsByCoin ──────────────────────────────
+//
+// Strict size × price for the HS-side per-coin actuals. Mirror of
+// background/api.js deriveHsPositionsByCoin (Diff #5).
+
+export function deriveHsPositionsByCoin(positions, midPrices, friendlyToHl) {
+  const out = {};
+  if (!Array.isArray(positions)) return out;
+  for (const pos of positions) {
+    if (!pos || pos.is_closed_position || pos.close_ms) continue;
+    let netQuantity = 0;
+    for (const fill of (pos.filled_orders || [])) {
+      const q = parseFloat(fill?.quantity);
+      if (Number.isFinite(q)) {
+        netQuantity += q;
+        continue;
+      }
+      const v = parseFloat(fill?.value);
+      const pr = parseFloat(fill?.price);
+      if (Number.isFinite(v) && Number.isFinite(pr) && pr > 0) {
+        const sideSign = String(fill?.order_type || '').toUpperCase() === 'LONG' ? 1 : -1;
+        netQuantity += sideSign * (Math.abs(v) / pr);
+      }
+    }
+    if (!Number.isFinite(netQuantity) || Math.abs(netQuantity) < 1e-12) continue;
+
+    const tp = pos.trade_pair || '';
+    const rawSymbol = typeof tp === 'string' ? tp.replace(/\/.*$/, '') : (tp[0] || '');
+    const coin = String(rawSymbol).replace(/USD[CT]?$/, '').toUpperCase();
+    if (!coin) continue;
+
+    const hlCoinKey = (friendlyToHl && friendlyToHl[coin]) || coin;
+    const price = parseFloat(midPrices?.[hlCoinKey]) || parseFloat(midPrices?.[coin]) || 0;
+    if (!(price > 0)) continue;
+
+    const value = Math.abs(netQuantity) * price;
+    const side = netQuantity > 0 ? 'long' : 'short';
+    out[coin] = { quantity: netQuantity, value, side };
+  }
+  return out;
+}
+
+// ── background/api.js — getFriendlyToHlCoin (from /trade-pairs) ──────────────
+
+export function buildFriendlyToHlCoin(tradePairsResponse) {
+  const pairs = Array.isArray(tradePairsResponse)
+    ? tradePairsResponse
+    : (tradePairsResponse?.allowed || tradePairsResponse?.allowed_trade_pairs || []);
+  const map = {};
+  for (const p of pairs) {
+    const tp = p?.trade_pair;
+    let friendly;
+    if (typeof tp === 'string') friendly = tp.split('/')[0].toUpperCase();
+    else if (Array.isArray(tp)) friendly = String(tp[0] || '').toUpperCase();
+    else continue;
+    if (!friendly) continue;
+    const hlCoin = (p?.hl_coin || friendly).toString().toUpperCase();
+    map[friendly] = hlCoin;
+  }
+  return map;
 }
 
 // ── content/api.js — remapKeys (from checkBalance) ───────────────────────────

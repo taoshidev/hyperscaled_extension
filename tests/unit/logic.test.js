@@ -1,6 +1,11 @@
 /**
  * Unit tests for pure business logic extracted from content scripts.
  * No DOM, no window.__HF — tests the logic in isolation.
+ *
+ * Refactor (Diff #4–#6, 2026-05): caps live on the HS side now, the mirror
+ * multiplier uses live `accountBalance` (not frozen `fundedSize`), and the
+ * oversize toast triggers on `HL × mirror > cap + 0.01` against
+ * filledNotionalByPair (pending limit orders excluded).
  */
 import { describe, it, expect } from 'vitest';
 
@@ -28,17 +33,28 @@ function isReduceIntent(signedNotionalByPair, symbol, side, hlCoinToDisplay) {
   return false;
 }
 
-function evaluateOversizeState({ notionalByPair, pairMax, totalMax, totalUsed }) {
-  const anyPairOver = pairMax > 0 && Object.values(notionalByPair).some(v => (Number(v) || 0) > pairMax);
-  const totalOver = totalMax > 0 && totalUsed > totalMax;
-  return { anyPairOver, totalOver, breach: anyPairOver || totalOver };
+// Mirrors content/toast.js evaluateOversizeState. Trigger is HL × mirror,
+// compared against HS-scale caps with a small +0.01 tolerance to avoid
+// flicker at exact-fit positions. Filled-only — pending limit orders are
+// hypothetical and surfaced visually elsewhere, not via this toast.
+function evaluateOversizeState({ filledNotionalByPair, filledTotal, mirror, pairMax, totalMax }) {
+  const m = Number(mirror) || 0;
+  const anyPairOver = pairMax > 0
+    && Object.values(filledNotionalByPair || {}).some(v => ((Number(v) || 0) * m) > pairMax + 0.01);
+  const hlTotalTarget = (Number(filledTotal) || 0) * m;
+  const totalOver = totalMax > 0 && hlTotalTarget > totalMax + 0.01;
+  return { anyPairOver, totalOver, breach: anyPairOver || totalOver, hlTotalTarget };
 }
 
-function getMirrorRatio(hlBalance, fundedSize) {
+// Mirrors content/utils.js getMirrorMultiplier — the live HS↔HL conversion.
+// HS_USD = HL_USD × (accountBalance / hlBalance). Both sides are live equity
+// figures, so the multiplier reflects current PnL (replaces the old
+// `fundedSize / hlBalance` which froze at the starting funded amount).
+function getMirrorMultiplier(hlBalance, accountBalance) {
   const hl = Number(hlBalance) || 0;
-  const fs = Number(fundedSize) || 0;
-  if (hl <= 0 || fs <= 0) return 0;
-  return fs / hl;
+  const ab = Number(accountBalance) || 0;
+  if (hl <= 0 || ab <= 0) return 0;
+  return ab / hl;
 }
 
 function capColor(pct) {
@@ -119,49 +135,91 @@ describe('isReduceIntent', () => {
 });
 
 // ─── evaluateOversizeState ───────────────────────────────────────────────────
+//
+// Production trigger: HL filled × mirror > HS cap + 0.01. The +0.01 tolerance
+// avoids flickering at exact-fit positions where validator-clamping rounds
+// HS to the cap and HL × ratio rounds to cap-plus-epsilon.
 
-describe('evaluateOversizeState', () => {
-  it('no breach when all positions under cap', () => {
+describe('evaluateOversizeState — HL × mirror vs HS caps', () => {
+  it('no breach when projected HL × mirror is under the per-pair cap', () => {
     const result = evaluateOversizeState({
-      notionalByPair: { BTC: 500, ETH: 200 },
-      pairMax: 686,
-      totalMax: 2744,
-      totalUsed: 700,
+      filledNotionalByPair: { BTC: 500 },   // HL filled $500
+      filledTotal: 500,
+      mirror: 1.0,                          // → projects to $500 HS
+      pairMax: 5000,
+      totalMax: 20000,
     });
     expect(result.breach).toBe(false);
     expect(result.anyPairOver).toBe(false);
     expect(result.totalOver).toBe(false);
   });
 
-  it('per-asset breach when single pair exceeds pairMax', () => {
+  it('per-pair breach: HL × mirror > pairMax', () => {
     const result = evaluateOversizeState({
-      notionalByPair: { BTC: 800 },  // over 686
-      pairMax: 686,
-      totalMax: 2744,
-      totalUsed: 800,
+      filledNotionalByPair: { BTC: 1000 },
+      filledTotal: 1000,
+      mirror: 7.0,                          // 1000 × 7 = $7,000 > $5,000
+      pairMax: 5000,
+      totalMax: 20000,
     });
-    expect(result.breach).toBe(true);
     expect(result.anyPairOver).toBe(true);
-    expect(result.totalOver).toBe(false);
+    expect(result.breach).toBe(true);
   });
 
-  it('total breach when portfolio exceeds totalMax', () => {
+  it('exact-fit (HL × mirror == cap) does NOT trigger (+0.01 tolerance)', () => {
+    // Trader intentionally sized to the cap. Validator clamps HS to exactly
+    // the cap. We don't want the toast firing in this happy-path scenario.
     const result = evaluateOversizeState({
-      notionalByPair: { BTC: 600, ETH: 600, SOL: 600, AVAX: 600 },
-      pairMax: 686,
-      totalMax: 2000,
-      totalUsed: 2400,  // over 2000
+      filledNotionalByPair: { BTC: 1000 },
+      filledTotal: 1000,
+      mirror: 5.0,                          // 1000 × 5 = exactly $5,000 cap
+      pairMax: 5000,
+      totalMax: 20000,
     });
-    expect(result.breach).toBe(true);
+    expect(result.anyPairOver).toBe(false);
+  });
+
+  it('just above cap (within 0.01 tolerance) does NOT trigger', () => {
+    const result = evaluateOversizeState({
+      filledNotionalByPair: { BTC: 1000.001 },
+      filledTotal: 1000.001,
+      mirror: 5.0,                          // 5000.005, within 0.01
+      pairMax: 5000,
+      totalMax: 20000,
+    });
+    expect(result.anyPairOver).toBe(false);
+  });
+
+  it('clearly above cap (mirror × HL > cap + 0.01) triggers', () => {
+    const result = evaluateOversizeState({
+      filledNotionalByPair: { BTC: 1001 },
+      filledTotal: 1001,
+      mirror: 5.0,                          // 5005 > 5000.01
+      pairMax: 5000,
+      totalMax: 20000,
+    });
+    expect(result.anyPairOver).toBe(true);
+  });
+
+  it('total breach: filledTotal × mirror > totalMax', () => {
+    const result = evaluateOversizeState({
+      filledNotionalByPair: { BTC: 600, ETH: 600, SOL: 600, AVAX: 600 },
+      filledTotal: 2400,
+      mirror: 1.0,                          // 2400 > 2000
+      pairMax: 5000,
+      totalMax: 2000,
+    });
     expect(result.totalOver).toBe(true);
+    expect(result.hlTotalTarget).toBeCloseTo(2400);
   });
 
   it('both breaches simultaneously', () => {
     const result = evaluateOversizeState({
-      notionalByPair: { BTC: 900 },  // over pairMax
+      filledNotionalByPair: { BTC: 900 },
+      filledTotal: 900,
+      mirror: 1.0,
       pairMax: 686,
-      totalMax: 500,  // pairMax > totalMax scenario (misconfiguration)
-      totalUsed: 900,
+      totalMax: 500,
     });
     expect(result.anyPairOver).toBe(true);
     expect(result.totalOver).toBe(true);
@@ -169,37 +227,88 @@ describe('evaluateOversizeState', () => {
 
   it('no breach when pairMax is 0 (limits not loaded)', () => {
     const result = evaluateOversizeState({
-      notionalByPair: { BTC: 9999 },
+      filledNotionalByPair: { BTC: 9999 },
+      filledTotal: 9999,
+      mirror: 5.0,
       pairMax: 0,
       totalMax: 0,
-      totalUsed: 9999,
     });
     expect(result.breach).toBe(false);
   });
+
+  it('no breach when mirror is 0 (HS↔HL conversion unavailable)', () => {
+    const result = evaluateOversizeState({
+      filledNotionalByPair: { BTC: 9999 },
+      filledTotal: 9999,
+      mirror: 0,
+      pairMax: 100,
+      totalMax: 200,
+    });
+    expect(result.breach).toBe(false);
+  });
+
+  it('empty filledNotionalByPair → no per-pair breach (only check totalOver)', () => {
+    const result = evaluateOversizeState({
+      filledNotionalByPair: {},
+      filledTotal: 0,
+      mirror: 5.0,
+      pairMax: 100,
+      totalMax: 200,
+    });
+    expect(result.anyPairOver).toBe(false);
+    expect(result.totalOver).toBe(false);
+  });
 });
 
-// ─── getMirrorRatio ──────────────────────────────────────────────────────────
+// ─── getMirrorMultiplier (live accountBalance / hlBalance) ───────────────────
 
-describe('getMirrorRatio', () => {
-  it('computes ratio as fundedSize / hlBalance', () => {
-    // HL balance ~$1372, funded account ~$10,000
-    expect(getMirrorRatio(1372, 10000)).toBeCloseTo(7.29, 1);
+describe('getMirrorMultiplier — live accountBalance / hlBalance', () => {
+  it('flat PnL: $1,372 HL, $10,000 HS balance → ratio ≈ 7.29', () => {
+    expect(getMirrorMultiplier(1372, 10000)).toBeCloseTo(7.29, 1);
+  });
+
+  it('post-drawdown: HS balance dropped 10% → ratio drops correspondingly', () => {
+    // Funded $10k, balance $9k after 10% loss. HL still at $1372.
+    // Multiplier = 9000/1372 ≈ 6.56 (used to be 7.29 with frozen fundedSize).
+    expect(getMirrorMultiplier(1372, 9000)).toBeCloseTo(6.56, 1);
+  });
+
+  it('post-profit: HS balance grew 10% → ratio rises correspondingly', () => {
+    expect(getMirrorMultiplier(1372, 11000)).toBeCloseTo(8.02, 1);
   });
 
   it('returns 0 when hlBalance is 0', () => {
-    expect(getMirrorRatio(0, 10000)).toBe(0);
+    expect(getMirrorMultiplier(0, 10000)).toBe(0);
   });
 
-  it('returns 0 when fundedSize is 0', () => {
-    expect(getMirrorRatio(1372, 0)).toBe(0);
+  it('returns 0 when accountBalance is 0', () => {
+    expect(getMirrorMultiplier(1372, 0)).toBe(0);
   });
 
   it('returns 0 for negative values', () => {
-    expect(getMirrorRatio(-100, 10000)).toBe(0);
+    expect(getMirrorMultiplier(-100, 10000)).toBe(0);
+    expect(getMirrorMultiplier(1372, -100)).toBe(0);
   });
 
   it('1:1 ratio when both equal', () => {
-    expect(getMirrorRatio(1000, 1000)).toBe(1);
+    expect(getMirrorMultiplier(1000, 1000)).toBe(1);
+  });
+
+  it('returns 0 for NaN inputs', () => {
+    expect(getMirrorMultiplier(NaN, 10000)).toBe(0);
+    expect(getMirrorMultiplier(1372, NaN)).toBe(0);
+  });
+
+  it('ratio < 1 when HL larger than HS balance (atypical)', () => {
+    expect(getMirrorMultiplier(10000, 5000)).toBe(0.5);
+  });
+
+  it('large ratio for $100k HS account', () => {
+    expect(getMirrorMultiplier(1372, 100000)).toBeCloseTo(72.9, 0);
+  });
+
+  it('very small HL balance does not divide-by-zero', () => {
+    expect(getMirrorMultiplier(0.01, 10000)).toBeCloseTo(1000000);
   });
 });
 
@@ -248,25 +357,25 @@ describe('effectiveMaxSingleUsd', () => {
   it('returns maxPositionPerPair when limits are loaded', () => {
     expect(effectiveMaxSingleUsd({
       limitsLoaded: true,
-      maxPositionPerPair: 686,
-      accountBalance: 1372,
-    })).toBe(686);
+      maxPositionPerPair: 5000,
+      accountBalance: 10000,
+    })).toBe(5000);
   });
 
   it('falls back to accountBalance when limits not loaded', () => {
     expect(effectiveMaxSingleUsd({
       limitsLoaded: false,
-      maxPositionPerPair: 686,
-      accountBalance: 1372,
-    })).toBe(1372);
+      maxPositionPerPair: 5000,
+      accountBalance: 10000,
+    })).toBe(10000);
   });
 
   it('falls back to accountBalance when maxPositionPerPair is 0', () => {
     expect(effectiveMaxSingleUsd({
       limitsLoaded: true,
       maxPositionPerPair: 0,
-      accountBalance: 1372,
-    })).toBe(1372);
+      accountBalance: 10000,
+    })).toBe(10000);
   });
 });
 
@@ -274,63 +383,60 @@ describe('effectiveMaxTotalUsd', () => {
   it('returns maxPortfolio when limits are loaded', () => {
     expect(effectiveMaxTotalUsd({
       limitsLoaded: true,
-      maxPortfolio: 2744,
-      accountBalance: 1372,
-    })).toBe(2744);
+      maxPortfolio: 20000,
+      accountBalance: 10000,
+    })).toBe(20000);
   });
 
   it('falls back to accountBalance when limits not loaded', () => {
     expect(effectiveMaxTotalUsd({
       limitsLoaded: false,
-      maxPortfolio: 2744,
-      accountBalance: 1372,
-    })).toBe(1372);
+      maxPortfolio: 20000,
+      accountBalance: 10000,
+    })).toBe(10000);
   });
 });
 
-// ─── Cap math integration ────────────────────────────────────────────────────
+// ─── Cap math integration (HS-scale, end-to-end) ─────────────────────────────
 
-describe('cap math (integration)', () => {
-  it('per-asset cap is 50% of HL equity at standard settings', () => {
-    // HL equity = $1372, Hyperscaled sets maxPositionPerPair = hlEquity * 0.5
-    const hlEquity = 1372;
-    const expectedCap = hlEquity * 0.5;
-    expect(expectedCap).toBeCloseTo(686, 0);
+describe('cap math (integration) — HS-side caps + mirror multiplier', () => {
+  it('per-pair cap = (validator pair USD / fundedSize) × accountBalance', () => {
+    // $10k funded, validator pair USD = $5k (50%), live balance $10,500
+    const pairCap = (5000 / 10000) * 10500;
+    expect(pairCap).toBe(5250);
   });
 
-  it('order blocked when notional + existing pair notional exceeds cap', () => {
-    const pairMax = 686;
-    const currentPairNotional = 500;
-    const orderNotional = 250;
-    const afterOrder = currentPairNotional + orderNotional;  // 750
-
-    expect(afterOrder > pairMax).toBe(true);  // should block
+  it('order would exceed cap: HL × mirror > HS pair cap', () => {
+    const pairMax = 5000;     // HS-USD cap
+    const mirror = 5.0;       // 1 HL$ → 5 HS$
+    const currentHl = 500;
+    const newOrderHl = 600;
+    const projectedHsPair = (currentHl + newOrderHl) * mirror;  // 1100 × 5 = 5500
+    expect(projectedHsPair > pairMax).toBe(true);
   });
 
-  it('reduce order not blocked even when already over cap', () => {
-    const pairMax = 686;
-    const currentPairNotional = 800;  // already over cap
+  it('reduce order bypasses cap check: isReduceIntent stays true even when over cap', () => {
     const symbol = 'BTC';
     const orderSide = 'sell';
-    const signedNotionalByPair = { BTC: 800 };  // long position
-
-    const reducing = isReduceIntent(signedNotionalByPair, symbol, orderSide);
-    expect(reducing).toBe(true);  // should bypass cap check
+    // signedNotionalByPair stores HS-side signed exposure (validator-derived)
+    // OR HL-side signed (background extractor). Either way, sign = direction.
+    const signedNotionalByPair = { BTC: 8000 };  // positive = long
+    expect(isReduceIntent(signedNotionalByPair, symbol, orderSide)).toBe(true);
   });
 
-  it('new long blocked even when approaching but not yet over cap', () => {
-    const pairMax = 686;
-    const currentPairNotional = 600;
-    const orderNotional = 200;
-    const afterOrder = currentPairNotional + orderNotional;  // 800
-
+  it('new long while approaching cap: blocked when HL × mirror > pair cap', () => {
+    const pairMax = 5000;
+    const mirror = 5.0;
+    const currentHl = 600;
+    const newOrderHl = 200;
+    const projectedHsPair = (currentHl + newOrderHl) * mirror;  // 800 × 5 = 4000
     const symbol = 'BTC';
     const orderSide = 'buy';
-    const signedNotionalByPair = { BTC: 600 };  // existing long
+    const signedNotionalByPair = { BTC: 600 };
 
-    const reducing = isReduceIntent(signedNotionalByPair, symbol, orderSide);
-    expect(reducing).toBe(false);
-    expect(afterOrder > pairMax).toBe(true);  // should block
+    expect(isReduceIntent(signedNotionalByPair, symbol, orderSide)).toBe(false);
+    // 4000 < 5000 → not yet blocked; trader has headroom
+    expect(projectedHsPair > pairMax).toBe(false);
   });
 });
 
@@ -404,12 +510,13 @@ describe('resolveExposureSymbol', () => {
 // ─── evaluateOversizeState — xyz pairs ───────────────────────────────────────
 
 describe('evaluateOversizeState — xyz pairs', () => {
-  it('WTIOIL exposure triggers breach when over pairMax (stored as WTIOIL key)', () => {
+  it('WTIOIL exposure triggers breach when HL × mirror > pairMax (post-remap key)', () => {
     const result = evaluateOversizeState({
-      notionalByPair: { WTIOIL: 800 },  // over $686 cap (post-remap storage)
-      pairMax: 686,
-      totalMax: 2744,
-      totalUsed: 800,
+      filledNotionalByPair: { WTIOIL: 1100 },   // HL filled $1100
+      filledTotal: 1100,
+      mirror: 5.0,                              // → projects $5500 HS
+      pairMax: 5000,
+      totalMax: 20000,
     });
     expect(result.anyPairOver).toBe(true);
     expect(result.breach).toBe(true);
@@ -417,54 +524,34 @@ describe('evaluateOversizeState — xyz pairs', () => {
 
   it('WTIOIL under cap → no breach', () => {
     const result = evaluateOversizeState({
-      notionalByPair: { WTIOIL: 400 },
-      pairMax: 686,
-      totalMax: 2744,
-      totalUsed: 400,
+      filledNotionalByPair: { WTIOIL: 800 },    // 800 × 5 = 4000 < 5000
+      filledTotal: 800,
+      mirror: 5.0,
+      pairMax: 5000,
+      totalMax: 20000,
     });
     expect(result.breach).toBe(false);
   });
 
-  it('mixed portfolio: BTC fine, WTIOIL over cap → breach detected', () => {
+  it('mixed portfolio: BTC fine, WTIOIL over cap → per-pair breach detected', () => {
     const result = evaluateOversizeState({
-      notionalByPair: { BTC: 500, WTIOIL: 800 },
-      pairMax: 686,
-      totalMax: 2744,
-      totalUsed: 1300,
+      filledNotionalByPair: { BTC: 500, WTIOIL: 1200 },  // WTIOIL 1200 × 5 = 6000
+      filledTotal: 1700,
+      mirror: 5.0,
+      pairMax: 5000,
+      totalMax: 20000,
     });
     expect(result.anyPairOver).toBe(true);
   });
 
-  it('portfolio with only xyz pairs → total cap breach detected', () => {
+  it('portfolio over cap: total HL × mirror > totalMax', () => {
     const result = evaluateOversizeState({
-      notionalByPair: { WTIOIL: 600, GOLD: 600, BTC: 600, ETH: 600 },
-      pairMax: 686,
-      totalMax: 2000,  // set low to trigger portfolio cap
-      totalUsed: 2400,
+      filledNotionalByPair: { WTIOIL: 600, GOLD: 600, BTC: 600, ETH: 600 },
+      filledTotal: 2400,
+      mirror: 1.0,
+      pairMax: 5000,                             // each pair under cap
+      totalMax: 2000,                            // 2400 > 2000 → over
     });
     expect(result.totalOver).toBe(true);
-  });
-});
-
-// ─── getMirrorRatio corner cases ──────────────────────────────────────────────
-
-describe('getMirrorRatio — additional corner cases', () => {
-  it('ratio < 1 when HL account larger than funded size (unusual)', () => {
-    // Funded $5k, HL equity $10k (shouldn't happen in practice but must not crash)
-    expect(getMirrorRatio(10000, 5000)).toBe(0.5);
-  });
-
-  it('large funded account produces large ratio correctly', () => {
-    // $100k funded, $1372 HL equity → ratio ~72.9
-    expect(getMirrorRatio(1372, 100000)).toBeCloseTo(72.9, 0);
-  });
-
-  it('very small HL balance (micro account) does not divide-by-zero', () => {
-    expect(getMirrorRatio(0.01, 10000)).toBeCloseTo(1000000);
-  });
-
-  it('returns 0 for NaN inputs', () => {
-    expect(getMirrorRatio(NaN, 10000)).toBe(0);
-    expect(getMirrorRatio(1372, NaN)).toBe(0);
   });
 });

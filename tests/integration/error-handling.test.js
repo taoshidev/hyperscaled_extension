@@ -9,8 +9,10 @@
  *
  * Also verifies extension-side JS cap enforcement using real limit values
  * from the testnet validator:
- *   - applyTraderLimits correctly computes HL-scaled caps from real data
- *   - The cap blocks oversized orders and allows sized-correctly orders
+ *   - applyTraderLimits correctly computes HS-scaled caps from real data
+ *     (pair_usd / fundedSize × accountBalance)
+ *   - The cap blocks oversized HL orders (HL × mirror > HS cap) and allows
+ *     correctly-sized orders
  *   - buildHlCoinToDisplay excludes vanta-only pairs from the display map
  *
  * No real orders are placed in this file — all rejection tests call `validate`
@@ -52,16 +54,23 @@ function runValidate(pair, usdSize) {
 
 let limitsData;
 let hlEq;
+let accountBalance;
 let tradePairs;
 let hlCoinToDisplay;
 
 beforeAll(async () => {
-  [limitsData, tradePairs] = await Promise.all([
+  let validatorRaw;
+  [limitsData, tradePairs, validatorRaw] = await Promise.all([
     validatorGet(VALIDATOR_URL, `/hl-traders/${VAULT_ADDRESS}/limits`),
     validatorGet(VALIDATOR_URL, '/trade-pairs'),
+    validatorGet(VALIDATOR_URL, `/hl-traders/${VAULT_ADDRESS}`),
   ]);
   const hlState = await hlPost(HL_URL, { type: 'clearinghouseState', user: VAULT_ADDRESS });
   hlEq = parseFloat(hlState.crossMarginSummary?.accountValue ?? 0);
+  // Live HS balance from validator dashboard — needed for the new HS-scale
+  // cap math (Diff #2/#3). Falls back to fundedSize for empty test wallets.
+  accountBalance = parseFloat(validatorRaw?.dashboard?.account_size_data?.balance)
+    || limitsData.account_size;
   ({ map: hlCoinToDisplay } = buildHlCoinToDisplay(tradePairs));
 }, 20000);
 
@@ -112,9 +121,11 @@ describe('Validator rejects unsupported pairs', () => {
 // ── Per-pair cap enforcement (validator-side) ─────────────────────────────────
 
 describe('Validator rejects orders exceeding per-pair cap', () => {
-  it('BTC-USDC $800 → LeverageLimitError (per-pair cap is ~50% of HL balance)', () => {
-    // With ~$1,361 HL balance: per-pair cap = 50% = ~$680
-    // $800 exceeds the cap
+  it('BTC-USDC $800 → LeverageLimitError', () => {
+    // Server-side check: a sufficiently large HL order is rejected by the
+    // validator before it reaches HL. The exact cap (HS-USD figure ÷ mirror)
+    // is the server's business; we only assert that $800 trips it on this
+    // test wallet.
     const result = runValidate('BTC-USDC', 800);
     expect(result.status).toBe('error');
     expect(result.error_type).toBe('LeverageLimitError');
@@ -123,7 +134,6 @@ describe('Validator rejects orders exceeding per-pair cap', () => {
 
   it('error message includes the actual cap value in USD', () => {
     const result = runValidate('BTC-USDC', 800);
-    // The cap is derived from HL balance; message contains e.g. "$680.70"
     expect(result.error).toMatch(/\$[\d,]+\.\d{2}/);
   });
 
@@ -145,95 +155,85 @@ describe('Validator rejects orders exceeding per-pair cap', () => {
 });
 
 // ── Extension-side JS cap enforcement (applyTraderLimits with real data) ──────
+//
+// Caps are HS-scale: (pair_usd / fundedSize) × accountBalance. Comparison
+// against an HL order requires applying the mirror multiplier
+// (accountBalance / hlBalance) to project HL$ → HS$, then comparing to the
+// HS cap. This mirrors content/utils.js + content/toast.js semantics.
 
 describe('Extension JS cap enforcement — real limit values', () => {
-  it('applyTraderLimits returns non-null when HL equity > 0', () => {
-    // Skip if wallet is empty for some reason
-    if (hlEq <= 0) return;
-    const caps = applyTraderLimits({
+  function computeCaps() {
+    return applyTraderLimits({
+      accountBalance,
       fundedSize: limitsData.account_size,
-      hlEq,
       max_position_per_pair_usd: limitsData.max_position_per_pair_usd,
       max_portfolio_usd: limitsData.max_portfolio_usd,
     });
+  }
+
+  it('applyTraderLimits returns non-null when accountBalance > 0', () => {
+    if (!(accountBalance > 0)) return;  // empty wallet skip
+    const caps = computeCaps();
     expect(caps).not.toBeNull();
     expect(caps.maxPositionPerPair).toBeGreaterThan(0);
     expect(caps.maxPortfolio).toBeGreaterThan(0);
   });
 
-  it('per-pair cap ≈ 50% of HL equity', () => {
-    if (hlEq <= 0) return;
+  it('per-pair cap = (pair_usd / fundedSize) × accountBalance', () => {
+    if (!(accountBalance > 0)) return;
+    const caps = computeCaps();
+    const expected = (limitsData.max_position_per_pair_usd / limitsData.account_size) * accountBalance;
+    expect(caps.maxPositionPerPair).toBeCloseTo(expected, 0);
+  });
+
+  it('portfolio cap = (portfolio_usd / fundedSize) × accountBalance', () => {
+    if (!(accountBalance > 0)) return;
+    const caps = computeCaps();
+    const expected = (limitsData.max_portfolio_usd / limitsData.account_size) * accountBalance;
+    expect(caps.maxPortfolio).toBeCloseTo(expected, 0);
+  });
+
+  it('HL order $800 × mirror exceeds HS per-pair cap', () => {
+    if (!(accountBalance > 0) || !(hlEq > 0)) return;
+    const caps = computeCaps();
+    const mirror = accountBalance / hlEq;
+    const projectedHsPair = 800 * mirror;
+    expect(projectedHsPair).toBeGreaterThan(caps.maxPositionPerPair);
+  });
+
+  it('HL order $15 × mirror does NOT exceed HS per-pair cap', () => {
+    if (!(accountBalance > 0) || !(hlEq > 0)) return;
+    const caps = computeCaps();
+    const mirror = accountBalance / hlEq;
+    const projectedHsPair = 15 * mirror;
+    expect(projectedHsPair).toBeLessThan(caps.maxPositionPerPair);
+  });
+
+  it('HS exposure exactly at cap, any HL add (× mirror) tips it over', () => {
+    if (!(accountBalance > 0) || !(hlEq > 0)) return;
+    const caps = computeCaps();
+    const mirror = accountBalance / hlEq;
+    // Existing HS exposure already at the cap edge; any positive HL add
+    // (× mirror) pushes the projection above the cap.
+    const existingHs = caps.maxPositionPerPair;
+    const projected = existingHs + 1 * mirror;
+    expect(projected).toBeGreaterThan(caps.maxPositionPerPair);
+  });
+
+  it('applyTraderLimits returns null when accountBalance = 0', () => {
     const caps = applyTraderLimits({
+      accountBalance: 0,
       fundedSize: limitsData.account_size,
-      hlEq,
       max_position_per_pair_usd: limitsData.max_position_per_pair_usd,
       max_portfolio_usd: limitsData.max_portfolio_usd,
     });
-    const expectedPairCap = hlEq * 0.5;
-    expect(caps.maxPositionPerPair).toBeCloseTo(expectedPairCap, 0);
+    expect(caps).toBeNull();
   });
 
-  it('portfolio cap ≈ 200% of HL equity', () => {
-    if (hlEq <= 0) return;
+  it('applyTraderLimits returns null when fundedSize = 0', () => {
     const caps = applyTraderLimits({
-      fundedSize: limitsData.account_size,
-      hlEq,
-      max_position_per_pair_usd: limitsData.max_position_per_pair_usd,
-      max_portfolio_usd: limitsData.max_portfolio_usd,
-    });
-    const expectedPortfolioCap = hlEq * 2.0;
-    expect(caps.maxPortfolio).toBeCloseTo(expectedPortfolioCap, 0);
-  });
-
-  it('$800 order exceeds per-pair cap (JS enforcement agrees with validator)', () => {
-    if (hlEq <= 0) return;
-    const caps = applyTraderLimits({
-      fundedSize: limitsData.account_size,
-      hlEq,
-      max_position_per_pair_usd: limitsData.max_position_per_pair_usd,
-      max_portfolio_usd: limitsData.max_portfolio_usd,
-    });
-    // Simulate: no existing BTC position, new order = $800
-    const existingBtc = 0;
-    const newOrder = 800;
-    const projectedPair = existingBtc + newOrder;
-    const wouldExceedPairCap = projectedPair > caps.maxPositionPerPair;
-    expect(wouldExceedPairCap).toBe(true);
-  });
-
-  it('$15 order does NOT exceed per-pair cap', () => {
-    if (hlEq <= 0) return;
-    const caps = applyTraderLimits({
-      fundedSize: limitsData.account_size,
-      hlEq,
-      max_position_per_pair_usd: limitsData.max_position_per_pair_usd,
-      max_portfolio_usd: limitsData.max_portfolio_usd,
-    });
-    const existingBtc = 0;
-    const newOrder = 15;
-    const wouldExceedPairCap = (existingBtc + newOrder) > caps.maxPositionPerPair;
-    expect(wouldExceedPairCap).toBe(false);
-  });
-
-  it('order that fills pair cap exactly then adds $1 → blocked', () => {
-    if (hlEq <= 0) return;
-    const caps = applyTraderLimits({
-      fundedSize: limitsData.account_size,
-      hlEq,
-      max_position_per_pair_usd: limitsData.max_position_per_pair_usd,
-      max_portfolio_usd: limitsData.max_portfolio_usd,
-    });
-    // Existing position exactly at the cap edge
-    const existing = caps.maxPositionPerPair - 10;
-    const newOrder = 15; // Would push to cap + $5 over
-    const wouldExceedPairCap = (existing + newOrder) > caps.maxPositionPerPair;
-    expect(wouldExceedPairCap).toBe(true);
-  });
-
-  it('applyTraderLimits returns null when hlEq = 0', () => {
-    const caps = applyTraderLimits({
-      fundedSize: limitsData.account_size,
-      hlEq: 0,
+      accountBalance: limitsData.account_size,
+      fundedSize: 0,
       max_position_per_pair_usd: limitsData.max_position_per_pair_usd,
       max_portfolio_usd: limitsData.max_portfolio_usd,
     });

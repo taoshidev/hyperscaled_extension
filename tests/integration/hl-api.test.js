@@ -95,6 +95,7 @@ describe('extractExposureFromAssetPositions — real HL data (empty account)', (
     expect(exposure).toHaveProperty('openSingleUsed');
     expect(exposure).toHaveProperty('notionalByPair');
     expect(exposure).toHaveProperty('signedNotionalByPair');
+    expect(exposure).toHaveProperty('totalUnrealizedPnl');
     expect(exposure).toHaveProperty('openPositionCount');
   });
 
@@ -118,10 +119,15 @@ describe('extractExposureFromAssetPositions — real HL data (empty account)', (
     expect(exposure.openPositionCount).toBe(0);
   });
 
+  it('totalUnrealizedPnl is 0 (no positions)', () => {
+    expect(exposure.totalUnrealizedPnl).toBe(0);
+  });
+
   it('all numeric fields are finite', () => {
     expect(Number.isFinite(exposure.openTotalUsed)).toBe(true);
     expect(Number.isFinite(exposure.openSingleUsed)).toBe(true);
     expect(Number.isFinite(exposure.openPositionCount)).toBe(true);
+    expect(Number.isFinite(exposure.totalUnrealizedPnl)).toBe(true);
   });
 });
 
@@ -192,6 +198,27 @@ describe('extractExposureFromAssetPositions — synthetic position data', () => 
     const exp = extractExposureFromAssetPositions(syntheticPerps);
     expect(exp.openPositionCount).toBe(0);
     expect(Object.keys(exp.notionalByPair)).toHaveLength(0);
+  });
+
+  it('aggregates unrealizedPnl across positions (HL-side source of truth)', () => {
+    const syntheticPerps = {
+      assetPositions: [
+        {
+          position: {
+            coin: 'BTC', szi: '0.5', positionValue: '52500',
+            markPx: '105000', unrealizedPnl: '250.50',
+          },
+        },
+        {
+          position: {
+            coin: 'ETH', szi: '-2', positionValue: '4000',
+            markPx: '2000', unrealizedPnl: '-75.25',
+          },
+        },
+      ],
+    };
+    const exp = extractExposureFromAssetPositions(syntheticPerps);
+    expect(exp.totalUnrealizedPnl).toBeCloseTo(250.50 - 75.25);  // 175.25
   });
 });
 

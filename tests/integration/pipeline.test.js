@@ -12,8 +12,8 @@
  *
  *   3. Trade pairs → buildHlCoinToDisplay (the bridge between both sources)
  *
- *   4. Limits → applyTraderLimits (fundedSize / hlEquity scaling)
- *      → guard fires when hlEquity = 0 (test wallet state)
+ *   4. Limits → applyTraderLimits (HS-scale: pair_usd / fundedSize × accountBalance)
+ *      → guard fires when accountBalance = 0 (balance not yet loaded)
  *
  * Asserts that both pipelines produce consistent state and that the
  * xyz pair symbol normalization bug (XYZ:CL vs XYZ:WTIOIL) is handled
@@ -27,6 +27,7 @@ import {
   validatorGet,
   extractExposureFromAssetPositions,
   transformTraderResponse,
+  deriveHsPositionsByCoin,
   buildHlCoinToDisplay,
   applyTraderLimits,
   remapKeys,
@@ -123,21 +124,15 @@ describe('Validator data pipeline', () => {
     expect(openPos).toHaveLength(0);
   });
 
-  it('validator notionalByPair is empty (all positions closed)', () => {
-    const fundedSize = transformed.account_size;
+  it('validator hsPositionsByCoin is empty (all positions closed)', () => {
+    // Post-refactor: HS positions derive strictly as size × price (sum of
+    // signed `q` × HL mid). With no open positions, the map is empty —
+    // no `nl × account_size` fallback that would produce phantom values.
     const openPositions = transformed.positions.positions.filter(
       p => !p.is_closed_position && !p.close_ms
     );
-    const notionalByPair = {};
-    for (const pos of openPositions) {
-      const rawLev = parseFloat(pos.net_leverage);
-      const notional = Math.abs(rawLev) * fundedSize;
-      const tp = pos.trade_pair || '';
-      const coin = (typeof tp === 'string' ? tp : (tp[0] || ''))
-        .replace(/\/.*$/, '').replace(/USD[CT]?$/, '').toUpperCase();
-      if (coin) notionalByPair[coin] = (notionalByPair[coin] || 0) + notional;
-    }
-    expect(Object.keys(notionalByPair)).toHaveLength(0);
+    const hsByCoin = deriveHsPositionsByCoin(openPositions, {}, {});
+    expect(Object.keys(hsByCoin)).toHaveLength(0);
   });
 
   it('both pipelines agree: 0 open exposure (empty state consistent)', () => {
@@ -153,97 +148,83 @@ describe('Validator data pipeline', () => {
 
 // ── Limits pipeline ───────────────────────────────────────────────────────────
 
-describe('Limits pipeline — applyTraderLimits with real limit values', () => {
-  // FUNDED_SIZE is reused as accountBalance — these tests don't model PnL,
-  // so live balance equals starting size. Tests covering balance ≠ funded
-  // size (drawdown / profit) live in tests/unit/limits.test.js.
+describe('Limits pipeline — applyTraderLimits with real limit values (HS-scale)', () => {
+  // Caps are HS-side now: (pair_usd / fundedSize) × accountBalance.
+  // Tests covering PnL-driven balance changes live in tests/unit/limits.test.js;
+  // here we exercise the helper against real validator values.
   const FUNDED_SIZE = 100000;
   const MAX_PAIR = 50000;
   const MAX_PORTFOLIO = 200000;
 
-  it('guard fires when hlEq = 0 (test wallet state)', () => {
-    const hlEquity = parseFloat(perpsData.crossMarginSummary.accountValue);
-    expect(hlEquity).toBe(0);
-
+  it('guard fires when accountBalance = 0 (no balance loaded)', () => {
     const result = applyTraderLimits({
-      accountBalance: FUNDED_SIZE,
-      hlEq: hlEquity,
+      accountBalance: 0,
+      fundedSize: FUNDED_SIZE,
       max_position_per_pair_usd: MAX_PAIR,
       max_portfolio_usd: MAX_PORTFOLIO,
     });
     expect(result).toBeNull();
   });
 
-  it('with simulated $1,372 HL equity → per-pair cap ≈ $686', () => {
+  it('flat PnL (balance = fundedSize): caps equal validator USD figures', () => {
     const result = applyTraderLimits({
       accountBalance: FUNDED_SIZE,
-      hlEq: 1372,
+      fundedSize: FUNDED_SIZE,
       max_position_per_pair_usd: MAX_PAIR,
       max_portfolio_usd: MAX_PORTFOLIO,
     });
-    // scalingRatio = accountBalance/hlEq = 100000/1372 ≈ 72.9
-    // maxPositionPerPair = 50000/72.9 ≈ 686
     expect(result).not.toBeNull();
-    expect(result.maxPositionPerPair).toBeCloseTo(686, 0);
+    expect(result.maxPositionPerPair).toBe(MAX_PAIR);
+    expect(result.maxPortfolio).toBe(MAX_PORTFOLIO);
   });
 
-  it('with simulated $1,372 HL equity → portfolio cap ≈ $2,744', () => {
+  it('drawdown to $9k on $10k funded → caps shrink by 10%', () => {
     const result = applyTraderLimits({
-      accountBalance: FUNDED_SIZE,
-      hlEq: 1372,
-      max_position_per_pair_usd: MAX_PAIR,
-      max_portfolio_usd: MAX_PORTFOLIO,
+      accountBalance: 9000,
+      fundedSize: 10000,
+      max_position_per_pair_usd: 5000,
+      max_portfolio_usd: 20000,
     });
-    expect(result.maxPortfolio).toBeCloseTo(2744, 0);
+    expect(result.maxPositionPerPair).toBe(4500);
+    expect(result.maxPortfolio).toBe(18000);
   });
 
-  it('scalingRatio = accountBalance / hlEquity (e.g. 100000 / 5000 = 20)', () => {
+  it('per-pair cap always equals fixed fraction × accountBalance', () => {
+    // max_position_per_pair_usd / account_size = 50000/100000 = 50%
+    const balance = 80000;  // simulate 20% drawdown
     const result = applyTraderLimits({
-      accountBalance: FUNDED_SIZE,
-      hlEq: 5000,
-      max_position_per_pair_usd: MAX_PAIR,
-      max_portfolio_usd: MAX_PORTFOLIO,
-    });
-    expect(result.scalingRatio).toBeCloseTo(20, 2);
-  });
-
-  it('per-pair cap always equals hlEquity × (perPairPct / 100)', () => {
-    // max_position_per_pair_usd/account_size = 50000/100000 = 50%
-    // So per-pair cap should equal hlEquity × 0.5 = hlEquity/2
-    const hlEq = 3000;
-    const result = applyTraderLimits({
+      accountBalance: balance,
       fundedSize: FUNDED_SIZE,
-      hlEq,
       max_position_per_pair_usd: MAX_PAIR,
       max_portfolio_usd: MAX_PORTFOLIO,
     });
-    expect(result.maxPositionPerPair).toBeCloseTo(hlEq * 0.5, 1);
+    expect(result.maxPositionPerPair).toBeCloseTo(balance * 0.5, 1);
   });
 
-  it('portfolio cap always equals hlEquity × (portfolioPct / 100)', () => {
-    // max_portfolio_usd/account_size = 200000/100000 = 200%
-    const hlEq = 3000;
+  it('portfolio cap always equals fixed fraction × accountBalance', () => {
+    // max_portfolio_usd / account_size = 200000/100000 = 200%
+    const balance = 80000;
     const result = applyTraderLimits({
+      accountBalance: balance,
       fundedSize: FUNDED_SIZE,
-      hlEq,
       max_position_per_pair_usd: MAX_PAIR,
       max_portfolio_usd: MAX_PORTFOLIO,
     });
-    expect(result.maxPortfolio).toBeCloseTo(hlEq * 2.0, 1);
+    expect(result.maxPortfolio).toBeCloseTo(balance * 2.0, 1);
   });
 
   it('uses real limits values from /hl-traders/{address}/limits endpoint', () => {
-    // limits.account_size doubles as accountBalance here — this dataset has
-    // no realized PnL so live balance equals starting size.
+    // Use account_size as both fundedSize and accountBalance (no PnL applied
+    // here). The unit-test suite covers the balance-≠-funded case.
     const result = applyTraderLimits({
       accountBalance: limits.account_size,
-      hlEq: 2000,
+      fundedSize: limits.account_size,
       max_position_per_pair_usd: limits.max_position_per_pair_usd,
       max_portfolio_usd: limits.max_portfolio_usd,
     });
     expect(result).not.toBeNull();
-    expect(result.maxPositionPerPair).toBeCloseTo(2000 * 0.5, 1);  // 50% of hlEq
-    expect(result.maxPortfolio).toBeCloseTo(2000 * 2.0, 1);         // 200% of hlEq
+    expect(result.maxPositionPerPair).toBe(limits.max_position_per_pair_usd);
+    expect(result.maxPortfolio).toBe(limits.max_portfolio_usd);
   });
 });
 

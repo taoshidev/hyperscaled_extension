@@ -16,6 +16,7 @@ import { VALIDATOR_URL, WALLET } from './config.js';
 import {
   validatorGet,
   transformTraderResponse,
+  deriveHsPositionsByCoin,
   buildHlCoinToDisplay,
   resolveChallengeModeFromValidator,
   resolveExposureSymbol,
@@ -177,22 +178,15 @@ describe('transformTraderResponse — open position aggregation', () => {
     expect(openPositions).toHaveLength(0);
   });
 
-  it('notionalByPair is empty when all positions are closed', () => {
-    const fundedSize = transformed.account_size;
+  it('hsPositionsByCoin is empty when all positions are closed', () => {
+    // Post-refactor (Diff #4/#5): HS position values come from
+    // deriveHsPositionsByCoin (size × price), never `nl × account_size`.
+    // With no open positions, the map is empty.
     const openPositions = transformed.positions.positions.filter(
       p => !p.is_closed_position && !p.close_ms
     );
-
-    const notionalByPair = {};
-    for (const pos of openPositions) {
-      const rawLev = parseFloat(pos.net_leverage);
-      const notional = Math.abs(rawLev) * fundedSize;
-      const tp = pos.trade_pair || '';
-      const coin = (typeof tp === 'string' ? tp : (tp[0] || '')).replace(/\/.*$/, '').replace(/USD[CT]?$/, '').toUpperCase();
-      if (coin) notionalByPair[coin] = (notionalByPair[coin] || 0) + notional;
-    }
-
-    expect(Object.keys(notionalByPair)).toHaveLength(0);
+    const hsByCoin = deriveHsPositionsByCoin(openPositions, {}, {});
+    expect(Object.keys(hsByCoin)).toHaveLength(0);
   });
 });
 
