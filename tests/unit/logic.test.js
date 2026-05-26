@@ -315,7 +315,7 @@ describe('getMirrorMultiplier — live accountBalance / hlBalance', () => {
 // ─── capColor / barPendingBg ─────────────────────────────────────────────────
 
 describe('capColor', () => {
-  it('returns teal/indigo color below 70%', () => {
+  it('returns green/indigo color below 70%', () => {
     expect(capColor(0)).toBe('#6466f1');
     expect(capColor(50)).toBe('#6466f1');
     expect(capColor(69.9)).toBe('#6466f1');

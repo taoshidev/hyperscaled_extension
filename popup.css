@@ -9,8 +9,8 @@
 :root {
     /* Base */
     --bg:              #18181b;
-    --accent:          #00c6a7;
-    --green:           #00c6a7;
+    --accent:          #3edd5c;
+    --green:           #3edd5c;
     --amber:           #ffb900;
     --red:             rgb(239, 68, 68);
     --text-primary:    #ffffff;
@@ -47,9 +47,9 @@
     --bar-bg:          rgba(255, 255, 255, 0.06);
 
     /* Accent surfaces */
-    --accent-bg:           rgba(0, 198, 167, 0.1);
-    --accent-border:       rgba(0, 198, 167, 0.2);   /* also used as button hover bg */
-    --accent-hover-border: rgba(0, 198, 167, 0.35);  /* button active/hover border */
+    --accent-bg:           rgba(62, 221, 92, 0.1);
+    --accent-border:       rgba(62, 221, 92, 0.2);   /* also used as button hover bg */
+    --accent-hover-border: rgba(62, 221, 92, 0.35);  /* button active/hover border */
 
     /* Danger surfaces */
     --danger-bg:     rgba(239, 68, 68, 0.08);  /* warning panels, short badge bg */
@@ -100,11 +100,11 @@ body {
     border: 1px solid var(--border-outer);
     border-radius: var(--radius-outer);
     box-shadow: 0px 40px 80px 0px rgba(0, 0, 0, 0.5),
-                0px 0px 60px 0px rgba(0, 198, 167, 0.06);
+                0px 0px 60px 0px rgba(62, 221, 92, 0.06);
     overflow: hidden;
 }
 
-/* Subtle teal glow — top right */
+/* Subtle green glow — top right */
 .container::before {
     content: '';
     position: absolute;
@@ -112,7 +112,7 @@ body {
     right: -200px;
     width: 500px;
     height: 500px;
-    background: radial-gradient(circle, rgba(0, 198, 167, 0.07) 0%, transparent 55%);
+    background: radial-gradient(circle, rgba(62, 221, 92, 0.07) 0%, transparent 55%);
     pointer-events: none;
     z-index: 0;
 }
@@ -263,7 +263,7 @@ body {
 }
 
 .wallet-input:focus {
-    border-color: rgba(0, 198, 167, 0.4);
+    border-color: rgba(62, 221, 92, 0.4);
 }
 
 .wallet-input::placeholder {
@@ -396,7 +396,7 @@ body {
 }
 
 .wallet-input--full:focus {
-    border-color: rgba(0, 198, 167, 0.4);
+    border-color: rgba(62, 221, 92, 0.4);
 }
 
 .wallet-save-btn--full {
@@ -891,8 +891,8 @@ body {
     left: 0;
 }
 
-/* Default fill color is teal (safe). JS overrides inline based on severity:
-   teal (< 70%) → amber (70–90%) → red (≥ 90% or over-cap). Matches the
+/* Default fill color is green (safe). JS overrides inline based on severity:
+   green (< 70%) → amber (70–90%) → red (≥ 90% or over-cap). Matches the
    banner DD scale. */
 .capacity-fill--total {
     background: var(--accent);
@@ -947,16 +947,16 @@ body {
 
 /* Pending = resting limit orders. Striped overlay so it visually reads as
    "would-be exposure if these fill" without the alarm of real exposure.
-   Default stripe is teal; JS sets the actual gradient inline based on
+   Default stripe is green; JS sets the actual gradient inline based on
    severity of the after-fill % so the color matches the rest of the bar. */
 .capacity-asset-fill--pending,
 .capacity-fill--pending {
     background: repeating-linear-gradient(
         45deg,
-        rgba(0, 198, 167, 0.55),
-        rgba(0, 198, 167, 0.55) 4px,
-        rgba(0, 198, 167, 0.18) 4px,
-        rgba(0, 198, 167, 0.18) 8px
+        rgba(62, 221, 92, 0.55),
+        rgba(62, 221, 92, 0.55) 4px,
+        rgba(62, 221, 92, 0.18) 4px,
+        rgba(62, 221, 92, 0.18) 8px
     );
 }
 
@@ -1812,7 +1812,7 @@ body {
 }
 
 .settings-input:focus {
-    border-color: rgba(0, 198, 167, 0.4);
+    border-color: rgba(62, 221, 92, 0.4);
 }
 
 .settings-save-btn {

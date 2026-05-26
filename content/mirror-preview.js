@@ -92,27 +92,27 @@
     return HF.utils.getMirrorMultiplier();
   }
 
-  // Severity color matches the banner's ddColor() — teal/amber/red by proximity
+  // Severity color matches the banner's ddColor() — green/amber/red by proximity
   // to the cap. The injected mirror preview bar reads "are you about to breach?"
   // (DD-style semantic), unlike the popup's neutral indigo capacity bar.
   function capColor(pct) {
     if (pct >= 90) return 'rgb(239, 68, 68)';
     if (pct >= 70) return '#ffb900';
-    return '#00c6a7';
+    return '#3edd5c';
   }
 
   function barPendingBg(pct) {
     if (pct >= 90) return 'rgba(239, 68, 68, 0.5)';
     if (pct >= 70) return 'rgba(255, 185, 0, 0.4)';
-    return 'rgba(0, 198, 167, 0.4)';
+    return 'rgba(62, 221, 92, 0.4)';
   }
 
-  // Reductions overlay the closing chunk in striped teal — a "fading away"
-  // visual that's distinguishable from a teal-solid addition in the safe zone.
+  // Reductions overlay the closing chunk in striped green — a "fading away"
+  // visual that's distinguishable from a green-solid addition in the safe zone.
   const REDUCE_STRIPE =
     'repeating-linear-gradient(135deg, ' +
-    'rgba(0, 198, 167, 0.55) 0, rgba(0, 198, 167, 0.55) 2px, ' +
-    'rgba(0, 198, 167, 0.15) 2px, rgba(0, 198, 167, 0.15) 4px)';
+    'rgba(62, 221, 92, 0.55) 0, rgba(62, 221, 92, 0.55) 2px, ' +
+    'rgba(62, 221, 92, 0.15) 2px, rgba(62, 221, 92, 0.15) 4px)';
 
   // Vanta API pairs are USDC-quoted on HL. Display the full pair name so the
   // trader can distinguish from any unmirrored USDT pair they might also
@@ -128,7 +128,7 @@
   }
 
   function showMirrorPreview(input) {
-    console.log('[Hyperscaled][MirrorPreview] showMirrorPreview called', {
+    console.log('[Beanstock][MirrorPreview] showMirrorPreview called', {
       isRegistered: ACCOUNT.isRegistered,
       registrationChecked: ACCOUNT.registrationChecked,
       hlBalance: ACCOUNT.hlBalance,
@@ -138,7 +138,7 @@
     });
 
     if (!ACCOUNT.isRegistered) {
-      console.log('[Hyperscaled][MirrorPreview] Skipped: not registered');
+      console.log('[Beanstock][MirrorPreview] Skipped: not registered');
       return;
     }
 
@@ -170,12 +170,12 @@
       if (notional <= 0) notional = HF.utils.inputToNotional(v);
     }
     if (notional <= 0) {
-      console.log('[Hyperscaled][MirrorPreview] Skipped: notional <= 0');
+      console.log('[Beanstock][MirrorPreview] Skipped: notional <= 0');
       hideMirrorPreview();
       return;
     }
 
-    console.log('[Hyperscaled][MirrorPreview] Showing card', { notional, ratio: getMirrorRatio() });
+    console.log('[Beanstock][MirrorPreview] Showing card', { notional, ratio: getMirrorRatio() });
 
     // Caps and exposures are compared in HS units. Convert HL exposure /
     // pending order to HS via mirrorMultiplier; caps already come in HS USD
@@ -531,7 +531,7 @@
   }
 
   function onSizeInputChange(input) {
-    console.log('[Hyperscaled][MirrorPreview] onSizeInputChange triggered');
+    console.log('[Beanstock][MirrorPreview] onSizeInputChange triggered');
     showMirrorPreview(input);
   }
 

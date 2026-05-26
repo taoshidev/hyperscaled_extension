@@ -4,13 +4,13 @@ import { showDashboard } from './screens.js';
 const CHALLENGE_TARGET = 10;
 const DRAWDOWN_MAX = 5;
 
-// DD-aligned severity scale: teal < 70% → amber 70–90% → red ≥ 90% or breached.
+// DD-aligned severity scale: green < 70% → amber 70–90% → red ≥ 90% or breached.
 // Same colors as banner ddColor() and the injected mirror preview, so capacity
 // proximity-to-cap reads consistently across surfaces.
 function capColor(pct) {
     if (pct >= 90) return 'rgb(239, 68, 68)';
     if (pct >= 70) return '#ffb900';
-    return '#00c6a7';
+    return '#3edd5c';
 }
 
 // Pending overlay = resting limit orders. Stripe pattern (hypothetical) with
@@ -19,16 +19,16 @@ function pendingStripeBg(pct) {
     let strong, weak;
     if (pct >= 90)      { strong = 'rgba(239, 68, 68, 0.55)';  weak = 'rgba(239, 68, 68, 0.18)';  }
     else if (pct >= 70) { strong = 'rgba(255, 185, 0, 0.55)';  weak = 'rgba(255, 185, 0, 0.18)';  }
-    else                { strong = 'rgba(0, 198, 167, 0.55)';  weak = 'rgba(0, 198, 167, 0.18)';  }
+    else                { strong = 'rgba(62, 221, 92, 0.55)';  weak = 'rgba(62, 221, 92, 0.18)';  }
     return `repeating-linear-gradient(45deg, ${strong}, ${strong} 4px, ${weak} 4px, ${weak} 8px)`;
 }
 
-// Reduce overlay (pending closes part of position) — flat teal stripe at a
+// Reduce overlay (pending closes part of position) — flat green stripe at a
 // lower opacity matching the mirror preview's "fading away" cue.
 const REDUCE_STRIPE_POPUP =
     'repeating-linear-gradient(135deg, ' +
-    'rgba(0, 198, 167, 0.55), rgba(0, 198, 167, 0.55) 2px, ' +
-    'rgba(0, 198, 167, 0.15) 2px, rgba(0, 198, 167, 0.15) 4px)';
+    'rgba(62, 221, 92, 0.55), rgba(62, 221, 92, 0.55) 2px, ' +
+    'rgba(62, 221, 92, 0.15) 2px, rgba(62, 221, 92, 0.15) 4px)';
 
 // Vanta API pairs are USDC-quoted on HL. Suffix `/USDC` so the trader can
 // distinguish from (unmirrored) USDT pairs they may also hold on HL.
@@ -250,7 +250,7 @@ export function applyValidatorData(result, state) {
     // The HS section below is the only capacity surface that maps to a real
     // validator-enforced limit.
 
-    // ── Trading Capacity (Hyperscaled) — validator-enforced caps ────────────
+    // ── Trading Capacity (Beanstock Trading) — validator-enforced caps ────────────
     // Every $ figure in this section depends on mirrorRatio. When it is 0
     // (accountBalance unavailable) we cannot compute honest HS values, so
     // render "--" rather than a misleading $0.00.
