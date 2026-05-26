@@ -1,6 +1,6 @@
 // Shared mutable state for all content script modules
 (() => {
-  const HF = window.__HF;
+  const BT = window.__BT;
 
   // const IS_TESTNET = location.hostname === "app.hyperliquid-testnet.xyz";
   const IS_TESTNET = true;
@@ -42,7 +42,7 @@
     // downstream displays "--" rather than fabricating a value from the
     // validator's `net_leverage × account_size`.
     totalUnrealizedPnl: null,
-    // HS-side actual position values, derived strictly as size × price:
+    // BT-side actual position values, derived strictly as size × price:
     //   size  = sum of signed `q` (quantity) across the position's filled orders
     //   price = current HL mid price for the coin
     // Map: { COIN_UPPER: { quantity, value, side } }
@@ -57,7 +57,7 @@
     registrationChecked: false,
   };
 
-  HF.state = {
+  BT.state = {
     IS_TESTNET,
     HL_APP_ORIGIN,
     ACCOUNT,
@@ -75,10 +75,10 @@
     forcedTradeBlockReason: null,
     lastEditedInput: null,
     pendingNotional: 0,
-    BANNER_ID: "hf-banner",
-    LAYOUT_STYLE_ID: "hf-layout-fix",
+    BANNER_ID: "bt-banner",
+    LAYOUT_STYLE_ID: "bt-layout-fix",
     BANNER_HEIGHT: 38,
-    UNSUPPORTED_OVERLAY_ID: "hf-unsupported-overlay",
+    UNSUPPORTED_OVERLAY_ID: "bt-unsupported-overlay",
     BALANCE_CHECK_INTERVAL: 3000,
   };
 })();

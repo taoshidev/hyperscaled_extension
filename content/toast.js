@@ -1,7 +1,7 @@
 // Toast notification system for order clamping/blocking
 (() => {
-  const HF = window.__HF;
-  const { ACCOUNT } = HF.state;
+  const BT = window.__BT;
+  const { ACCOUNT } = BT.state;
 
   let activeClampToast = null;
   let activeInfoToast = null;
@@ -14,11 +14,11 @@
   let depositToastDetailsExpanded = false;
 
   function ensureToastContainer() {
-    let container = document.getElementById("hf-toast-container");
+    let container = document.getElementById("bt-toast-container");
     if (!container) {
       container = document.createElement("div");
-      container.id = "hf-toast-container";
-      container.className = "hf-toast-container";
+      container.id = "bt-toast-container";
+      container.className = "bt-toast-container";
       (document.body || document.documentElement).appendChild(container);
     }
     return container;
@@ -33,7 +33,7 @@
     const limitScope = constraint === "per-pair" ? "single-asset" : "portfolio";
     const heading = "Why this was blocked";
     const what = "You tried to place a size above your current " + limitScope + " capacity.";
-    const why = "Hyperscaled enforces this cap to keep your account inside funded-challenge risk limits.";
+    const why = "Beanstock Trading enforces this cap to keep your account inside funded-challenge risk limits.";
     const how = "Lower size to <b>" + formatSizeForToast(clampedSize, sizeUnit) + " " + sizeUnit +
       "</b> or less, or close/reduce existing positions to free " + limitScope + " capacity.";
     const capacity = "Remaining capacity right now: <b>" + formatSizeForToast(allowed, sizeUnit) + " " + sizeUnit + "</b>.";
@@ -43,8 +43,8 @@
       pairContext.remainingLeverage + "</b> remaining (max " + pairContext.maxLeverage + " per pair).";
 
     return (
-      '<div class="hf-toast-details-head">' + heading + "</div>" +
-      '<ul class="hf-toast-details-list">' +
+      '<div class="bt-toast-details-head">' + heading + "</div>" +
+      '<ul class="bt-toast-details-list">' +
         '<li><span>What:</span> ' + what + "</li>" +
         '<li><span>Why:</span> ' + why + "</li>" +
         '<li><span>How to avoid:</span> ' + how + " " + capacity + "</li>" +
@@ -55,7 +55,7 @@
   }
 
   function showClampToast(details) {
-    const { fmt, effectiveMaxSingleUsd, formatSizeForToast, getSizeUnit, getCurrentSymbol, marginLimitBasisUsd, getActiveOrderSide } = HF.utils;
+    const { fmt, effectiveMaxSingleUsd, formatSizeForToast, getSizeUnit, getCurrentSymbol, marginLimitBasisUsd, getActiveOrderSide } = BT.utils;
     const requested = Number(details?.requestedNotional) || 0;
     const allowed = Number(details?.allowedNotional) || 0;
     const constraint = details?.constraint || "portfolio";
@@ -66,7 +66,7 @@
     const symbol = getCurrentSymbol();
     const symbolLabel = symbol || "this asset";
     const perPairLimitUsd = effectiveMaxSingleUsd();
-    const resolvedSymbol = HF.utils.resolveExposureSymbol(symbol);
+    const resolvedSymbol = BT.utils.resolveExposureSymbol(symbol);
     const usedPerPairUsd = (resolvedSymbol && ACCOUNT.notionalByPair[resolvedSymbol]) || 0;
     const remainingPerPairUsd = Math.max(perPairLimitUsd - usedPerPairUsd, 0);
     const leverageBasisUsd = marginLimitBasisUsd();
@@ -91,12 +91,12 @@
     if (!isBlockedOnly) blockedToastDetailsExpanded = false;
 
     let messageHtml = "Order exceeds your <b>" + constraint + " position size limit</b>.";
-    let titleHtml = "Hyperscaled: Size clamped to " + formatSizeForToast(clampedSize, sizeUnit) + " " + sizeUnit;
+    let titleHtml = "Beanstock Trading: Size clamped to " + formatSizeForToast(clampedSize, sizeUnit) + " " + sizeUnit;
     let iconHtml = "\u26a0\ufe0f";
-    let variantClass = "hf-toast hf-toast--alert";
+    let variantClass = "bt-toast bt-toast--alert";
 
     if (allowed === 0) {
-       titleHtml = "Hyperscaled: Order Prevented";
+       titleHtml = "Beanstock Trading: Order Prevented";
        messageHtml =
          "No remaining capacity within your <b>" + constraint + "</b> position limit.";
        if (perAssetBuyContext) {
@@ -105,7 +105,7 @@
          messageHtml += " " + crossPairSuggestions;
        }
        iconHtml = "\u26d4";
-       variantClass = "hf-toast hf-toast--warning";
+       variantClass = "bt-toast bt-toast--warning";
     } else if (isBlockedOnly) {
        titleHtml = "Order Blocked";
        messageHtml = "Requested size is above your active " + constraint + " limit.";
@@ -118,7 +118,7 @@
          messageHtml += " Per-pair remaining: <b>" + pairContext.remainingUsd + "</b> (" + pairContext.remainingLeverage + " available).";
        }
        iconHtml = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="#f87171" stroke-width="1.5"/><line x1="5" y1="5" x2="11" y2="11" stroke="#f87171" stroke-width="1.5" stroke-linecap="round"/></svg>';
-       variantClass = "hf-toast hf-toast--blocked";
+       variantClass = "bt-toast bt-toast--blocked";
     } else if (constraint === 'per-pair') {
        messageHtml = "Single-asset limit is <b>" + fmt(effectiveMaxSingleUsd()) + "</b>. Size " +
          formatSizeForToast(requestedSize, sizeUnit) + " " + sizeUnit + " should be reduced to " +
@@ -135,32 +135,32 @@
     }
 
     const showClose = isBlockedOnly;
-    const detailsId = "hf-toast-blocked-details";
+    const detailsId = "bt-toast-blocked-details";
     const detailsHtml = isBlockedOnly
       ? buildBlockedDetails(constraint, allowed, clampedSize, sizeUnit, formatSizeForToast, pairContext)
       : "";
     const detailsToggleHtml = isBlockedOnly
-      ? '<button class="hf-toast-details-toggle" type="button" aria-expanded="' + (blockedToastDetailsExpanded ? "true" : "false") + '" aria-controls="' + detailsId + '">' +
+      ? '<button class="bt-toast-details-toggle" type="button" aria-expanded="' + (blockedToastDetailsExpanded ? "true" : "false") + '" aria-controls="' + detailsId + '">' +
           '<span>Why blocked?</span>' +
-          '<svg class="hf-toast-details-chevron" width="10" height="10" viewBox="0 0 10 10" fill="none">' +
+          '<svg class="bt-toast-details-chevron" width="10" height="10" viewBox="0 0 10 10" fill="none">' +
             '<path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>' +
           "</svg>" +
         "</button>"
       : "";
     const detailsPanelHtml = isBlockedOnly
-      ? '<div id="' + detailsId + '" class="hf-toast-details' + (blockedToastDetailsExpanded ? " hf-toast-details-open" : "") + '" ' + (blockedToastDetailsExpanded ? "" : "hidden") + ">" +
+      ? '<div id="' + detailsId + '" class="bt-toast-details' + (blockedToastDetailsExpanded ? " bt-toast-details-open" : "") + '" ' + (blockedToastDetailsExpanded ? "" : "hidden") + ">" +
           detailsHtml +
         "</div>"
       : "";
     const innerHtml =
-      '<div class="hf-toast-icon">' + iconHtml + '</div>' +
-      '<div class="hf-toast-content">' +
-        '<div class="hf-toast-title">' + titleHtml + '</div>' +
-        '<div class="hf-toast-msg">' + messageHtml + '</div>' +
+      '<div class="bt-toast-icon">' + iconHtml + '</div>' +
+      '<div class="bt-toast-content">' +
+        '<div class="bt-toast-title">' + titleHtml + '</div>' +
+        '<div class="bt-toast-msg">' + messageHtml + '</div>' +
         detailsToggleHtml +
         detailsPanelHtml +
       '</div>' +
-      (showClose ? '<button class="hf-toast-close" type="button" aria-label="Dismiss">' +
+      (showClose ? '<button class="bt-toast-close" type="button" aria-label="Dismiss">' +
         '<svg width="10" height="10" viewBox="0 0 10 10" fill="none">' +
           '<line x1="1" y1="1" x2="9" y2="9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>' +
           '<line x1="9" y1="1" x2="1" y2="9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>' +
@@ -168,7 +168,7 @@
       '</button>' : '');
 
     if (activeClampToast && activeClampToast.parentNode) {
-      activeClampToast.className = variantClass + " hf-toast-show";
+      activeClampToast.className = variantClass + " bt-toast-show";
       activeClampToast.innerHTML = innerHtml;
       return;
     }
@@ -183,21 +183,21 @@
     activeClampToast = toast;
 
     toast.addEventListener("mousedown", function(e) {
-      const detailsToggle = e.target.closest(".hf-toast-details-toggle");
+      const detailsToggle = e.target.closest(".bt-toast-details-toggle");
       if (detailsToggle) {
         e.preventDefault();
         e.stopPropagation();
         blockedToastDetailsExpanded = !blockedToastDetailsExpanded;
-        const detailsPanel = toast.querySelector(".hf-toast-details");
+        const detailsPanel = toast.querySelector(".bt-toast-details");
         if (detailsPanel) {
           detailsPanel.hidden = !blockedToastDetailsExpanded;
-          detailsPanel.classList.toggle("hf-toast-details-open", blockedToastDetailsExpanded);
+          detailsPanel.classList.toggle("bt-toast-details-open", blockedToastDetailsExpanded);
         }
         detailsToggle.setAttribute("aria-expanded", blockedToastDetailsExpanded ? "true" : "false");
         return;
       }
 
-      if (e.target.closest(".hf-toast-close")) {
+      if (e.target.closest(".bt-toast-close")) {
         e.preventDefault();
         e.stopPropagation();
         blockedToastDismissed = true;
@@ -206,56 +206,56 @@
     });
 
     toast.addEventListener("click", function(e) {
-      const detailsToggle = e.target.closest(".hf-toast-details-toggle");
+      const detailsToggle = e.target.closest(".bt-toast-details-toggle");
       if (detailsToggle) {
         return;
       }
 
-      if (e.target.closest(".hf-toast-close")) {
+      if (e.target.closest(".bt-toast-close")) {
         return;
       }
     });
 
     void toast.offsetWidth;
-    toast.classList.add("hf-toast-show");
+    toast.classList.add("bt-toast-show");
   }
 
   function showDepositScalingToast() {
     const titleHtml = "Deposit Blocked";
     const messageHtml = "You can't deposit while owning assets unless you explicitly bypass this warning.";
     const iconHtml = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="#f87171" stroke-width="1.5"/><line x1="5" y1="5" x2="11" y2="11" stroke="#f87171" stroke-width="1.5" stroke-linecap="round"/></svg>';
-    const variantClass = "hf-toast hf-toast--blocked";
-    const detailsId = "hf-toast-deposit-details";
+    const variantClass = "bt-toast bt-toast--blocked";
+    const detailsId = "bt-toast-deposit-details";
     const detailsToggleHtml =
-      '<button class="hf-toast-details-toggle" type="button" aria-expanded="' + (depositToastDetailsExpanded ? "true" : "false") + '" aria-controls="' + detailsId + '">' +
+      '<button class="bt-toast-details-toggle" type="button" aria-expanded="' + (depositToastDetailsExpanded ? "true" : "false") + '" aria-controls="' + detailsId + '">' +
         '<span>Why blocked?</span>' +
-        '<svg class="hf-toast-details-chevron" width="10" height="10" viewBox="0 0 10 10" fill="none">' +
+        '<svg class="bt-toast-details-chevron" width="10" height="10" viewBox="0 0 10 10" fill="none">' +
           '<path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>' +
         "</svg>" +
       "</button>";
     const detailsPanelHtml =
-      '<div id="' + detailsId + '" class="hf-toast-details' + (depositToastDetailsExpanded ? " hf-toast-details-open" : "") + '" ' + (depositToastDetailsExpanded ? "" : "hidden") + ">" +
-        '<div class="hf-toast-details-head">Why this matters</div>' +
-        '<ul class="hf-toast-details-list">' +
+      '<div id="' + detailsId + '" class="bt-toast-details' + (depositToastDetailsExpanded ? " bt-toast-details-open" : "") + '" ' + (depositToastDetailsExpanded ? "" : "hidden") + ">" +
+        '<div class="bt-toast-details-head">Why this matters</div>' +
+        '<ul class="bt-toast-details-list">' +
           '<li><span>Scaling impact:</span> Depositing while you already own assets changes account equity immediately, which shifts remaining-size calculations for new orders.</li>' +
           '<li><span>Risk impact:</span> Your open positions were sized on pre-deposit equity, so position scaling logic can be temporarily inconsistent until account state is re-evaluated.</li>' +
           '<li><span>Safe path:</span> Close positions first, deposit, then re-open with fresh sizing.</li>' +
         "</ul>" +
       "</div>";
     const bypassActionHtml =
-      '<button class="hf-toast-details-toggle hf-toast-deposit-bypass" type="button" aria-label="Bypass deposit warning">' +
+      '<button class="bt-toast-details-toggle bt-toast-deposit-bypass" type="button" aria-label="Bypass deposit warning">' +
         "<span>I understand - let me deposit</span>" +
       "</button>";
     const innerHtml =
-      '<div class="hf-toast-icon">' + iconHtml + '</div>' +
-      '<div class="hf-toast-content">' +
-        '<div class="hf-toast-title">' + titleHtml + '</div>' +
-        '<div class="hf-toast-msg">' + messageHtml + '</div>' +
+      '<div class="bt-toast-icon">' + iconHtml + '</div>' +
+      '<div class="bt-toast-content">' +
+        '<div class="bt-toast-title">' + titleHtml + '</div>' +
+        '<div class="bt-toast-msg">' + messageHtml + '</div>' +
         detailsToggleHtml +
         detailsPanelHtml +
         bypassActionHtml +
       '</div>' +
-      '<button class="hf-toast-close" type="button" aria-label="Dismiss">' +
+      '<button class="bt-toast-close" type="button" aria-label="Dismiss">' +
         '<svg width="10" height="10" viewBox="0 0 10 10" fill="none">' +
           '<line x1="1" y1="1" x2="9" y2="9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>' +
           '<line x1="9" y1="1" x2="1" y2="9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>' +
@@ -265,7 +265,7 @@
     const container = ensureToastContainer();
     depositToastDetailsExpanded = false;
     if (activeInfoToast && activeInfoToast.parentNode) {
-      activeInfoToast.className = variantClass + " hf-toast-show";
+      activeInfoToast.className = variantClass + " bt-toast-show";
       activeInfoToast.innerHTML = innerHtml;
     } else {
       const toast = document.createElement("div");
@@ -274,37 +274,37 @@
       container.appendChild(toast);
       activeInfoToast = toast;
       void toast.offsetWidth;
-      toast.classList.add("hf-toast-show");
+      toast.classList.add("bt-toast-show");
     }
 
     const toast = activeInfoToast;
     if (toast && !toast.dataset.depositHandlersBound) {
       toast.dataset.depositHandlersBound = "1";
       toast.addEventListener("mousedown", function(e) {
-        const bypassBtn = e.target.closest(".hf-toast-deposit-bypass");
+        const bypassBtn = e.target.closest(".bt-toast-deposit-bypass");
         if (bypassBtn) {
           e.preventDefault();
           e.stopPropagation();
-          HF.tradeGate?.bypassDepositBlockAndRetry?.();
+          BT.tradeGate?.bypassDepositBlockAndRetry?.();
           dismissInfoToast();
           return;
         }
 
-        const detailsToggle = e.target.closest(".hf-toast-details-toggle");
-        if (detailsToggle && !detailsToggle.classList.contains("hf-toast-deposit-bypass")) {
+        const detailsToggle = e.target.closest(".bt-toast-details-toggle");
+        if (detailsToggle && !detailsToggle.classList.contains("bt-toast-deposit-bypass")) {
           e.preventDefault();
           e.stopPropagation();
           depositToastDetailsExpanded = !depositToastDetailsExpanded;
-          const detailsPanel = toast.querySelector(".hf-toast-details");
+          const detailsPanel = toast.querySelector(".bt-toast-details");
           if (detailsPanel) {
             detailsPanel.hidden = !depositToastDetailsExpanded;
-            detailsPanel.classList.toggle("hf-toast-details-open", depositToastDetailsExpanded);
+            detailsPanel.classList.toggle("bt-toast-details-open", depositToastDetailsExpanded);
           }
           detailsToggle.setAttribute("aria-expanded", depositToastDetailsExpanded ? "true" : "false");
           return;
         }
 
-        if (e.target.closest(".hf-toast-close")) {
+        if (e.target.closest(".bt-toast-close")) {
           e.preventDefault();
           e.stopPropagation();
           dismissInfoToast();
@@ -327,7 +327,7 @@
     const toast = activeInfoToast;
     activeInfoToast = null;
     depositToastDetailsExpanded = false;
-    toast.classList.remove("hf-toast-show");
+    toast.classList.remove("bt-toast-show");
     setTimeout(() => {
       if (toast.parentNode) toast.parentNode.removeChild(toast);
     }, 300);
@@ -338,7 +338,7 @@
     const toast = activeClampToast;
     activeClampToast = null;
     blockedToastDetailsExpanded = false;
-    toast.classList.remove("hf-toast-show");
+    toast.classList.remove("bt-toast-show");
     setTimeout(() => {
       if (toast.parentNode) toast.parentNode.removeChild(toast);
     }, 300);
@@ -353,15 +353,15 @@
   }
 
   function showUnsupportedPairToast(symbol) {
-    const variantClass = "hf-toast hf-toast--blocked";
+    const variantClass = "bt-toast bt-toast--blocked";
     const iconHtml = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="#f87171" stroke-width="1.5"/><line x1="5" y1="5" x2="11" y2="11" stroke="#f87171" stroke-width="1.5" stroke-linecap="round"/><line x1="11" y1="5" x2="5" y2="11" stroke="#f87171" stroke-width="1.5" stroke-linecap="round"/></svg>';
     const innerHtml =
-      '<div class="hf-toast-icon">' + iconHtml + '</div>' +
-      '<div class="hf-toast-content">' +
-        '<div class="hf-toast-title">Unsupported Pair</div>' +
-        '<div class="hf-toast-msg"><b>' + (symbol || "This pair") + '</b> is not supported by Hyperscaled. Switch to a supported pair to trade.</div>' +
+      '<div class="bt-toast-icon">' + iconHtml + '</div>' +
+      '<div class="bt-toast-content">' +
+        '<div class="bt-toast-title">Unsupported Pair</div>' +
+        '<div class="bt-toast-msg"><b>' + (symbol || "This pair") + '</b> is not supported by Beanstock Trading. Switch to a supported pair to trade.</div>' +
       '</div>' +
-      '<button class="hf-toast-close" type="button" aria-label="Dismiss">' +
+      '<button class="bt-toast-close" type="button" aria-label="Dismiss">' +
         '<svg width="10" height="10" viewBox="0 0 10 10" fill="none">' +
           '<line x1="1" y1="1" x2="9" y2="9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>' +
           '<line x1="9" y1="1" x2="1" y2="9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>' +
@@ -370,7 +370,7 @@
 
     const container = ensureToastContainer();
     if (activeInfoToast && activeInfoToast.parentNode) {
-      activeInfoToast.className = variantClass + " hf-toast-show";
+      activeInfoToast.className = variantClass + " bt-toast-show";
       activeInfoToast.innerHTML = innerHtml;
     } else {
       const toast = document.createElement("div");
@@ -379,11 +379,11 @@
       container.appendChild(toast);
       activeInfoToast = toast;
       void toast.offsetWidth;
-      toast.classList.add("hf-toast-show");
+      toast.classList.add("bt-toast-show");
     }
 
     activeInfoToast.addEventListener("mousedown", function handler(e) {
-      if (e.target.closest(".hf-toast-close")) {
+      if (e.target.closest(".bt-toast-close")) {
         e.preventDefault();
         dismissInfoToast();
         activeInfoToast?.removeEventListener("mousedown", handler);
@@ -397,7 +397,7 @@
   function showLimitBlockToast() {
     if (activeLimitBlockToast && activeLimitBlockToast.parentNode) return;
 
-    const { fmt, effectiveMaxSingleUsd, effectiveMaxTotalUsd, getCurrentSymbol, resolveExposureSymbol } = HF.utils;
+    const { fmt, effectiveMaxSingleUsd, effectiveMaxTotalUsd, getCurrentSymbol, resolveExposureSymbol } = BT.utils;
     const symbol = getCurrentSymbol();
     const pairMax = effectiveMaxSingleUsd();
     const totalMax = effectiveMaxTotalUsd();
@@ -408,27 +408,27 @@
 
     const iconHtml = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="#f87171" stroke-width="1.5"/><line x1="5" y1="5" x2="11" y2="11" stroke="#f87171" stroke-width="1.5" stroke-linecap="round"/><line x1="11" y1="5" x2="5" y2="11" stroke="#f87171" stroke-width="1.5" stroke-linecap="round"/></svg>';
     const innerHtml =
-      '<div class="hf-toast-icon">' + iconHtml + '</div>' +
-      '<div class="hf-toast-content">' +
-        '<div class="hf-toast-title">Order Blocked — Over Position Limit</div>' +
-        '<div class="hf-toast-msg">Max remaining: <b>' + remaining + '</b>. Reduce your order size to place this trade.</div>' +
+      '<div class="bt-toast-icon">' + iconHtml + '</div>' +
+      '<div class="bt-toast-content">' +
+        '<div class="bt-toast-title">Order Blocked — Over Position Limit</div>' +
+        '<div class="bt-toast-msg">Max remaining: <b>' + remaining + '</b>. Reduce your order size to place this trade.</div>' +
       '</div>';
 
     const container = ensureToastContainer();
     const toast = document.createElement('div');
-    toast.className = 'hf-toast hf-toast--blocked';
+    toast.className = 'bt-toast bt-toast--blocked';
     toast.innerHTML = innerHtml;
     container.appendChild(toast);
     activeLimitBlockToast = toast;
     void toast.offsetWidth;
-    toast.classList.add('hf-toast-show');
+    toast.classList.add('bt-toast-show');
   }
 
   function dismissLimitBlockToast() {
     if (!activeLimitBlockToast) return;
     const toast = activeLimitBlockToast;
     activeLimitBlockToast = null;
-    toast.classList.remove('hf-toast-show');
+    toast.classList.remove('bt-toast-show');
     setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 300);
   }
 
@@ -438,15 +438,15 @@
   // resolves — call evaluateOversizeState() after every ACCOUNT update.
   function computeOverCapInfo() {
     // Trigger semantics: toast fires when HL exposure × ratio exceeds the
-    // HS cap (i.e. validator clamped HS to cap). This distinguishes
+    // BT cap (i.e. validator clamped BT to cap). This distinguishes
     // "intentionally at-cap" (HL fits exactly) from "validator-clamped due
     // to HL excess" — only the latter warrants a warning.
     //
-    // Display values: actual capped HS values from the validator (size ×
+    // Display values: actual capped BT values from the validator (size ×
     // current price, sourced from ACCOUNT.hsPositionsByCoin). The HL
     // projection (HL × ratio, the "would-be" if uncapped) is shown in
     // expanded details so traders can see how much HL needs to reduce.
-    const { fmt, effectiveMaxSingleUsd, effectiveMaxTotalUsd, getMirrorMultiplier } = HF.utils;
+    const { fmt, effectiveMaxSingleUsd, effectiveMaxTotalUsd, getMirrorMultiplier } = BT.utils;
     const pairMax = effectiveMaxSingleUsd();
     const totalMax = effectiveMaxTotalUsd();
     const mirror = getMirrorMultiplier();
@@ -477,19 +477,19 @@
       const worst = overAssets[0];
       const more = overAssets.length > 1 ? ` (+${overAssets.length - 1} more over cap)` : '';
       lines.push(
-        '<b>' + worst.sym + '</b> HS pair is at the cap of <b>' + fmt(pairMax) + '</b>' + more + '. ' +
-        'HL exposure projects to <b>' + fmt(worst.hlTarget) + '</b> in HS terms.'
+        '<b>' + worst.sym + '</b> BT pair is at the cap of <b>' + fmt(pairMax) + '</b>' + more + '. ' +
+        'HL exposure projects to <b>' + fmt(worst.hlTarget) + '</b> in BT terms.'
       );
     }
     if (totalOver) {
       lines.push(
-        'HS portfolio is at the cap of <b>' + fmt(totalMax) + '</b>. ' +
-        'Total HL exposure projects to <b>' + fmt(hlTotalTarget) + '</b> in HS terms.'
+        'BT portfolio is at the cap of <b>' + fmt(totalMax) + '</b>. ' +
+        'Total HL exposure projects to <b>' + fmt(hlTotalTarget) + '</b> in BT terms.'
       );
     }
     lines.push('HL trading is unaffected.');
-    lines.push('HS will resume tracking HL once HL exposure drops below the cap.');
-    return lines.map(l => '<div class="hf-toast-detail-line">' + l + '</div>').join('');
+    lines.push('BT will resume tracking HL once HL exposure drops below the cap.');
+    return lines.map(l => '<div class="bt-toast-detail-line">' + l + '</div>').join('');
   }
 
   function showOversizeToast() {
@@ -497,7 +497,7 @@
     const { fmt, overAssets, pairMax, totalMax, totalOver, hlTotalTarget } = info;
 
     // Compact one-line summary: worst pair, or portfolio if only that breached.
-    // "HS at cap $X" reports the actual capped state; "(HL +$Y)" surfaces
+    // "BT at cap $X" reports the actual capped state; "(HL +$Y)" surfaces
     // the magnitude of the HL excess so traders know how much to reduce.
     let summary;
     if (overAssets.length > 0) {
@@ -505,35 +505,35 @@
       const extra = overAssets.length > 1 ? ' +' + (overAssets.length - 1) : '';
       const excess = Math.max(0, w.hlTarget - pairMax);
       const excessSuffix = excess > 0.01 ? ' (HL +' + fmt(excess) + ')' : '';
-      summary = w.sym + ' HS at cap ' + fmt(pairMax) + excessSuffix + extra;
+      summary = w.sym + ' BT at cap ' + fmt(pairMax) + excessSuffix + extra;
     } else {
       const excess = Math.max(0, hlTotalTarget - totalMax);
       const excessSuffix = excess > 0.01 ? ' (HL +' + fmt(excess) + ')' : '';
-      summary = 'Portfolio HS at cap ' + fmt(totalMax) + excessSuffix;
+      summary = 'Portfolio BT at cap ' + fmt(totalMax) + excessSuffix;
     }
 
     const detailsHtml = buildOversizeDetailsHtml(info);
 
     const innerHtml =
-      '<span class="hf-toast-icon" aria-hidden="true">⚠</span>' +
-      '<span class="hf-toast-summary">Over HS limit · ' + summary + '</span>' +
-      '<button type="button" class="hf-toast-expand" aria-expanded="false" title="Details">▾</button>' +
-      '<button type="button" class="hf-toast-close" title="Dismiss" aria-label="Dismiss">×</button>' +
-      '<div class="hf-toast-details" hidden>' + detailsHtml + '</div>';
+      '<span class="bt-toast-icon" aria-hidden="true">⚠</span>' +
+      '<span class="bt-toast-summary">Over BT limit · ' + summary + '</span>' +
+      '<button type="button" class="bt-toast-expand" aria-expanded="false" title="Details">▾</button>' +
+      '<button type="button" class="bt-toast-close" title="Dismiss" aria-label="Dismiss">×</button>' +
+      '<div class="bt-toast-details" hidden>' + detailsHtml + '</div>';
 
-    const variantClass = "hf-toast hf-toast--warning hf-toast--oversize hf-toast--compact";
+    const variantClass = "bt-toast bt-toast--warning bt-toast--oversize bt-toast--compact";
 
     if (activeOversizeToast && activeOversizeToast.parentNode) {
       // Preserve expanded state across re-renders so updating the numbers
       // doesn't collapse the panel under the user's mouse.
-      const wasExpanded = activeOversizeToast.classList.contains('hf-toast--expanded');
-      activeOversizeToast.className = variantClass + " hf-toast-show" + (wasExpanded ? ' hf-toast--expanded' : '');
+      const wasExpanded = activeOversizeToast.classList.contains('bt-toast--expanded');
+      activeOversizeToast.className = variantClass + " bt-toast-show" + (wasExpanded ? ' bt-toast--expanded' : '');
       activeOversizeToast.innerHTML = innerHtml;
       wireOversizeControls(activeOversizeToast);
       if (wasExpanded) {
-        const det = activeOversizeToast.querySelector('.hf-toast-details');
+        const det = activeOversizeToast.querySelector('.bt-toast-details');
         if (det) det.hidden = false;
-        const ex = activeOversizeToast.querySelector('.hf-toast-expand');
+        const ex = activeOversizeToast.querySelector('.bt-toast-expand');
         if (ex) ex.setAttribute('aria-expanded', 'true');
       }
       return;
@@ -547,17 +547,17 @@
     activeOversizeToast = toast;
     wireOversizeControls(toast);
     void toast.offsetWidth;
-    toast.classList.add("hf-toast-show");
+    toast.classList.add("bt-toast-show");
   }
 
   function wireOversizeControls(toast) {
-    const expandBtn = toast.querySelector('.hf-toast-expand');
-    const closeBtn = toast.querySelector('.hf-toast-close');
-    const details = toast.querySelector('.hf-toast-details');
+    const expandBtn = toast.querySelector('.bt-toast-expand');
+    const closeBtn = toast.querySelector('.bt-toast-close');
+    const details = toast.querySelector('.bt-toast-details');
     if (expandBtn && details) {
       expandBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        const expanded = toast.classList.toggle('hf-toast--expanded');
+        const expanded = toast.classList.toggle('bt-toast--expanded');
         details.hidden = !expanded;
         expandBtn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
       });
@@ -575,19 +575,19 @@
     if (!activeOversizeToast) return;
     const toast = activeOversizeToast;
     activeOversizeToast = null;
-    toast.classList.remove("hf-toast-show");
+    toast.classList.remove("bt-toast-show");
     setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 300);
   }
 
   function evaluateOversizeState() {
-    if (!HF.state.limitsLoaded) return;
-    const { effectiveMaxSingleUsd, effectiveMaxTotalUsd, getMirrorMultiplier } = HF.utils;
+    if (!BT.state.limitsLoaded) return;
+    const { effectiveMaxSingleUsd, effectiveMaxTotalUsd, getMirrorMultiplier } = BT.utils;
     const pairMax = effectiveMaxSingleUsd();
     const totalMax = effectiveMaxTotalUsd();
     const mirror = getMirrorMultiplier();
     if (!(mirror > 0)) return;
     // Trigger by HL exposure × ratio against caps. When HL × ratio > cap,
-    // validator has clamped actual HS to cap — that's the breach worth
+    // validator has clamped actual BT to cap — that's the breach worth
     // warning about. Filled-only (pending limit orders are hypothetical
     // and may never fill; they're surfaced visually elsewhere). The
     // small +0.01 tolerance avoids flickering at exact-fit positions.
@@ -604,7 +604,7 @@
     }
   }
 
-  HF.toast = {
+  BT.toast = {
     showClampToast,
     showDepositScalingToast,
     showUnsupportedPairToast,

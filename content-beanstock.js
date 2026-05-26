@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Hyperscaled – Content script for hyperscaled.trade
+// Beanstock Trading – Content script for beanstocktrading.com
 // Bridges communication between the registration page and the extension.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -8,7 +8,7 @@
 
   // Inject marker element so the page can detect the extension
   const marker = document.createElement("div");
-  marker.id = "hyperscaled-ext";
+  marker.id = "beanstock-ext";
   marker.dataset.version = VERSION;
   marker.style.display = "none";
   (document.documentElement || document.body).appendChild(marker);

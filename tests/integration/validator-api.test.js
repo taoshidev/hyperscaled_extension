@@ -1,5 +1,5 @@
 /**
- * Integration tests — Hyperscaled testnet validator API.
+ * Integration tests — Beanstock Trading testnet validator API.
  *
  * Verifies:
  *   - /hl-traders/{address} returns expected shape + real account data
@@ -179,7 +179,7 @@ describe('transformTraderResponse — open position aggregation', () => {
   });
 
   it('hsPositionsByCoin is empty when all positions are closed', () => {
-    // Post-refactor (Diff #4/#5): HS position values come from
+    // Post-refactor (Diff #4/#5): BT position values come from
     // deriveHsPositionsByCoin (size × price), never `nl × account_size`.
     // With no open positions, the map is empty.
     const openPositions = transformed.positions.positions.filter(

@@ -1,11 +1,11 @@
 /**
- * Hyperscaled Extension — Browser Test Harness
+ * Beanstock Trading Extension — Browser Test Harness
  *
  * Paste this entire script into the DevTools console on app.hyperliquid.xyz
- * (or testnet equivalent) while the Hyperscaled extension is loaded and logged in.
+ * (or testnet equivalent) while the Beanstock Trading extension is loaded and logged in.
  *
  * SAFE: Does NOT click trade buttons or submit orders. Tests the extension's
- * gate/blocking logic by manipulating HF state and checking DOM results.
+ * gate/blocking logic by manipulating BT state and checking DOM results.
  *
  * Usage:
  *   1. Open DevTools → Console on app.hyperliquid.xyz
@@ -34,12 +34,12 @@
   'use strict';
 
   // ── Guard ──────────────────────────────────────────────────────────────────
-  if (!window.__HF) {
-    console.error('[HF Test] window.__HF not found. Load Hyperscaled extension first.');
+  if (!window.__BT) {
+    console.error('[BT Test] window.__BT not found. Load Beanstock Trading extension first.');
     return;
   }
-  const HF = window.__HF;
-  const ACCOUNT = HF.state.ACCOUNT;
+  const BT = window.__BT;
+  const ACCOUNT = BT.state.ACCOUNT;
 
   // ── Helpers ────────────────────────────────────────────────────────────────
   let passed = 0;
@@ -50,7 +50,7 @@
     if (condition) {
       passed++;
       results.push({ status: 'PASS', label });
-      console.log('%c  PASS  %c ' + label, 'color:#00c6a7;font-weight:bold', 'color:inherit', extra != null ? '→ ' + extra : '');
+      console.log('%c  PASS  %c ' + label, 'color:#3edd5c;font-weight:bold', 'color:inherit', extra != null ? '→ ' + extra : '');
     } else {
       failed++;
       results.push({ status: 'FAIL', label });
@@ -66,23 +66,23 @@
   function restoreAccount(snap) { Object.assign(ACCOUNT, snap); }
   function snapshotState() {
     return {
-      shouldBlockTrade: HF.state.shouldBlockTrade,
-      forcedTradeBlock: HF.state.forcedTradeBlock,
-      forcedTradeBlockReason: HF.state.forcedTradeBlockReason,
-      limitsLoaded: HF.state.limitsLoaded,
-      _unsupportedPairBlocked: HF.state._unsupportedPairBlocked,
+      shouldBlockTrade: BT.state.shouldBlockTrade,
+      forcedTradeBlock: BT.state.forcedTradeBlock,
+      forcedTradeBlockReason: BT.state.forcedTradeBlockReason,
+      limitsLoaded: BT.state.limitsLoaded,
+      _unsupportedPairBlocked: BT.state._unsupportedPairBlocked,
     };
   }
-  function restoreState(snap) { Object.assign(HF.state, snap); }
+  function restoreState(snap) { Object.assign(BT.state, snap); }
 
   function oversizeToastVisible() {
-    return !!document.querySelector('.hf-toast--oversize.hf-toast-show');
+    return !!document.querySelector('.bt-toast--oversize.bt-toast-show');
   }
   function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
 
   // ── Full test runner ───────────────────────────────────────────────────────
   async function runAll() {
-    console.log('%c\n═══════════════════════════════════════════════════\n  Hyperscaled Extension — Comprehensive Test Suite\n═══════════════════════════════════════════════════\n', 'color:#6466f1;font-weight:bold;font-size:14px');
+    console.log('%c\n═══════════════════════════════════════════════════\n  Beanstock Trading Extension — Comprehensive Test Suite\n═══════════════════════════════════════════════════\n', 'color:#6466f1;font-weight:bold;font-size:14px');
 
     const accountSnap = snapshotAccount();
     const stateSnap = snapshotState();
@@ -106,15 +106,15 @@
     } finally {
       restoreAccount(accountSnap);
       restoreState(stateSnap);
-      HF.tradeGate?.enforceTradeBlock?.();
-      HF.toast?.dismissOversizeToast?.();
+      BT.tradeGate?.enforceTradeBlock?.();
+      BT.toast?.dismissOversizeToast?.();
     }
 
     const allPassed = failed === 0;
     console.log(
       '\n%c Results: ' + passed + ' passed, ' + failed + ' failed %c',
       allPassed
-        ? 'background:#064e3b;color:#00c6a7;font-weight:bold;padding:4px 8px;border-radius:4px'
+        ? 'background:#064e3b;color:#3edd5c;font-weight:bold;padding:4px 8px;border-radius:4px'
         : 'background:#7f1d1d;color:#f87171;font-weight:bold;padding:4px 8px;border-radius:4px',
       ''
     );
@@ -125,7 +125,7 @@
   async function testIsReduceIntentNative() {
     section('1 · isReduceIntent — native pairs');
     const snap = snapshotAccount();
-    const { isReduceIntent } = HF.utils;
+    const { isReduceIntent } = BT.utils;
     ACCOUNT.signedNotionalByPair = { BTC: 800, ETH: -400 };
 
     assert('BTC sell on long → reduce', isReduceIntent('BTC', 'sell') === true);
@@ -142,7 +142,7 @@
   async function testIsReduceIntentXyz() {
     section('2 · isReduceIntent — xyz pairs (WTIOIL/GOLD)');
     const snap = snapshotAccount();
-    const { isReduceIntent, resolveExposureSymbol } = HF.utils;
+    const { isReduceIntent, resolveExposureSymbol } = BT.utils;
 
     // After checkBalance remaps XYZ:CL → WTIOIL, exposure is stored under "WTIOIL"
     ACCOUNT.signedNotionalByPair = { WTIOIL: 500, GOLD: -300 };
@@ -165,7 +165,7 @@
       isReduceIntent('XYZ:GOLD', 'sell') === false
     );
 
-    // resolveExposureSymbol is exposed on HF.utils
+    // resolveExposureSymbol is exposed on BT.utils
     if (resolveExposureSymbol) {
       assert('resolveExposureSymbol("XYZ:WTIOIL") = "WTIOIL"',
         resolveExposureSymbol('XYZ:WTIOIL') === 'WTIOIL');
@@ -174,7 +174,7 @@
       assert('resolveExposureSymbol("BTC") = "BTC" (identity)',
         resolveExposureSymbol('BTC') === 'BTC');
     } else {
-      console.warn('[HF Test] resolveExposureSymbol not exposed on HF.utils — skipping sub-tests');
+      console.warn('[BT Test] resolveExposureSymbol not exposed on BT.utils — skipping sub-tests');
     }
 
     restoreAccount(snap);
@@ -189,20 +189,20 @@
     ACCOUNT.hlEquity = 1372;
     ACCOUNT.maxPositionPerPair = 686;
     ACCOUNT.maxPortfolio = 2744;
-    HF.state.limitsLoaded = true;
+    BT.state.limitsLoaded = true;
 
-    const pairMax = HF.utils.effectiveMaxSingleUsd();
-    const totalMax = HF.utils.effectiveMaxTotalUsd();
-    const basis = HF.utils.marginLimitBasisUsd();
+    const pairMax = BT.utils.effectiveMaxSingleUsd();
+    const totalMax = BT.utils.effectiveMaxTotalUsd();
+    const basis = BT.utils.marginLimitBasisUsd();
 
     assert('Per-asset cap = $686', Math.abs(pairMax - 686) < 1, pairMax);
     assert('Portfolio cap = $2,744', Math.abs(totalMax - 2744) < 1, totalMax);
     assert('marginLimitBasisUsd = hlEquity ($1,372) — no double-count', Math.abs(basis - 1372) < 1, basis);
 
     // Fallback when limits not loaded
-    HF.state.limitsLoaded = false;
+    BT.state.limitsLoaded = false;
     assert('Fallback: per-asset cap = hlEquity when limits not loaded',
-      HF.utils.effectiveMaxSingleUsd() === 1372);
+      BT.utils.effectiveMaxSingleUsd() === 1372);
 
     restoreAccount(snap);
     restoreState(stSnap);
@@ -211,9 +211,9 @@
   // ── 4 · resolveExposureSymbol ──────────────────────────────────────────────
   async function testResolveExposureSymbol() {
     section('4 · resolveExposureSymbol');
-    const { resolveExposureSymbol } = HF.utils;
+    const { resolveExposureSymbol } = BT.utils;
     if (!resolveExposureSymbol) {
-      console.warn('[HF Test] resolveExposureSymbol not on HF.utils — skipping');
+      console.warn('[BT Test] resolveExposureSymbol not on BT.utils — skipping');
       return;
     }
     assert('XYZ:WTIOIL → WTIOIL', resolveExposureSymbol('XYZ:WTIOIL') === 'WTIOIL');
@@ -234,23 +234,23 @@
     ACCOUNT.maxPortfolio = 2744;
     ACCOUNT.notionalByPair = { BTC: 800 };
     ACCOUNT.openTotalUsed = 800;
-    HF.state.limitsLoaded = true;
+    BT.state.limitsLoaded = true;
 
-    HF.toast.evaluateOversizeState();
+    BT.toast.evaluateOversizeState();
     await wait(50);
 
     assert('Toast shown when BTC ($800) > per-asset cap ($686)', oversizeToastVisible());
-    const el = document.querySelector('.hf-toast--oversize');
+    const el = document.querySelector('.bt-toast--oversize');
     assert('Toast mentions BTC', el?.textContent?.includes('BTC') ?? false);
 
     // Resolve breach
     ACCOUNT.notionalByPair = { BTC: 500 };
     ACCOUNT.openTotalUsed = 500;
-    HF.toast.evaluateOversizeState();
+    BT.toast.evaluateOversizeState();
     await wait(50);
     assert('Toast dismissed when BTC ($500) < cap ($686)', !oversizeToastVisible());
 
-    HF.toast.dismissOversizeToast();
+    BT.toast.dismissOversizeToast();
     restoreAccount(snap);
     restoreState(stSnap);
   }
@@ -267,23 +267,23 @@
     // After remap, xyz exposure stored under display name "WTIOIL"
     ACCOUNT.notionalByPair = { WTIOIL: 800 };
     ACCOUNT.openTotalUsed = 800;
-    HF.state.limitsLoaded = true;
+    BT.state.limitsLoaded = true;
 
-    HF.toast.evaluateOversizeState();
+    BT.toast.evaluateOversizeState();
     await wait(50);
 
     assert('Toast shown when WTIOIL ($800) > per-asset cap ($686)', oversizeToastVisible());
-    const el = document.querySelector('.hf-toast--oversize');
+    const el = document.querySelector('.bt-toast--oversize');
     assert('Toast mentions WTIOIL', el?.textContent?.includes('WTIOIL') ?? false);
 
     // Resolve breach
     ACCOUNT.notionalByPair = { WTIOIL: 400 };
     ACCOUNT.openTotalUsed = 400;
-    HF.toast.evaluateOversizeState();
+    BT.toast.evaluateOversizeState();
     await wait(50);
     assert('Toast dismissed when WTIOIL under cap', !oversizeToastVisible());
 
-    HF.toast.dismissOversizeToast();
+    BT.toast.dismissOversizeToast();
     restoreAccount(snap);
     restoreState(stSnap);
   }
@@ -299,20 +299,20 @@
     ACCOUNT.maxPortfolio = 2744;
     ACCOUNT.notionalByPair = { BTC: 686, ETH: 686, WTIOIL: 686, GOLD: 686 };
     ACCOUNT.openTotalUsed = 2744 + 1;  // just over portfolio cap
-    HF.state.limitsLoaded = true;
+    BT.state.limitsLoaded = true;
 
-    HF.toast.evaluateOversizeState();
+    BT.toast.evaluateOversizeState();
     await wait(50);
     assert('Toast shown when total just over portfolio cap', oversizeToastVisible());
 
     // Under cap
     ACCOUNT.openTotalUsed = 2000;
     ACCOUNT.notionalByPair = { BTC: 500, ETH: 500 };
-    HF.toast.evaluateOversizeState();
+    BT.toast.evaluateOversizeState();
     await wait(50);
     assert('Toast dismissed when total back under cap', !oversizeToastVisible());
 
-    HF.toast.dismissOversizeToast();
+    BT.toast.dismissOversizeToast();
     restoreAccount(snap);
     restoreState(stSnap);
   }
@@ -329,25 +329,25 @@
     ACCOUNT.notionalByPair = { BTC: 400 };
     ACCOUNT.openTotalUsed = 400;
     ACCOUNT.signedNotionalByPair = { BTC: 400 };
-    HF.state.limitsLoaded = true;
-    HF.state.balanceVerified = true;
-    HF.state.validatorDataLoaded = true;
-    HF.state.shouldBlockTrade = false;
-    HF.state.forcedTradeBlock = false;
+    BT.state.limitsLoaded = true;
+    BT.state.balanceVerified = true;
+    BT.state.validatorDataLoaded = true;
+    BT.state.shouldBlockTrade = false;
+    BT.state.forcedTradeBlock = false;
 
-    HF.tradeGate.checkAndBlockButtons();
+    BT.tradeGate.checkAndBlockButtons();
     await wait(50);
-    assert('NOT blocked at $400 BTC (under $686 cap)', !HF.state.shouldBlockTrade);
+    assert('NOT blocked at $400 BTC (under $686 cap)', !BT.state.shouldBlockTrade);
 
     ACCOUNT.notionalByPair = { BTC: 686 };
     ACCOUNT.openTotalUsed = 686;
-    HF.tradeGate.checkAndBlockButtons();
+    BT.tradeGate.checkAndBlockButtons();
     await wait(50);
-    assert('BLOCKED at $686 BTC (at cap, leftSingle = 0)', HF.state.shouldBlockTrade);
+    assert('BLOCKED at $686 BTC (at cap, leftSingle = 0)', BT.state.shouldBlockTrade);
 
     restoreAccount(snap);
     restoreState(stSnap);
-    HF.tradeGate.enforceTradeBlock();
+    BT.tradeGate.enforceTradeBlock();
   }
 
   // ── 9 · Trade blocking — xyz pair ─────────────────────────────────────────
@@ -363,32 +363,32 @@
     ACCOUNT.notionalByPair = { WTIOIL: 300 };
     ACCOUNT.openTotalUsed = 300;
     ACCOUNT.signedNotionalByPair = { WTIOIL: 300 };
-    HF.state.limitsLoaded = true;
-    HF.state.balanceVerified = true;
-    HF.state.validatorDataLoaded = true;
-    HF.state.shouldBlockTrade = false;
-    HF.state.forcedTradeBlock = false;
+    BT.state.limitsLoaded = true;
+    BT.state.balanceVerified = true;
+    BT.state.validatorDataLoaded = true;
+    BT.state.shouldBlockTrade = false;
+    BT.state.forcedTradeBlock = false;
 
-    HF.tradeGate.checkAndBlockButtons();
+    BT.tradeGate.checkAndBlockButtons();
     await wait(50);
-    assert('WTIOIL NOT blocked at $300 (under $686 cap)', !HF.state.shouldBlockTrade);
+    assert('WTIOIL NOT blocked at $300 (under $686 cap)', !BT.state.shouldBlockTrade);
 
     ACCOUNT.notionalByPair = { WTIOIL: 686 };
     ACCOUNT.openTotalUsed = 686;
-    HF.tradeGate.checkAndBlockButtons();
+    BT.tradeGate.checkAndBlockButtons();
     await wait(50);
-    assert('WTIOIL BLOCKED at $686 (at cap)', HF.state.shouldBlockTrade);
+    assert('WTIOIL BLOCKED at $686 (at cap)', BT.state.shouldBlockTrade);
 
     restoreAccount(snap);
     restoreState(stSnap);
-    HF.tradeGate.enforceTradeBlock();
+    BT.tradeGate.enforceTradeBlock();
   }
 
   // ── 10 · Reduce bypass — native ───────────────────────────────────────────
   async function testReduceBypassNative() {
     section('10 · Reduce bypass — BTC sell on long over cap');
     const snap = snapshotAccount();
-    const { isReduceIntent } = HF.utils;
+    const { isReduceIntent } = BT.utils;
 
     ACCOUNT.signedNotionalByPair = { BTC: 800 };  // long BTC over cap
 
@@ -402,7 +402,7 @@
   async function testReduceBypassXyz() {
     section('11 · Reduce bypass — WTIOIL sell via XYZ:WTIOIL URL symbol');
     const snap = snapshotAccount();
-    const { isReduceIntent } = HF.utils;
+    const { isReduceIntent } = BT.utils;
 
     // After remap: stored under "WTIOIL"
     ACCOUNT.signedNotionalByPair = { WTIOIL: 800 };  // long WTIOIL over cap
@@ -439,7 +439,7 @@
     ACCOUNT.hlEquity = 1372;
     ACCOUNT.openTotalUsed = 667;  // should NOT add to basis
 
-    const basis = HF.utils.marginLimitBasisUsd();
+    const basis = BT.utils.marginLimitBasisUsd();
     assert(
       'basis = $1,372 (equity only, NOT $2,039)',
       Math.abs(basis - 1372) < 1,
@@ -467,9 +467,9 @@
   // ── 14 · Pair support — native ────────────────────────────────────────────
   async function testPairSupportNative() {
     section('14 · Pair support — native pairs');
-    const { isSymbolSupported } = HF.pairSupport;
-    if (!HF.state.pairsLoaded) {
-      console.warn('[HF Test] Pairs not loaded yet — skipping pair support tests');
+    const { isSymbolSupported } = BT.pairSupport;
+    if (!BT.state.pairsLoaded) {
+      console.warn('[BT Test] Pairs not loaded yet — skipping pair support tests');
       return;
     }
     assert('BTC is supported', isSymbolSupported('BTC'));
@@ -480,17 +480,17 @@
   // ── 15 · Pair support — xyz ───────────────────────────────────────────────
   async function testPairSupportXyz() {
     section('15 · Pair support — xyz DEX pairs');
-    const { isSymbolSupported } = HF.pairSupport;
-    if (!HF.state.pairsLoaded) {
-      console.warn('[HF Test] Pairs not loaded yet — skipping xyz pair support tests');
+    const { isSymbolSupported } = BT.pairSupport;
+    if (!BT.state.pairsLoaded) {
+      console.warn('[BT Test] Pairs not loaded yet — skipping xyz pair support tests');
       return;
     }
 
-    const symbols = HF.state.SUPPORTED_SYMBOLS;
+    const symbols = BT.state.SUPPORTED_SYMBOLS;
     const hasXyz = symbols.some(s => s.startsWith('XYZ:') || s === 'WTIOIL' || s === 'GOLD');
 
     if (!hasXyz) {
-      console.warn('[HF Test] No xyz pairs in SUPPORTED_SYMBOLS — check your account is on mainnet with xyz pairs enabled');
+      console.warn('[BT Test] No xyz pairs in SUPPORTED_SYMBOLS — check your account is on mainnet with xyz pairs enabled');
       return;
     }
 
@@ -502,7 +502,7 @@
 
     // Unsupported pair must block
     const stSnap = snapshotState();
-    HF.state._unsupportedPairBlocked = false;
+    BT.state._unsupportedPairBlocked = false;
     assert('EURUSD is not supported', !isSymbolSupported('EURUSD'));
     restoreState(stSnap);
   }

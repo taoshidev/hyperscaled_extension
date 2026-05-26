@@ -1,11 +1,11 @@
 // Trade blocking/enforcement — disables trade buttons when over position limits
 (() => {
-  const HF = window.__HF;
-  const { ACCOUNT } = HF.state;
+  const BT = window.__BT;
+  const { ACCOUNT } = BT.state;
 
   const TRADE_BTN_KEYWORDS = ["place order", "buy", "sell", "long", "short"];
-  const TRADE_BLOCK_CLASS = "hf-trade-blocked";
-  const MODAL_BLOCK_MSG_ID = "hf-modal-limit-msg";
+  const TRADE_BLOCK_CLASS = "bt-trade-blocked";
+  const MODAL_BLOCK_MSG_ID = "bt-modal-limit-msg";
   let tradeBlockObserver = null;
   let tradeBlockEnforceQueued = false;
   let isEnforcingBlock = false;
@@ -18,21 +18,21 @@
   const TRADE_GATE_DEBUG = (() => {
     try {
       return (
-        window.HF_TRADE_GATE_DEBUG === true ||
+        window.BT_TRADE_GATE_DEBUG === true ||
         localStorage.getItem("hf_trade_gate_debug") === "1"
       );
     } catch (_) {
-      return window.HF_TRADE_GATE_DEBUG === true;
+      return window.BT_TRADE_GATE_DEBUG === true;
     }
   })();
 
   function logTradeGateDiagnostics({ source, pendingNotional, orderValue, eventType, details, always } = {}) {
     if (!always && !TRADE_GATE_DEBUG) return;
-    console.log("[Hyperscaled][TradeGate]", {
+    console.log("[Beanstock][TradeGate]", {
       source: source || "unknown",
-      shouldBlockTrade: HF.state.shouldBlockTrade,
-      forcedTradeBlock: HF.state.forcedTradeBlock,
-      forcedTradeBlockReason: HF.state.forcedTradeBlockReason,
+      shouldBlockTrade: BT.state.shouldBlockTrade,
+      forcedTradeBlock: BT.state.forcedTradeBlock,
+      forcedTradeBlockReason: BT.state.forcedTradeBlockReason,
       pendingNotional, orderValue, eventType, details,
     });
   }
@@ -50,7 +50,7 @@
   function getDepositButtonTarget(target) {
     const button = target?.closest?.('button, [role="button"]');
     if (!button) return null;
-    if (button.closest("#hf-banner") || button.closest("#hf-toast-container")) return null;
+    if (button.closest("#bt-banner") || button.closest("#bt-toast-container")) return null;
 
     const text = normalizeTradeText(button.textContent);
     const title = normalizeTradeText(button.getAttribute("title"));
@@ -73,7 +73,7 @@
   }
 
   function maybeBlockDepositWhileOwningAssets(e, submitter) {
-    if (!HF.state.balanceVerified || !HF.state.validatorDataLoaded) return;
+    if (!BT.state.balanceVerified || !BT.state.validatorDataLoaded) return;
     const targetForCheck = submitter || e?.target;
     const depositBtn = getDepositButtonTarget(targetForCheck);
     if (!depositBtn) return;
@@ -91,12 +91,12 @@
     if (now - lastDepositWarningAt < 800) return;
     lastDepositWarningAt = now;
 
-    HF.toast.showDepositScalingToast();
+    BT.toast.showDepositScalingToast();
   }
 
   function isTradeButton(btn) {
     if (!(btn instanceof HTMLButtonElement)) return false;
-    if (btn.closest("#hf-banner")) return false;
+    if (btn.closest("#bt-banner")) return false;
     const text = normalizeTradeText(btn.textContent);
     if (TRADE_BTN_KEYWORDS.some((kw) => text.includes(kw))) return true;
     const aria = normalizeTradeText(btn.getAttribute("aria-label"));
@@ -107,7 +107,7 @@
   function isTradeInteractionTarget(target) {
     const el = target?.closest?.('button, [role="button"]');
     if (!el) return false;
-    if (el.closest('#hf-banner') || el.closest('#hf-toast-container')) return false;
+    if (el.closest('#bt-banner') || el.closest('#bt-toast-container')) return false;
     const text = normalizeTradeText(el.textContent);
     const aria = normalizeTradeText(el.getAttribute('aria-label') || '');
     const combined = text + ' ' + aria;
@@ -152,7 +152,7 @@
     try {
       const buttons = findTradeButtons();
       for (const btn of buttons) {
-        if (HF.state.shouldBlockTrade) {
+        if (BT.state.shouldBlockTrade) {
           applyBlockToButton(btn);
         } else {
           removeBlockFromButton(btn);
@@ -174,7 +174,7 @@
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT, null);
     let node;
     while ((node = walker.nextNode())) {
-      if (node.id === HF.state.BANNER_ID || node.closest(`#${HF.state.BANNER_ID}`)) continue;
+      if (node.id === BT.state.BANNER_ID || node.closest(`#${BT.state.BANNER_ID}`)) continue;
       if (node.children && node.children.length > 0) continue;
       const t = (node.textContent || "").trim();
       if (t !== "Confirm Order") continue;
@@ -195,7 +195,7 @@
   function getModalConfirmButtons(container) {
     const buttons = [...container.querySelectorAll("button")];
     return buttons.filter((btn) => {
-      if (btn.closest(`#${HF.state.BANNER_ID}`)) return false;
+      if (btn.closest(`#${BT.state.BANNER_ID}`)) return false;
       const txt = normalizeTradeText(btn.textContent);
       if (!txt) return false;
       if (txt === "x" || txt === "\u00d7" || txt === "\u2715") return false;
@@ -206,7 +206,7 @@
   function applyModalBlock(modal) {
     const confirmButtons = getModalConfirmButtons(modal);
     for (const btn of confirmButtons) {
-      btn.classList.add("hf-modal-confirm-hidden");
+      btn.classList.add("bt-modal-confirm-hidden");
       if (!btn.disabled) btn.disabled = true;
       btn.setAttribute("aria-disabled", "true");
     }
@@ -214,7 +214,7 @@
     if (!document.getElementById(MODAL_BLOCK_MSG_ID)) {
       const msg = document.createElement("div");
       msg.id = MODAL_BLOCK_MSG_ID;
-      msg.className = "hf-modal-limit-warning";
+      msg.className = "bt-modal-limit-warning";
       msg.innerHTML = "&#9888;&#65039; Order blocked — you are over your position limit.";
       const anchor = confirmButtons[0];
       if (anchor && anchor.parentElement) {
@@ -228,7 +228,7 @@
   function removeModalBlock(modal) {
     document.getElementById(MODAL_BLOCK_MSG_ID)?.remove();
     for (const btn of getModalConfirmButtons(modal)) {
-      btn.classList.remove("hf-modal-confirm-hidden");
+      btn.classList.remove("bt-modal-confirm-hidden");
       btn.removeAttribute("aria-disabled");
       if (btn.classList.contains(TRADE_BLOCK_CLASS)) continue;
       if (btn.disabled) btn.disabled = false;
@@ -241,7 +241,7 @@
       document.getElementById(MODAL_BLOCK_MSG_ID)?.remove();
       return;
     }
-    if (HF.state.shouldBlockTrade) applyModalBlock(modal);
+    if (BT.state.shouldBlockTrade) applyModalBlock(modal);
     else removeModalBlock(modal);
   }
 
@@ -272,8 +272,8 @@
   }
 
   function shouldBlockTradeInteraction(target, submitter) {
-    if (!HF.state.shouldBlockTrade) return false;
-    if (target?.closest?.("#hf-toast-container") || target?.closest?.("#hf-banner")) {
+    if (!BT.state.shouldBlockTrade) return false;
+    if (target?.closest?.("#bt-toast-container") || target?.closest?.("#bt-banner")) {
       return false;
     }
     const directButton = submitter || target?.closest?.("button");
@@ -299,19 +299,19 @@
 
   function forceBlockTrade(reason) {
     if (reason === undefined) reason = "limit";
-    HF.state.forcedTradeBlock = true;
-    HF.state.forcedTradeBlockReason = reason;
-    HF.state.shouldBlockTrade = true;
+    BT.state.forcedTradeBlock = true;
+    BT.state.forcedTradeBlockReason = reason;
+    BT.state.shouldBlockTrade = true;
     enforceTradeBlock();
     startTradeBlockObserver();
     installTradeGuards();
-    HF.utils.clampDebug("trade-block-forced", { reason });
+    BT.utils.clampDebug("trade-block-forced", { reason });
   }
 
   function releaseForcedTradeBlock() {
-    HF.state.forcedTradeBlock = false;
-    HF.state.forcedTradeBlockReason = null;
-    HF.toast.dismissClampToast();
+    BT.state.forcedTradeBlock = false;
+    BT.state.forcedTradeBlockReason = null;
+    BT.toast.dismissClampToast();
   }
 
   function installTradeGuards() {
@@ -323,13 +323,13 @@
 
     function hardGate(e, submitter) {
       // Re-evaluate synchronously so state is fresh even if scheduleUpdate hasn't fired
-      if (!HF.state._unsupportedPairBlocked) checkAndBlockButtons();
+      if (!BT.state._unsupportedPairBlocked) checkAndBlockButtons();
 
       // Hard gate: catches cases where button detection fails (role=button,
       // child targets, etc.) The over-cap flow no longer blocks — this only
       // fires for unsupported pairs (which have their own overlay) or
       // explicit forceBlockTrade calls (none in the cap path now).
-      if (HF.state.shouldBlockTrade && isTradeInteractionTarget(e.target)) {
+      if (BT.state.shouldBlockTrade && isTradeInteractionTarget(e.target)) {
         cancelBlockedTrade(e);
         return;
       }
@@ -366,27 +366,27 @@
   }
 
   function checkAndBlockButtons() {
-    // HL orders are no longer blocked when they exceed the HS cap — the
+    // HL orders are no longer blocked when they exceed the BT cap — the
     // mirror-preview card surfaces the over-cap state as a warning and the
     // user can still confirm. Real blocks remain for unsupported pairs and
     // explicit `forceBlockTrade` calls (e.g., drawdown breach handling, if
     // wired up later).
-    if (HF.state._unsupportedPairBlocked) {
-      HF.state.shouldBlockTrade = true;
+    if (BT.state._unsupportedPairBlocked) {
+      BT.state.shouldBlockTrade = true;
       enforceTradeBlock();
       startTradeBlockObserver();
       installTradeGuards();
       return;
     }
 
-    HF.state.shouldBlockTrade = HF.state.forcedTradeBlock || false;
+    BT.state.shouldBlockTrade = BT.state.forcedTradeBlock || false;
     logTradeGateDiagnostics({ source: "checkAndBlockButtons" });
     enforceTradeBlock();
     startTradeBlockObserver();
     installTradeGuards();
   }
 
-  HF.tradeGate = {
+  BT.tradeGate = {
     checkAndBlockButtons,
     enforceTradeBlock,
     forceBlockTrade,
@@ -399,8 +399,8 @@
   };
 
   // If pair-support already flagged an unsupported pair before trade-gate loaded, enforce now.
-  if (HF.state._unsupportedPairBlocked) {
-    HF.state.shouldBlockTrade = true;
+  if (BT.state._unsupportedPairBlocked) {
+    BT.state.shouldBlockTrade = true;
     enforceTradeBlock();
     startTradeBlockObserver();
     installTradeGuards();

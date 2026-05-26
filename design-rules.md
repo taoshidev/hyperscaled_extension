@@ -1,6 +1,6 @@
 # Design Rules
 
-Decisions and conventions for the Hyperscaled extension. Paste this file as context into any Claude session working on this codebase.
+Decisions and conventions for the Beanstock Trading extension. Paste this file as context into any Claude session working on this codebase.
 
 ---
 
@@ -8,7 +8,7 @@ Decisions and conventions for the Hyperscaled extension. Paste this file as cont
 
 | Token | Value | Use when |
 |-------|-------|----------|
-| `--bg` | `#18181b` | Root background for all Hyperscaled UI — popup container, injected banner. The single source of truth for the near-black base referenced throughout the design system. |
+| `--bg` | `#18181b` | Root background for all Beanstock Trading UI — popup container, injected banner. The single source of truth for the near-black base referenced throughout the design system. |
 
 **Rule:** Never hardcode `#18181b` — always use `var(--bg)`. This keeps future theming possible.
 
@@ -35,19 +35,19 @@ The UI uses translucent whites over a near-black background (`#18181b`) to creat
 
 ## Accent Surfaces
 
-Teal (`#00c6a7`) is the brand's single interactive color. It signals: active, safe, positive, interactive.
+Beanstock green (`#3edd5c`) is the brand's single interactive color. It signals: active, safe, positive, interactive.
 
 | Token | Value | Use when |
 |-------|-------|----------|
-| `--accent` | `#00c6a7` | Progress fills, active indicators, `color` on accent text |
+| `--accent` | `#3edd5c` | Progress fills, active indicators, `color` on accent text |
 | `--green` | alias of `--accent` | **Directional/semantic use only:** positive P&L, positive balance change |
-| `--accent-bg` | 10% teal | Badge backgrounds only (LONG badge, In Challenge badge) |
-| `--accent-border` | 20% teal | Badge borders; also ghost button hover background |
-| `--accent-hover-border` | 35% teal | Ghost button hover border only |
+| `--accent-bg` | 10% green | Badge backgrounds only (LONG badge, In Challenge badge) |
+| `--accent-border` | 20% green | Badge borders; also ghost button hover background |
+| `--accent-hover-border` | 35% green | Ghost button hover border only |
 
-**Rule:** Reserve teal for **one element per visual grouping**. Never apply `--accent` to more than one text element in the same card. If two elements compete for teal, one of them is the wrong color.
+**Rule:** Reserve green for **one element per visual grouping**. Never apply `--accent` to more than one text element in the same card. If two elements compete for green, one of them is the wrong color.
 
-**Budget:** The 380px popup has two categories of teal:
+**Budget:** The 380px popup has two categories of green:
 - **Semantic/directional** (always correct, exempt from budget): `--green` on positive P&L, positive change values — this is trading convention, not brand decoration. A trader reads `color: green` as "winning" before they read the number.
 - **Brand accent** (3 max simultaneously): In Challenge badge, challenge progress fill, LONG position badge. That's the brand budget spent.
 
@@ -65,7 +65,7 @@ Three levels. Use the lowest level that communicates the action's importance.
 **Ghost button hover pattern:**
 ```css
 .btn-ghost:hover {
-  border-color: var(--accent-border);  /* teal border hint, no fill */
+  border-color: var(--accent-border);  /* green border hint, no fill */
   color: var(--text-primary);
   background: transparent;
 }
@@ -89,9 +89,22 @@ Used exclusively in the Settings notification preferences. A 36×20px pill with 
 
 ---
 
+## Brand Mark
+
+The b+leaf icon is the only brand surface in the chrome of the UI. Icon-only — no wordmark inside the extension itself. The product name is carried by the popup `<title>` and surrounding copy.
+
+| Surface | Height | Opacity |
+|---------|--------|---------|
+| Popup / sidepanel header (`.logo-icon`) | `28px` | `1` |
+| Injected banner on Hyperliquid (`.bt-brand-logo`) | `26px` | `1` |
+
+**Rule:** The mark has its own internal contrast and saturation — render at full opacity. Width is `auto` to preserve the SVG's intrinsic aspect ratio.
+
+---
+
 ## Amber / Caution Surface
 
-Amber (`#ffb900`) signals: approaching a limit, caution, elevated risk. It sits between teal (safe) and red (blocked) in the severity scale.
+Amber (`#ffb900`) signals: approaching a limit, caution, elevated risk. It sits between green (safe) and red (blocked) in the severity scale.
 
 | Token | Value | Use when |
 |-------|-------|----------|
@@ -117,14 +130,14 @@ Red signals: blocked, critical, loss, unsafe to trade.
 
 ## Indigo Surface
 
-Indigo (`#6466f1`) is reserved for the positions-screen capacity reminder block (`.positions-capacity-*`) — a static, non-semantic accent. Capacity bars elsewhere now use the DD-aligned severity scale (teal/amber/red) so the trader reads a single proximity-to-limit signal across all surfaces.
+Indigo (`#6466f1`) is reserved for the positions-screen capacity reminder block (`.positions-capacity-*`) — a static, non-semantic accent. Capacity bars elsewhere now use the DD-aligned severity scale (green/amber/red) so the trader reads a single proximity-to-limit signal across all surfaces.
 
 | Token | Value | Use when |
 |-------|-------|----------|
 | `--indigo` | `#6466f1` | Positions-screen capacity reminder fill |
 | `--indigo-bg` | `rgba(100, 102, 241, 0.1)` | Positions-screen capacity reminder track |
 
-**Rule:** Do not use `--indigo` for any semantic purpose — it has no directional meaning. Both the popup Leverage & Buying Power block (`.capacity-fill`) and the injected mirror preview bar (`.hf-mp-bar`) use the DD severity scale (`capColor()`), not indigo. The two indigo tokens above survive only for the positions reminder block.
+**Rule:** Do not use `--indigo` for any semantic purpose — it has no directional meaning. Both the popup Leverage & Buying Power block (`.capacity-fill`) and the injected mirror preview bar (`.bt-mp-bar`) use the DD severity scale (`capColor()`), not indigo. The two indigo tokens above survive only for the positions reminder block.
 
 ---
 
@@ -134,13 +147,13 @@ Layered surfaces create depth without heavy shadows. Use the lowest opacity that
 
 | Token | Value | Use when |
 |-------|-------|----------|
-| `--card-bg` | 3% white | Primary/elevated card only (HS Account, Position cards) |
+| `--card-bg` | 3% white | Primary/elevated card only (BT Account, Position cards) |
 | `--card-bg-subtle` | 2% white | Setup/config cards (wallet config form) |
 | `--border-card` | 6% white | Standard card border |
 | `--border-outer` | 8% white | Container border, stronger dividers |
 | `--bar-bg` | 6% white | Progress bar tracks |
 
-**Card usage rule:** Use cards for: HS Account balance card, HL Account balance card (2-column grid), Position cards (grouped interactive data), Next Payout card (navigational destination), Analytics link (navigational destination), Wallet Config form (first-run setup). Everything else — Leverage & Buying Power, Challenge Progress, Drawdown — breathes directly on the background.
+**Card usage rule:** Use cards for: BT Account balance card, HL Account balance card (2-column grid), Position cards (grouped interactive data), Next Payout card (navigational destination), Analytics link (navigational destination), Wallet Config form (first-run setup). Everything else — Leverage & Buying Power, Challenge Progress, Drawdown — breathes directly on the background.
 
 **Never** add box-shadows to cards — depth comes from opacity layering only.
 
@@ -148,19 +161,19 @@ Layered surfaces create depth without heavy shadows. Use the lowest opacity that
 
 ## Hyperliquid page toasts (content script)
 
-Fixed-position toasts injected on the Hyperliquid trading page (`content.css` — `.hf-toast-*`). Used for order clamp feedback and registration prompts.
+Fixed-position toasts injected on the Hyperliquid trading page (`content.css` — `.bt-toast-*`). Used for order clamp feedback and registration prompts.
 
 | Rule | Value / intent |
 |------|----------------|
-| Host isolation | Do **not** use `var(--bg)` / `var(--text-primary)` on toasts — Hyperliquid defines those on `:root`; a translucent `--bg` made injected toasts look “see-through.” Prefer **`#hf-toast-container`-scoped** rules in `content.css` so page `background` shorthands lose the cascade war; use literal `background: #hex none` (not only `background-color`) so host `background-image` layers are cleared. No `::before` glow on toasts — it read as transparency. |
-| Shown state | `opacity: 1` on `.hf-toast-show` — must stay fully opaque over HL’s busy UI. |
+| Host isolation | Do **not** use `var(--bg)` / `var(--text-primary)` on toasts — Hyperliquid defines those on `:root`; a translucent `--bg` made injected toasts look “see-through.” Prefer **`#bt-toast-container`-scoped** rules in `content.css` so page `background` shorthands lose the cascade war; use literal `background: #hex none` (not only `background-color`) so host `background-image` layers are cleared. No `::before` glow on toasts — it read as transparency. |
+| Shown state | `opacity: 1` on `.bt-toast-show` — must stay fully opaque over HL’s busy UI. |
 | Default surface | Solid `#141416`, 14% white border, inset + outer shadow for separation from the chart. |
 | `--warning` (order prevented / zero headroom) | Solid `#120f0f`, strong red border + 3px left `#f87171`, title `#fecaca`, body ~94% white, light text-shadow for legibility on busy pixels. |
 | `--alert` (clamped but non-zero) | Solid `#1a1712`, amber border + 3px left `#ffb900`, title `#fcd34d`. |
-| `--info` | Solid `#141416`, teal border + 3px left `#00c6a7` — no translucent “glass” fill. |
-| `--blocked` (manual over-limit attempt) | Compact red-leaning toast (`280px` width) with title `#f87171`, concise reason line, and a click-to-expand helper panel (`.hf-toast-details`) that explicitly answers **what is happening, why it is blocked, and how to avoid it**. |
+| `--info` | Solid `#141416`, green border + 3px left `#3edd5c` — no translucent “glass” fill. |
+| `--blocked` (manual over-limit attempt) | Compact red-leaning toast (`280px` width) with title `#f87171`, concise reason line, and a click-to-expand helper panel (`.bt-toast-details`) that explicitly answers **what is happening, why it is blocked, and how to avoid it**. |
 
-**Expandable blocked helper rule:** Keep the first line brief and actionable; put explanatory copy behind a button (`.hf-toast-details-toggle`, label "Why blocked?"). The expanded panel uses a low-contrast red tint (`rgba(248,113,113,0.05)`), 10px text, and three structured bullets (`What`, `Why`, `How to avoid`) so traders can skim under pressure.
+**Expandable blocked helper rule:** Keep the first line brief and actionable; put explanatory copy behind a button (`.bt-toast-details-toggle`, label "Why blocked?"). The expanded panel uses a low-contrast red tint (`rgba(248,113,113,0.05)`), 10px text, and three structured bullets (`What`, `Why`, `How to avoid`) so traders can skim under pressure.
 
 ---
 
@@ -259,7 +272,7 @@ Configuration UI that is only needed once (or rarely) must not consume prime ver
 
 **Wallet address — rules:**
 - Collapsed state lives in `.header-right` as `.wallet-inline`: `0x34...1234`. First 4 chars of address (`0x` + 2 hex) + `...` + last 4 chars. Brevity with enough context to recognize the address.
-- Address text: `--font-mono`, `--text-dim`. Edit link: `--text-ghost` at rest → `--text-subtle` on hover. No teal at any state.
+- Address text: `--font-mono`, `--text-dim`. Edit link: `--text-ghost` at rest → `--text-subtle` on hover. No green at any state.
 - `#walletConfig` card is hidden (`display: none`) whenever a saved address exists.
 - On save, collapse immediately via `showWalletCollapsed(address)`. No separate success state.
 - The full form remains in the DOM (just hidden) so input values are preserved if the user cancels an edit.
@@ -282,7 +295,7 @@ The popup has three mutually exclusive screen states, toggled via `style.display
 
 ### Progress bar height
 
-All progress bars use a uniform `10px` height for visual consistency. No height-based hierarchy — bar purpose is distinguished by color alone (teal = challenge, amber = drawdown/pending, indigo = capacity). Current Drawdown is represented as two stacked amber bars (Intraday and EOD Trailing), each still `10px`.
+All progress bars use a uniform `10px` height for visual consistency. No height-based hierarchy — bar purpose is distinguished by color alone (green = challenge, amber = drawdown/pending, indigo = capacity). Current Drawdown is represented as two stacked amber bars (Intraday and EOD Trailing), each still `10px`.
 
 ---
 
@@ -291,9 +304,9 @@ All progress bars use a uniform `10px` height for visual consistency. No height-
 The injected banner's Intraday / EOD Trailing stat group is clickable and opens a dropdown panel with detailed drawdown rules.
 
 ### Trigger
-- `.hf-dd-trigger` on the `.hf-dd-stack` element
+- `.bt-dd-trigger` on the `.bt-dd-stack` element
 - `cursor: pointer`, `opacity: 0.75` on hover, `0.15s ease` transition
-- Click toggles `.hf-dd-panel--open` on the panel; clicking outside dismisses
+- Click toggles `.bt-dd-panel--open` on the panel; clicking outside dismisses
 
 ### Panel surface
 | Property | Value |
@@ -327,11 +340,11 @@ The injected banner's Intraday / EOD Trailing stat group is clickable and opens 
 
 ## Injected Banner Blocked State
 
-When orders are blocked due to insufficient remaining capacity, the banner uses the `hf-blocked` class for behavior only (messaging + trade lock state), not a danger surface tint.
+When orders are blocked due to insufficient remaining capacity, the banner uses the `bt-blocked` class for behavior only (messaging + trade lock state), not a danger surface tint.
 
 | Element | Treatment |
 |---------|-----------|
-| `.hf-bar` bottom border | `--border-card` (neutral) |
+| `.bt-bar` bottom border | `--border-card` (neutral) |
 | Optional inline blocked text/icon | `--text-subtle` |
 | Optional sub-strip surface | `rgba(255,255,255,0.03)` + `1px solid --border-card` |
 | Optional sub-strip CTA | Neutral ghost treatment (`--border-card`, `--text-subtle`) |
@@ -359,14 +372,14 @@ This is a stronger semantic than "blocked" because the trader has already breach
 
 **Rule:** Oversize is the only place capacity bars use red. Indigo remains the default for all under-cap states (any utilization 0–100% of the limit). The red treatment applies to the fill *and* track (paired tokens) so the bar reads as breached at a glance, not just heavy.
 
-### Hyperliquid page toast (`hf-toast--oversize`)
+### Hyperliquid page toast (`bt-toast--oversize`)
 
 | Property | Value |
 |----------|-------|
-| Variant class | `hf-toast hf-toast--warning hf-toast--oversize` (reuses the `--warning` red surface so severity matches "Order Prevented") |
-| Title | `"Hyperscaled: Position Size Over Cap"` |
+| Variant class | `bt-toast bt-toast--warning bt-toast--oversize` (reuses the `--warning` red surface so severity matches "Order Prevented") |
+| Title | `"Beanstock Trading: Position Size Over Cap"` |
 | Body | Worst per-asset breach first (`<symbol>` exposure `<used>` exceeds per-asset cap `<max>`), then total breach if also over, then a one-line action ("Reduce or close positions to bring exposure back under the cap.") |
-| Persistence | Stays up while the breach holds — no auto-dismiss timer. Re-evaluated after every ACCOUNT update (validator fetch, balance check, limits fetch) via `HF.toast.evaluateOversizeState()` |
+| Persistence | Stays up while the breach holds — no auto-dismiss timer. Re-evaluated after every ACCOUNT update (validator fetch, balance check, limits fetch) via `BT.toast.evaluateOversizeState()` |
 
 **Rule:** Oversize toast is informational + actionable. It must list the *worst* over-cap axis so the trader has one specific position to act on. Don't add a close/dismiss button — the toast disappears automatically once exposure returns under cap.
 
@@ -419,26 +432,26 @@ The dashboard **Order Events** section shows validator order activity. When ther
 
 ---
 
-## Leverage & Buying Power — Hyperscaled-Side Block
+## Leverage & Buying Power — Beanstock Trading-Side Block
 
-A single block showing the validator-enforced leverage limits on the funded HS account. HL has no per-pair or portfolio limit (orders pass through unchanged), so a separate HL block was removed — a bar with no real ceiling was misleading. HL exposure data is still available on HL's own UI and in the injected mirror preview at order entry.
+A single block showing the validator-enforced leverage limits on the funded BT account. HL has no per-pair or portfolio limit (orders pass through unchanged), so a separate HL block was removed — a bar with no real ceiling was misleading. HL exposure data is still available on HL's own UI and in the injected mirror preview at order entry.
 
 | Element | Treatment |
 |---------|-----------|
 | Block class | `.capacity-block .capacity-block--hs` |
 | Title | `Leverage & Buying Power` |
-| Basis note | `10px`, `--font-ui`, `--text-faint` — `Scaling ratio: HS balance $X ÷ HL equity $Y = Zx` (no trailing "HL trading is unrestricted" — that meaning lives in the info-expand instead) |
+| Basis note | `10px`, `--font-ui`, `--text-faint` — `Scaling ratio: BT balance $X ÷ HL equity $Y = Zx` (no trailing "HL trading is unrestricted" — that meaning lives in the info-expand instead) |
 | Basis values | `--font-mono`, `--text-body` — inline monospace for dollar amounts and ratios |
-| Bar fill (filled) | DD severity scale via JS — teal `#00c6a7` < 70%, amber `#ffb900` 70–90%, red `rgb(239,68,68)` ≥ 90% or breached. Same `capColor()` thresholds as banner DD and the mirror preview |
+| Bar fill (filled) | DD severity scale via JS — green `#3edd5c` < 70%, amber `#ffb900` 70–90%, red `rgb(239,68,68)` ≥ 90% or breached. Same `capColor()` thresholds as banner DD and the mirror preview |
 | Bar overlay (pending) | 45° striped gradient in the severity color of the after-fill % — pending = "would-be exposure if these limits fill", not real exposure, so it stays striped |
 | Bar track | `--bar-bg` (neutral white at 6%) |
 | Pending text color | Severity color of after-fill % — matches the stripe color, set inline by JS |
 
-**Rule:** The basis note shows the scaling ratio explicitly as a formula (`HS balance ÷ HL equity = ratio`) rather than a single derived number. Surfacing the inputs lets the trader sanity-check the ratio against their own equity readings.
+**Rule:** The basis note shows the scaling ratio explicitly as a formula (`BT balance ÷ HL equity = ratio`) rather than a single derived number. Surfacing the inputs lets the trader sanity-check the ratio against their own equity readings.
 
-**Rule:** The phrase "HL trading is unrestricted" replaces the older "no HL-side cap". The trader needs to know HL orders won't be blocked at the exchange — the validator only enforces caps on the HS mirror at fill time.
+**Rule:** The phrase "HL trading is unrestricted" replaces the older "no HL-side cap". The trader needs to know HL orders won't be blocked at the exchange — the validator only enforces caps on the BT mirror at fill time.
 
-**Rule:** Two rows: **Per Pair Limit** (validator's per-pair cap) and **Portfolio Limit** (validator's portfolio cap). Both are HS-scale.
+**Rule:** Two rows: **Per Pair Limit** (validator's per-pair cap) and **Portfolio Limit** (validator's portfolio cap). Both are BT-scale.
 
 **Rule:** Bars consume `hsPositionsByCoin` (validator's authoritative size × price) for filled exposure and HL's resting-order notional × mirror ratio for the pending overlay. The validator records pending only at fill time, so projected pending must come from HL clearinghouse.
 
@@ -446,7 +459,7 @@ A single block showing the validator-enforced leverage limits on the funded HS a
 
 **Rule:** Bar segments per branch:
 - **add / new** — solid = current magnitude, overlay = (after − current) growth, stripe in severity color of after %
-- **reduce** — solid = after magnitude (smaller), overlay = (current − after) closing tail in teal stripes (matches mirror preview's "fading away" cue)
+- **reduce** — solid = after magnitude (smaller), overlay = (current − after) closing tail in green stripes (matches mirror preview's "fading away" cue)
 - **flip** — solid = after magnitude on the new side, no overlay (the bar snaps to the new size; the side flip itself isn't visualized through 0)
 
 **Rule:** The `± $X pending` text shows the net magnitude delta (`afterMag − currentMag`) — what the bar visually represents — with a `+` for growths and `−` for reductions, separated from the value by a single space (`+ $171.94 pending`, not `+$171.94 pending`). It is inserted *between* filled and `/ cap` so the right-hand side reads as a math-style expression on a single line: `$filled + $pending pending / $cap`. Same format on per-pair and portfolio rows. When `pair_cap` or `portfolio_room` binds the projection, append `(capped)`.
@@ -459,7 +472,7 @@ A single block showing the validator-enforced leverage limits on the funded HS a
 
 ## Mirror Preview Card (Content Script)
 
-A floating card that appears below the order size input on the Hyperliquid trading page. Shows the HL order notional, mirrored amount on the HS account, and a capacity impact bar.
+A floating card that appears below the order size input on the Hyperliquid trading page. Shows the HL order notional, mirrored amount on the BT account, and a capacity impact bar.
 
 | Property | Value |
 |----------|-------|
@@ -471,10 +484,10 @@ A floating card that appears below the order size input on the Hyperliquid tradi
 | Shadow | `0 8px 24px rgba(0,0,0,0.6)`, subtle white inset glow |
 | Row labels | `11px`, `rgba(255,255,255,0.45)` |
 | HL value | `12px / 500`, Menlo, `rgba(255,255,255,0.85)` |
-| Mirror value | `12px / 600`, Menlo, `#00c6a7` (teal) |
+| Mirror value | `12px / 600`, Menlo, `#3edd5c` (green) |
 | Mirror ratio | `10px`, Menlo, `rgba(255,255,255,0.3)`, parenthesized |
 | Capacity title | `9px / 600`, uppercase, `rgba(255,255,255,0.3)` |
-| Capacity pct | `11px / 600`, Menlo, color shifts with after-fill % (teal → amber → red) |
+| Capacity pct | `11px / 600`, Menlo, color shifts with after-fill % (green → amber → red) |
 | Capacity bar | `5px` height, two segments (current + delta), DD-style severity colors |
 | Capacity detail | `10px`, Menlo, `rgba(255,255,255,0.35)` |
 | Transition | `opacity 0.15s ease`, `translateY 0.15s ease` |
@@ -482,19 +495,19 @@ A floating card that appears below the order size input on the Hyperliquid tradi
 
 **Capacity bar colors (DD-aligned severity scale):**
 
-The bar reads "are you about to breach a hard limit?", so it uses the same teal/amber/red scale as banner DD (`ddColor()`), not popup-style neutral indigo. Two segments encode direction:
+The bar reads "are you about to breach a hard limit?", so it uses the same green/amber/red scale as banner DD (`ddColor()`), not popup-style neutral indigo. Two segments encode direction:
 
 | Segment | Width represents | Background |
 |---------|------------------|------------|
-| Solid (`.hf-mp-bar-current`) | The portion that exists both before and after the order. For add/new: current %. For reduce/flip: after %. | `capColor(solid%)` — teal `#00c6a7` < 70%, amber `#ffb900` 70–90%, red `rgb(239,68,68)` ≥ 90%. |
-| Delta — adding (`.hf-mp-bar-pending`) | `afterPct − currentPct`, drawn right of the solid. Color reflects severity of after %. | `barPendingBg(after%)` — teal `rgba(0,198,167,0.4)` < 70%, amber `rgba(255,185,0,0.4)` 70–90%, red `rgba(239,68,68,0.5)` ≥ 90%. |
-| Delta — reducing (`.hf-mp-bar-pending`) | `currentPct − afterPct`, drawn right of the solid. The chunk being closed. | `repeating-linear-gradient(135deg, rgba(0,198,167,0.55) 0 2px, rgba(0,198,167,0.15) 2px 4px)` — teal stripes, "fading away" cue. |
+| Solid (`.bt-mp-bar-current`) | The portion that exists both before and after the order. For add/new: current %. For reduce/flip: after %. | `capColor(solid%)` — green `#3edd5c` < 70%, amber `#ffb900` 70–90%, red `rgb(239,68,68)` ≥ 90%. |
+| Delta — adding (`.bt-mp-bar-pending`) | `afterPct − currentPct`, drawn right of the solid. Color reflects severity of after %. | `barPendingBg(after%)` — green `rgba(62,221,92,0.4)` < 70%, amber `rgba(255,185,0,0.4)` 70–90%, red `rgba(239,68,68,0.5)` ≥ 90%. |
+| Delta — reducing (`.bt-mp-bar-pending`) | `currentPct − afterPct`, drawn right of the solid. The chunk being closed. | `repeating-linear-gradient(135deg, rgba(62,221,92,0.55) 0 2px, rgba(62,221,92,0.15) 2px 4px)` — green stripes, "fading away" cue. |
 
-**Rule:** Direction is encoded by the delta's visual treatment (solid = adding, striped = reducing). Severity is encoded by the delta's hue (teal/amber/red by after %). Combined: a striped tail always means "you're closing"; a solid amber/red overlay always means "this order is pushing into warning/breach".
+**Rule:** Direction is encoded by the delta's visual treatment (solid = adding, striped = reducing). Severity is encoded by the delta's hue (green/amber/red by after %). Combined: a striped tail always means "you're closing"; a solid amber/red overlay always means "this order is pushing into warning/breach".
 
 **Rule:** The card is non-interactive (`pointer-events: none`). It disappears 1.5s after the input loses focus. If mirror ratio is unavailable (data loading), the mirror row is hidden but HL order and capacity still display. Uses solid-background approach to avoid host CSS interference.
 
-**Rule:** Pair name is rendered with the full Vanta pair label (`BTC/USDC`, `ETH/USDC`, `WTIOIL/USDC`) in both the header symbol and the per-pair limit title (`HS BTC/USDC LIMIT`). Same convention as the popup capacity bar — the explicit `/USDC` quote distinguishes the mirrored pair from any unmirrored holdings the trader may carry on HL.
+**Rule:** Pair name is rendered with the full Vanta pair label (`BTC/USDC`, `ETH/USDC`, `WTIOIL/USDC`) in both the header symbol and the per-pair limit title (`BT BTC/USDC LIMIT`). Same convention as the popup capacity bar — the explicit `/USDC` quote distinguishes the mirrored pair from any unmirrored holdings the trader may carry on HL.
 
 ---
 
@@ -528,7 +541,7 @@ A ghost icon button in the header that opens the extension as a side panel.
 
 ## What This UI Should Never Have
 
-- Gradients used decoratively (the teal glow in `.container::before` is the only allowed ambient gradient)
+- Gradients used decoratively (the green glow in `.container::before` is the only allowed ambient gradient)
 - Bright or white backgrounds
 - Heavy drop shadows (`box-shadow` on cards)
 - Rounded corners larger than `--radius-outer` (16px)

@@ -42,9 +42,9 @@ The `data-info` attribute on the button matches the `id="info-{key}"` on the pan
 
 ---
 
-## Leverage & Buying Power Block (HS-side)
+## Leverage & Buying Power Block (BT-side)
 
-A single block showing the validator-enforced leverage limits on the funded HS account. HL has no limits post-faca41c (orders pass through unchanged), so the previous HL/HS toggle block was collapsed to a single HS-only block. HL exposure data still appears in the injected mirror preview at order entry, where it actually informs an action.
+A single block showing the validator-enforced leverage limits on the funded BT account. HL has no limits post-faca41c (orders pass through unchanged), so the previous HL/BT toggle block was collapsed to a single BT-only block. HL exposure data still appears in the injected mirror preview at order entry, where it actually informs an action.
 
 ### HTML structure
 
@@ -54,7 +54,7 @@ A single block showing the validator-enforced leverage limits on the funded HS a
         <span class="capacity-title">Leverage &amp; Buying Power</span>
     </div>
     <div class="capacity-basis-note">
-        Scaling ratio: HS balance <span id="hsBasisValue">$1,002.26</span> &divide; HL equity <span id="hsBasisHlEquity">$47.99</span> = <span id="hsBasisRatio">20.9x</span>
+        Scaling ratio: BT balance <span id="hsBasisValue">$1,002.26</span> &divide; HL equity <span id="hsBasisHlEquity">$47.99</span> = <span id="hsBasisRatio">20.9x</span>
     </div>
     <div class="capacity-row">
         <div class="capacity-row-header">
@@ -94,7 +94,7 @@ A single block showing the validator-enforced leverage limits on the funded HS a
 | Row label | Color | `--text-faint` |
 | Row label | Text transform | `uppercase`, `letter-spacing: 0.03em` |
 | Bar track | Background | `--bar-bg` (neutral white at 6%) |
-| Bar fill | Background | DD severity color via JS — teal `#00c6a7` < 70%, amber `#ffb900` 70–90%, red `rgb(239,68,68)` ≥ 90% or breached |
+| Bar fill | Background | DD severity color via JS — green `#3edd5c` < 70%, amber `#ffb900` 70–90%, red `rgb(239,68,68)` ≥ 90% or breached |
 | Pending overlay | Background | 45° stripe in severity color of after-fill %, opacities `0.55 / 0.18` |
 | Bar height | — | `10px` |
 | Bar radius | — | `5px` |
@@ -108,13 +108,13 @@ A single block showing the validator-enforced leverage limits on the funded HS a
 
 ### Rules
 
-- Bars use the DD severity scale (teal/amber/red) — same `capColor()` thresholds as the banner DD bars and the injected mirror preview, so proximity-to-cap reads consistently across surfaces. JS sets the fill `background` inline based on severity.
+- Bars use the DD severity scale (green/amber/red) — same `capColor()` thresholds as the banner DD bars and the injected mirror preview, so proximity-to-cap reads consistently across surfaces. JS sets the fill `background` inline based on severity.
 - Two rows: "Per Pair Limit" and "Portfolio Limit".
-- The basis note shows the scaling ratio as a formula (`HS balance ÷ HL equity = ratio`) so the trader can verify the conversion against their own readings.
+- The basis note shows the scaling ratio as a formula (`BT balance ÷ HL equity = ratio`) so the trader can verify the conversion against their own readings.
 - "HL trading is unrestricted" replaces the earlier "no HL-side cap" — same meaning, framed positively (what the trader can do, not what's missing).
 - Filled exposure comes from `hsPositionsByCoin` (validator's authoritative size × price). Pending overlay comes from HL resting-orders × mirror ratio (validator only records pending at fill time, so HL clearinghouse is the source).
 - Pending is projected against signed current exposure using the mirror-preview branch logic (`add | reduce | flip | new`). A buy pending against a short is **reduce** or **flip**, not additive. Each pair's after-magnitude is then clamped by `pair_cap` and shared `portfolio_room`. The total row aggregates per-pair after-magnitudes — never the raw sum of pending notional.
-- Bar segments per branch: add/new = solid current + overlay growth (severity stripe); reduce = solid after + overlay closing tail (teal stripe matching mirror preview); flip = solid jumps to after on new side, no overlay.
+- Bar segments per branch: add/new = solid current + overlay growth (severity stripe); reduce = solid after + overlay closing tail (green stripe matching mirror preview); flip = solid jumps to after on new side, no overlay.
 - The `± $X pending` text shows the net magnitude delta (sign indicates direction). Insert it *between* filled and `/ cap` so the row reads as a math expression: `$filled + $pending pending / $cap`. Sign and value are space-separated (`+ $171.94`). Same format applies to per-pair and portfolio rows. Append `(capped)` when `pair_cap` or `portfolio_room` binds the projection.
 - Per-asset row labels show the full Vanta pair name with `/USDC` suffix (e.g. `BTC/USDC`, `ETH/USDC`) so the trader can tell mirrored pairs apart from any unmirrored holdings (`BTC/USDT` etc.) on HL.
 - When open positions exist, render one sub-bar per asset in the "Per Pair Limit" row; each sub-bar scales against per-pair max capacity and is sorted descending by notional.
@@ -147,11 +147,11 @@ When current open positions already exceed the per-asset or total cap, the conte
 The toast is built dynamically in `content/toast.js` (`showOversizeToast()`). Reuses the `--warning` variant surface for visual severity:
 
 ```html
-<div class="hf-toast hf-toast--warning hf-toast--oversize hf-toast-show">
-  <div class="hf-toast-icon"><!-- inline SVG warning glyph --></div>
-  <div class="hf-toast-content">
-    <div class="hf-toast-title">Hyperscaled: Position Size Over Cap</div>
-    <div class="hf-toast-msg">
+<div class="bt-toast bt-toast--warning bt-toast--oversize bt-toast-show">
+  <div class="bt-toast-icon"><!-- inline SVG warning glyph --></div>
+  <div class="bt-toast-content">
+    <div class="bt-toast-title">Beanstock Trading: Position Size Over Cap</div>
+    <div class="bt-toast-msg">
       <b>BTC</b> exposure <b>$1,999.91</b> exceeds the per-asset cap of <b>$352.34</b>.
       Total exposure <b>$1,999.91</b> exceeds the portfolio cap of <b>$1,409.36</b>.
       Reduce or close positions to bring exposure back under the cap.
@@ -164,9 +164,9 @@ The toast is built dynamically in `content/toast.js` (`showOversizeToast()`). Re
 
 | Function | Purpose |
 |----------|---------|
-| `HF.toast.showOversizeToast()` | Build / refresh the toast. Idempotent — replaces innerHTML if already mounted. |
-| `HF.toast.dismissOversizeToast()` | Tear down with the standard 300ms fade. |
-| `HF.toast.evaluateOversizeState()` | Read `ACCOUNT.notionalByPair` / `openTotalUsed` against `effectiveMaxSingleUsd()` / `effectiveMaxTotalUsd()` and call show/dismiss. Bails out if `HF.state.limitsLoaded` is false. |
+| `BT.toast.showOversizeToast()` | Build / refresh the toast. Idempotent — replaces innerHTML if already mounted. |
+| `BT.toast.dismissOversizeToast()` | Tear down with the standard 300ms fade. |
+| `BT.toast.evaluateOversizeState()` | Read `ACCOUNT.notionalByPair` / `openTotalUsed` against `effectiveMaxSingleUsd()` / `effectiveMaxTotalUsd()` and call show/dismiss. Bails out if `BT.state.limitsLoaded` is false. |
 
 `evaluateOversizeState()` is called from `content/api.js` after each ACCOUNT update: `fetchValidatorData()`, `checkBalance()`, and `fetchTraderLimits()`. Wallet-address change calls `dismissOversizeToast()` directly to clear stale state before the new fetches resolve.
 
@@ -176,7 +176,7 @@ The toast is built dynamically in `content/toast.js` (`showOversizeToast()`). Re
 - If total exposure is also over the portfolio cap, append a second sentence — but only after the per-asset line.
 - Always end with the action: `Reduce or close positions to bring exposure back under the cap.`
 - No dismiss button. The toast disappears automatically once exposure returns under cap. This is intentional — the trader cannot snooze a real risk breach.
-- Reuse `hf-toast--warning` styling, do not invent a new color. The trailing `hf-toast--oversize` class is a behavioral marker (used to find/replace the active oversize toast), not a style hook.
+- Reuse `bt-toast--warning` styling, do not invent a new color. The trailing `bt-toast--oversize` class is a behavioral marker (used to find/replace the active oversize toast), not a style hook.
 
 ---
 
@@ -247,6 +247,25 @@ A self-contained section displaying a tracked metric with a title and optional r
 
 ---
 
+## Brand Mark (Header)
+
+The b+leaf icon SVG, used at full opacity. Icon-only — the popup `<title>` carries the product name, so no wordmark needs to render inside the chrome.
+
+```html
+<div class="logo">
+  <img src="images/beanstock-logo.svg" alt="Beanstock Trading" class="logo-icon">
+</div>
+```
+
+| Surface | CSS | Height | Width | Opacity |
+|---------|-----|--------|-------|---------|
+| Popup / sidepanel | `.logo-icon` | `28px` | `auto` | `1` |
+| Injected banner | `#bt-banner .bt-brand-logo` | `26px` | `auto` | `1` |
+
+The banner is one notch smaller because it sits inside a `38px` row alongside dense stat groups; the popup header has more breathing room.
+
+---
+
 ## Wallet Inline (Header)
 
 The wallet address lives in the header once saved — zero screen real estate wasted on setup UI during normal operation. On first run (no address saved), the full `#walletConfig` card is shown below the header.
@@ -292,7 +311,7 @@ Never show the full wallet-config card when an address is already saved. `showWa
 ## Accent Card Block
 
 Card treatment is **reserved** for:
-- HS Account balance card (primary KPI — the one number that matters most)
+- BT Account balance card (primary KPI — the one number that matters most)
 - Position cards (grouped interactive data)
 - Wallet Config form (setup UI, first-run only)
 
@@ -315,7 +334,7 @@ Everything else — Leverage & Buying Power, Challenge Progress, Drawdown, HL Ac
 
 ### Variants
 
-**Primary card** (stronger surface — used by HS Account balance card):
+**Primary card** (stronger surface — used by BT Account balance card):
 ```css
 background: var(--card-bg);
 border-color: rgba(255,255,255,0.1);
@@ -361,7 +380,7 @@ Reserved for true primary actions. Currently no instances exist in the popup —
 
 ### Do not
 
-- Use raw teal (`--accent`) as a button background — it's too loud. Use `--accent-bg` only.
+- Use raw green (`--accent`) as a button background — it's too loud. Use `--accent-bg` only.
 - Use this pattern for utility or debug actions. See Ghost Button and Muted Button below.
 
 ---
@@ -390,20 +409,20 @@ For utility / setup actions that need to be clearly interactive but should not c
 
 ### Rule
 
-Hover reveals a teal border as the only accent signal — confirming interactivity without adding teal to the at-rest view.
+Hover reveals a green border as the only accent signal — confirming interactivity without adding green to the at-rest view.
 
 ---
 
 ## Balance Grid
 
-A 2-column grid displaying the HS Account and HL Account as separate cards. Each card is a label/value/sublabel stack.
+A 2-column grid displaying the BT Account and HL Account as separate cards. Each card is a label/value/sublabel stack.
 
 ### HTML structure
 
 ```html
 <div class="balance-grid">
     <div class="balance-card">
-        <div class="balance-label">HS Account</div>
+        <div class="balance-label">BT Account</div>
         <div class="balance-value"><span id="fundedBalance">--</span></div>
         <div class="balance-change positive"><span id="fundedChange">--</span></div>
     </div>
@@ -440,7 +459,7 @@ A vertically stacked label-above-value pattern used wherever data is displayed: 
 
 ```html
 <!-- Balance card -->
-<div class="balance-label">HS Account</div>
+<div class="balance-label">BT Account</div>
 <div class="balance-value">$106,456.78</div>
 <div class="balance-change positive">+$6,456.78 (6.45%)</div>
 
@@ -523,7 +542,7 @@ A card that collapses to a single-line summary once the user has completed setup
 
 - Address is truncated to `0x34...1234` format: `address.slice(0, 4) + '...' + address.slice(-4)` — first 4 chars (0x + 2 hex) + last 4 chars, in monospace.
 - The confirmation mark (`✓`) uses `--text-subtle`, not `--accent` — it is a confirmation signal, not a call to action.
-- The edit icon uses `--text-ghost` at rest (barely visible) and `--text-subtle` on hover. No teal at any state.
+- The edit icon uses `--text-ghost` at rest (barely visible) and `--text-subtle` on hover. No green at any state.
 - On save: collapse immediately (do not show a success badge — the collapsed address itself is the confirmation).
 - The card's outer padding and border remain identical in both states. Only the inner content swaps.
 
@@ -657,7 +676,7 @@ A welcome/onboarding screen shown when no wallet address is saved. Contains a ce
 <div id="walletConfig" class="screen-not-registered">
     <div class="not-registered-hero">
         <div class="not-registered-icon">⬡</div>
-        <div class="not-registered-title">Welcome to Hyperscaled</div>
+        <div class="not-registered-title">Welcome to Beanstock Trading</div>
         <div class="not-registered-body">Enter your Hyperliquid wallet address...</div>
     </div>
     <div class="not-registered-card">
@@ -669,7 +688,7 @@ A welcome/onboarding screen shown when no wallet address is saved. Contains a ce
         <button id="walletSave" class="wallet-save-btn wallet-save-btn--full">Check</button>
         <div class="not-registered-signup">
             <span class="not-registered-signup-text">Not registered yet?</span>
-            <a href="https://hyperscaled.trade" target="_blank" class="not-registered-signup-link">Sign up at hyperscaled.trade →</a>
+            <a href="https://beanstocktrading.com" target="_blank" class="not-registered-signup-link">Sign up at beanstocktrading.com →</a>
         </div>
     </div>
 </div>
@@ -700,7 +719,7 @@ A welcome/onboarding screen shown when no wallet address is saved. Contains a ce
 - The outer div retains `id="walletConfig"` for JS compatibility — the JS developer toggles this screen via `style.display`.
 - `walletAddress`, `walletSave`, and `walletStatus` IDs must never change — they are bound in popup.js.
 - The input uses `--bg` background (not `--input-bg`) to create a recessed effect inside the `--card-bg` card.
-- The icon (⬡) is the single teal accent element for this screen — no other element uses `--accent` at rest.
+- The icon (⬡) is the single green accent element for this screen — no other element uses `--accent` at rest.
 
 ---
 
@@ -976,23 +995,23 @@ A full settings view with wallet configuration, push notification toggles, and a
 
 ## Hyperliquid clamp toast (content script)
 
-Toast anchored top-right on the Hyperliquid site when the extension blocks or clamps order size against Hyperscaled limits. Rendered by `showClampToast()` in `content/toast.js` into `#hf-toast-container`.
+Toast anchored top-right on the Hyperliquid site when the extension blocks or clamps order size against Beanstock Trading limits. Rendered by `showClampToast()` in `content/toast.js` into `#bt-toast-container`.
 
 ### HTML structure (JS-generated)
 
 ```html
-<div id="hf-toast-container" class="hf-toast-container">
-  <div class="hf-toast hf-toast--blocked hf-toast-show">
-    <div class="hf-toast-icon">…</div>
-    <div class="hf-toast-content">
-      <div class="hf-toast-title">Order Blocked</div>
-      <div class="hf-toast-msg">Requested size is above your active per-pair limit.</div>
-      <button class="hf-toast-details-toggle" type="button" aria-expanded="false" aria-controls="hf-toast-blocked-details">
+<div id="bt-toast-container" class="bt-toast-container">
+  <div class="bt-toast bt-toast--blocked bt-toast-show">
+    <div class="bt-toast-icon">…</div>
+    <div class="bt-toast-content">
+      <div class="bt-toast-title">Order Blocked</div>
+      <div class="bt-toast-msg">Requested size is above your active per-pair limit.</div>
+      <button class="bt-toast-details-toggle" type="button" aria-expanded="false" aria-controls="bt-toast-blocked-details">
         <span>Why blocked?</span>
       </button>
-      <div id="hf-toast-blocked-details" class="hf-toast-details" hidden>
-        <div class="hf-toast-details-head">Why this was blocked</div>
-        <ul class="hf-toast-details-list">
+      <div id="bt-toast-blocked-details" class="bt-toast-details" hidden>
+        <div class="bt-toast-details-head">Why this was blocked</div>
+        <ul class="bt-toast-details-list">
           <li><span>What:</span> attempted order exceeds current capacity.</li>
           <li><span>Why:</span> guardrail keeps account inside challenge limits.</li>
           <li><span>How to avoid:</span> reduce size or free capacity first.</li>
@@ -1007,32 +1026,32 @@ Toast anchored top-right on the Hyperliquid site when the extension blocks or cl
 
 | Class | When |
 |-------|------|
-| `hf-toast--warning` | Order prevented — no headroom left under the limit (`allowed === 0`). |
-| `hf-toast--alert` | Reduced to a positive allowed size. |
-| `hf-toast--blocked` | User-entered order exceeds current capacity; includes a click-to-expand explainer panel. |
-| `hf-toast--info` | Registration / payment prompts. |
+| `bt-toast--warning` | Order prevented — no headroom left under the limit (`allowed === 0`). |
+| `bt-toast--alert` | Reduced to a positive allowed size. |
+| `bt-toast--blocked` | User-entered order exceeds current capacity; includes a click-to-expand explainer panel. |
+| `bt-toast--info` | Registration / payment prompts. |
 
 ### Tokens used
 
-See **Hyperliquid page toasts** in `design-rules.md` — all variants (`--alert` / `--warning` / `--info`) use the same fully opaque treatment; CSS is scoped under `#hf-toast-container` with `background: #hex none` so HL cannot layer translucent backgrounds on “Reduced to …” alerts.
+See **Hyperliquid page toasts** in `design-rules.md` — all variants (`--alert` / `--warning` / `--info`) use the same fully opaque treatment; CSS is scoped under `#bt-toast-container` with `background: #hex none` so HL cannot layer translucent backgrounds on “Reduced to …” alerts.
 
 ### Rules
 
 - Throttle repeated toasts (3s) in JS to avoid spam.
-- Icon column is emoji/SVG today; copy may use `<b>` inside `.hf-toast-msg` and details panel bullets.
-- For `hf-toast--blocked`, keep default state collapsed and reveal context through `.hf-toast-details-toggle` so dense explanatory text never crowds the first glance.
+- Icon column is emoji/SVG today; copy may use `<b>` inside `.bt-toast-msg` and details panel bullets.
+- For `bt-toast--blocked`, keep default state collapsed and reveal context through `.bt-toast-details-toggle` so dense explanatory text never crowds the first glance.
 
 ---
 
 ## Hyperliquid injected banner blocked-state styling (content script)
 
-When `shouldBlockTrade` is true, JS applies `hf-blocked` to `#hf-banner`. This class indicates order-capacity blocking, but the banner remains visually neutral (no red danger wash).
+When `shouldBlockTrade` is true, JS applies `bt-blocked` to `#bt-banner`. This class indicates order-capacity blocking, but the banner remains visually neutral (no red danger wash).
 
 ### HTML structure (stateful class)
 
 ```html
-<div id="hf-banner" class="hf-blocked">
-  <div class="hf-bar">...</div>
+<div id="bt-banner" class="bt-blocked">
+  <div class="bt-bar">...</div>
 </div>
 ```
 
@@ -1040,13 +1059,13 @@ When `shouldBlockTrade` is true, JS applies `hf-blocked` to `#hf-banner`. This c
 
 | Element | Property | Token / Value |
 |---------|----------|---------------|
-| `.hf-bar` | Bottom border | `--border-card` |
-| `.hf-disabled-msg` | Text color | `--text-subtle` |
-| `.hf-icon-disabled` | Icon color | `--text-subtle` |
-| `.hf-sub-strip` | Surface / border | `rgba(255,255,255,0.03)` / `--border-card` |
-| `.hf-sub-strip-btn` | Border / text / hover | `--border-card` / `--text-subtle` / `rgba(255,255,255,0.06)` |
+| `.bt-bar` | Bottom border | `--border-card` |
+| `.bt-disabled-msg` | Text color | `--text-subtle` |
+| `.bt-icon-disabled` | Icon color | `--text-subtle` |
+| `.bt-sub-strip` | Surface / border | `rgba(255,255,255,0.03)` / `--border-card` |
+| `.bt-sub-strip-btn` | Border / text / hover | `--border-card` / `--text-subtle` / `rgba(255,255,255,0.06)` |
 
 ### Rules
 
-- `hf-blocked` is a behavior/state flag; do not treat it as a drawdown-breach color state.
+- `bt-blocked` is a behavior/state flag; do not treat it as a drawdown-breach color state.
 - Reserve red styling for directional loss and true danger semantics (PnL negative, breach values, warning toasts).
