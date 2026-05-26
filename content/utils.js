@@ -1,18 +1,18 @@
 // Pure utility functions — formatting, parsing, leverage calculations, input detection
 (() => {
-  const HF = window.__HF;
-  const { ACCOUNT } = HF.state;
+  const BT = window.__BT;
+  const { ACCOUNT } = BT.state;
 
   function marginLimitBasisUsd() {
-    // Caps live on the HS side now (= ratio × accountBalance), so the
-    // fallback basis when validator limits haven't loaded is the live HS
-    // balance. Trade-gate / mirror-preview compare HS-mapped exposure to
+    // Caps live on the BT side now (= ratio × accountBalance), so the
+    // fallback basis when validator limits haven't loaded is the live BT
+    // balance. Trade-gate / mirror-preview compare BT-mapped exposure to
     // this, not raw HL equity.
     return Number(ACCOUNT.accountBalance) || 0;
   }
 
-  // Multiplier that converts HL-side notional to HS-side notional.
-  // HS_value = HL_value × mirrorMultiplier — mirrors tgbot's `weight × hs_bal`
+  // Multiplier that converts HL-side notional to BT-side notional.
+  // BT_value = HL_value × mirrorMultiplier — mirrors tgbot's `weight × hs_bal`
   // expressed as a single up-front multiply.
   function getMirrorMultiplier() {
     const hlBal = Number(ACCOUNT.hlBalance) || 0;
@@ -28,7 +28,7 @@
   // "XYZ:WTIOIL" map to the same "WTIOIL" key that validator data uses.
   function resolveExposureSymbol(symbol) {
     if (!symbol) return null;
-    const display = HF.state.hlCoinToDisplay || {};
+    const display = BT.state.hlCoinToDisplay || {};
     return display[symbol] || symbol;
   }
 
@@ -56,14 +56,14 @@
   }
 
   function effectiveMaxSingleUsd() {
-    if (HF.state.limitsLoaded && ACCOUNT.maxPositionPerPair > 0) {
+    if (BT.state.limitsLoaded && ACCOUNT.maxPositionPerPair > 0) {
       return ACCOUNT.maxPositionPerPair;
     }
     return marginLimitBasisUsd();
   }
 
   function effectiveMaxTotalUsd() {
-    if (HF.state.limitsLoaded && ACCOUNT.maxPortfolio > 0) {
+    if (BT.state.limitsLoaded && ACCOUNT.maxPortfolio > 0) {
       return ACCOUNT.maxPortfolio;
     }
     return marginLimitBasisUsd();
@@ -136,7 +136,7 @@
   function getHLLeverage() {
     const buttons = document.querySelectorAll('button');
     for (const btn of buttons) {
-      if (btn.closest('#' + HF.state.BANNER_ID)) continue;
+      if (btn.closest('#' + BT.state.BANNER_ID)) continue;
       const text = (btn.textContent || '').trim();
       const match = text.match(/^(\d+(?:\.\d+)?)x$/i);
       if (match) return parseFloat(match[1]);
@@ -202,7 +202,7 @@
     const unit = getSizeUnit();
     if (unit === 'USD' || unit === 'USDC') return inputValue;
     const symbol = getCurrentSymbol();
-    const price = symbol ? (HF.state.midPrices[symbol] || 0) : 0;
+    const price = symbol ? (BT.state.midPrices[symbol] || 0) : 0;
     return price > 0 ? inputValue * price : 0;
   }
 
@@ -211,7 +211,7 @@
     const unit = getSizeUnit();
     if (unit === 'USD' || unit === 'USDC') return notional;
     const symbol = getCurrentSymbol();
-    const price = symbol ? (HF.state.midPrices[symbol] || 0) : 0;
+    const price = symbol ? (BT.state.midPrices[symbol] || 0) : 0;
     return price > 0 ? notional / price : 0;
   }
 
@@ -372,7 +372,7 @@
     let bestSellScore = -Infinity;
 
     for (const button of buttons) {
-      if (button.closest("#" + HF.state.BANNER_ID)) continue;
+      if (button.closest("#" + BT.state.BANNER_ID)) continue;
       const text = normalizeText(button.textContent);
       const aria = normalizeText(button.getAttribute("aria-label"));
       const combined = (text + " " + aria).trim();
@@ -430,7 +430,7 @@
     const nodes = document.querySelectorAll('button, [role="tab"], [role="button"]');
     for (const node of nodes) {
       if (!(node instanceof HTMLElement)) continue;
-      if (node.closest("#" + HF.state.BANNER_ID)) continue;
+      if (node.closest("#" + BT.state.BANNER_ID)) continue;
       if (node.offsetParent === null) continue;
       const text = normalizeText(node.textContent);
       if (!isOrderTypeTabText(text)) continue;
@@ -474,9 +474,9 @@
 
   const CLAMP_DEBUG = (() => {
     try {
-      return window.HF_CLAMP_DEBUG === true || localStorage.getItem("hf_clamp_debug") === "1";
+      return window.BT_CLAMP_DEBUG === true || localStorage.getItem("hf_clamp_debug") === "1";
     } catch (_) {
-      return window.HF_CLAMP_DEBUG === true;
+      return window.BT_CLAMP_DEBUG === true;
     }
   })();
 
@@ -525,7 +525,7 @@
     return parseFloat(Number(value).toFixed(6)).toString();
   }
 
-  HF.utils = {
+  BT.utils = {
     marginLimitBasisUsd,
     getMirrorMultiplier,
     resolveExposureSymbol,

@@ -9,9 +9,9 @@
  *
  * Also verifies extension-side JS cap enforcement using real limit values
  * from the testnet validator:
- *   - applyTraderLimits correctly computes HS-scaled caps from real data
+ *   - applyTraderLimits correctly computes BT-scaled caps from real data
  *     (pair_usd / fundedSize × accountBalance)
- *   - The cap blocks oversized HL orders (HL × mirror > HS cap) and allows
+ *   - The cap blocks oversized HL orders (HL × mirror > BT cap) and allows
  *     correctly-sized orders
  *   - buildHlCoinToDisplay excludes vanta-only pairs from the display map
  *
@@ -67,7 +67,7 @@ beforeAll(async () => {
   ]);
   const hlState = await hlPost(HL_URL, { type: 'clearinghouseState', user: VAULT_ADDRESS });
   hlEq = parseFloat(hlState.crossMarginSummary?.accountValue ?? 0);
-  // Live HS balance from validator dashboard — needed for the new HS-scale
+  // Live BT balance from validator dashboard — needed for the new BT-scale
   // cap math (Diff #2/#3). Falls back to fundedSize for empty test wallets.
   accountBalance = parseFloat(validatorRaw?.dashboard?.account_size_data?.balance)
     || limitsData.account_size;
@@ -123,7 +123,7 @@ describe('Validator rejects unsupported pairs', () => {
 describe('Validator rejects orders exceeding per-pair cap', () => {
   it('BTC-USDC $800 → LeverageLimitError', () => {
     // Server-side check: a sufficiently large HL order is rejected by the
-    // validator before it reaches HL. The exact cap (HS-USD figure ÷ mirror)
+    // validator before it reaches HL. The exact cap (BT-USD figure ÷ mirror)
     // is the server's business; we only assert that $800 trips it on this
     // test wallet.
     const result = runValidate('BTC-USDC', 800);
@@ -156,10 +156,10 @@ describe('Validator rejects orders exceeding per-pair cap', () => {
 
 // ── Extension-side JS cap enforcement (applyTraderLimits with real data) ──────
 //
-// Caps are HS-scale: (pair_usd / fundedSize) × accountBalance. Comparison
+// Caps are BT-scale: (pair_usd / fundedSize) × accountBalance. Comparison
 // against an HL order requires applying the mirror multiplier
-// (accountBalance / hlBalance) to project HL$ → HS$, then comparing to the
-// HS cap. This mirrors content/utils.js + content/toast.js semantics.
+// (accountBalance / hlBalance) to project HL$ → BT$, then comparing to the
+// BT cap. This mirrors content/utils.js + content/toast.js semantics.
 
 describe('Extension JS cap enforcement — real limit values', () => {
   function computeCaps() {
@@ -193,7 +193,7 @@ describe('Extension JS cap enforcement — real limit values', () => {
     expect(caps.maxPortfolio).toBeCloseTo(expected, 0);
   });
 
-  it('HL order $800 × mirror exceeds HS per-pair cap', () => {
+  it('HL order $800 × mirror exceeds BT per-pair cap', () => {
     if (!(accountBalance > 0) || !(hlEq > 0)) return;
     const caps = computeCaps();
     const mirror = accountBalance / hlEq;
@@ -201,7 +201,7 @@ describe('Extension JS cap enforcement — real limit values', () => {
     expect(projectedHsPair).toBeGreaterThan(caps.maxPositionPerPair);
   });
 
-  it('HL order $15 × mirror does NOT exceed HS per-pair cap', () => {
+  it('HL order $15 × mirror does NOT exceed BT per-pair cap', () => {
     if (!(accountBalance > 0) || !(hlEq > 0)) return;
     const caps = computeCaps();
     const mirror = accountBalance / hlEq;
@@ -209,11 +209,11 @@ describe('Extension JS cap enforcement — real limit values', () => {
     expect(projectedHsPair).toBeLessThan(caps.maxPositionPerPair);
   });
 
-  it('HS exposure exactly at cap, any HL add (× mirror) tips it over', () => {
+  it('BT exposure exactly at cap, any HL add (× mirror) tips it over', () => {
     if (!(accountBalance > 0) || !(hlEq > 0)) return;
     const caps = computeCaps();
     const mirror = accountBalance / hlEq;
-    // Existing HS exposure already at the cap edge; any positive HL add
+    // Existing BT exposure already at the cap edge; any positive HL add
     // (× mirror) pushes the projection above the cap.
     const existingHs = caps.maxPositionPerPair;
     const projected = existingHs + 1 * mirror;

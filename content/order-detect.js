@@ -1,7 +1,7 @@
 // Detect order submissions (signalled by order-intercept.js via postMessage)
 // and clear the size input + schedule a validator data refresh 5s later.
 (() => {
-  const HF = window.__HF;
+  const BT = window.__BT;
 
   // nativeInputValueSetter bypasses React's synthetic event system so that
   // dispatching an 'input' event after the value change triggers React's onChange
@@ -13,7 +13,7 @@
     const container = document.querySelector('[data-testid="sz-input"]');
     const input = container
       ? container.querySelector('input')
-      : [...document.querySelectorAll('input')].find(HF.utils.isLikelySizeInput);
+      : [...document.querySelectorAll('input')].find(BT.utils.isLikelySizeInput);
     if (!input) return;
     if (nativeInputValueSetter) {
       nativeInputValueSetter.call(input, '');
@@ -32,14 +32,14 @@
     // Refresh immediately so the new pending order shows up in notionalByPair
     // before the user can type a second order. Without this, the 2s interval
     // below leaves a window where ACCOUNT.notionalByPair is stale.
-    HF.api.checkBalance();
+    BT.api.checkBalance();
 
     if (refreshTimer) clearInterval(refreshTimer);
     let ticks = 0;
     refreshTimer = setInterval(() => {
       ticks++;
-      HF.api.checkBalance();
-      HF.api.fetchValidatorData();
+      BT.api.checkBalance();
+      BT.api.fetchValidatorData();
       if (ticks >= 5) {
         clearInterval(refreshTimer);
         refreshTimer = null;
@@ -49,10 +49,10 @@
 
   window.addEventListener('message', (e) => {
     if (e.source !== window) return;
-    if (e.data && e.data.type === '__HF_ORDER_SUBMITTED__') {
+    if (e.data && e.data.type === '__BT_ORDER_SUBMITTED__') {
       onOrderSubmitted();
     }
   });
 
-  HF.orderDetect = { onOrderSubmitted };
+  BT.orderDetect = { onOrderSubmitted };
 })();

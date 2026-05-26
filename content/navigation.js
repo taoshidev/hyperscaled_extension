@@ -1,6 +1,6 @@
 // SPA navigation detection — history patching, route detection, initial mount
 (() => {
-  const HF = window.__HF;
+  const BT = window.__BT;
 
   function isOnTradeRoute() {
     const validHost = location.hostname === "app.hyperliquid.xyz" ||
@@ -10,7 +10,7 @@
 
   function mountWhenReady() {
     if (!isOnTradeRoute()) {
-      if (document.getElementById(HF.state.BANNER_ID)) HF.lifecycle.teardown();
+      if (document.getElementById(BT.state.BANNER_ID)) BT.lifecycle.teardown();
       return;
     }
     const tradeRoot =
@@ -18,20 +18,20 @@
       document.querySelector('[class*="App"]') ||
       document.querySelector("main");
     if (!tradeRoot) return;
-    if (!document.getElementById(HF.state.BANNER_ID)) HF.lifecycle.inject();
-    HF.pairSupport.checkPairSupport();
+    if (!document.getElementById(BT.state.BANNER_ID)) BT.lifecycle.inject();
+    BT.pairSupport.checkPairSupport();
   }
 
   function onNavChange() {
     setTimeout(() => {
       mountWhenReady();
-      HF.inputBinding.scheduleUpdate();
-      HF.pairSupport.checkPairSupport();
+      BT.inputBinding.scheduleUpdate();
+      BT.pairSupport.checkPairSupport();
     }, 0);
     setTimeout(() => {
       mountWhenReady();
-      HF.inputBinding.scheduleUpdate();
-      HF.pairSupport.checkPairSupport();
+      BT.inputBinding.scheduleUpdate();
+      BT.pairSupport.checkPairSupport();
     }, 600);
   }
 
@@ -63,12 +63,12 @@
   // Initial mount
   setTimeout(() => {
     mountWhenReady();
-    HF.inputBinding.scheduleUpdate();
-    HF.pairSupport.checkPairSupport();
-    HF.payment.processRegistrationPayment();
+    BT.inputBinding.scheduleUpdate();
+    BT.pairSupport.checkPairSupport();
+    BT.payment.processRegistrationPayment();
   }, 300);
 
-  HF.navigation = {
+  BT.navigation = {
     isOnTradeRoute,
     mountWhenReady,
   };

@@ -12,7 +12,7 @@
     if (isExchange) {
       p.then(function (r) {
         if (r && r.ok) {
-          window.postMessage({ type: '__HF_ORDER_SUBMITTED__' }, '*');
+          window.postMessage({ type: '__BT_ORDER_SUBMITTED__' }, '*');
         }
       }).catch(function () {});
     }

@@ -13,7 +13,7 @@
             font-family: ui-sans-serif, system-ui, sans-serif;
             min-height: 100vh;
         }
-        #hf-banner { position: relative !important; }
+        #bt-banner { position: relative !important; }
 
         .fake-hl {
             padding: 32px 20px;
@@ -69,106 +69,106 @@
 </head>
 <body>
 
-<div id="hf-banner">
-  <div class="hf-bar">
-    <span class="hf-brand"><img src="images/beanstock-logo.svg" alt="Beanstock Trading" class="hf-brand-logo"></span>
-    <span class="hf-status-badge">● In Challenge</span>
-    <span class="hf-divider"></span>
+<div id="bt-banner">
+  <div class="bt-bar">
+    <span class="bt-brand"><img src="images/beanstock-logo.svg" alt="Beanstock Trading" class="bt-brand-logo"></span>
+    <span class="bt-status-badge">● In Challenge</span>
+    <span class="bt-divider"></span>
 
-    <div class="hf-stat-group">
-      <span class="hf-stat-label">EQUITY</span>
-      <span class="hf-stat-value" id="hf-equity">$12,847.32</span>
+    <div class="bt-stat-group">
+      <span class="bt-stat-label">EQUITY</span>
+      <span class="bt-stat-value" id="bt-equity">$12,847.32</span>
     </div>
 
-    <span class="hf-divider"></span>
+    <span class="bt-divider"></span>
 
-    <div class="hf-dd-stack hf-dd-trigger" id="hf-dd-trigger">
-      <div class="hf-dd-row">
-        <span class="hf-dd-label">DAILY</span>
-        <span class="hf-dd-value" id="hf-daily" style="color:var(--accent) !important">1.23%</span>
-        <span class="hf-dd-suffix">/ 5.00%</span>
+    <div class="bt-dd-stack bt-dd-trigger" id="bt-dd-trigger">
+      <div class="bt-dd-row">
+        <span class="bt-dd-label">DAILY</span>
+        <span class="bt-dd-value" id="bt-daily" style="color:var(--accent) !important">1.23%</span>
+        <span class="bt-dd-suffix">/ 5.00%</span>
       </div>
-      <div class="hf-dd-row">
-        <span class="hf-dd-label">TRAILING</span>
-        <span class="hf-dd-value" id="hf-trailing" style="color:var(--accent) !important">2.10%</span>
-        <span class="hf-dd-suffix">/ 5.00%</span>
+      <div class="bt-dd-row">
+        <span class="bt-dd-label">TRAILING</span>
+        <span class="bt-dd-value" id="bt-trailing" style="color:var(--accent) !important">2.10%</span>
+        <span class="bt-dd-suffix">/ 5.00%</span>
       </div>
     </div>
 
     <!-- Drawdown Rules dropdown panel -->
-    <div class="hf-dd-panel" id="hf-dd-panel">
-      <div class="hf-dd-panel-header">
-        <div class="hf-dd-panel-title">Drawdown Rules</div>
-        <div class="hf-dd-panel-sub">Two independent drawdown rules — breaching either results in immediate disqualification.</div>
+    <div class="bt-dd-panel" id="bt-dd-panel">
+      <div class="bt-dd-panel-header">
+        <div class="bt-dd-panel-title">Drawdown Rules</div>
+        <div class="bt-dd-panel-sub">Two independent drawdown rules — breaching either results in immediate disqualification.</div>
       </div>
-      <div class="hf-dd-panel-grid">
-        <div class="hf-dd-panel-col">
-          <div class="hf-dd-panel-col-header">
-            <span class="hf-dd-panel-dot" style="background:var(--indigo) !important"></span>
-            <span class="hf-dd-panel-col-title">RULE 1 — DAILY LOSS LIMIT (5.00%)</span>
-            <span class="hf-dd-panel-badge hf-dd-panel-badge--accent">Safe</span>
+      <div class="bt-dd-panel-grid">
+        <div class="bt-dd-panel-col">
+          <div class="bt-dd-panel-col-header">
+            <span class="bt-dd-panel-dot" style="background:var(--indigo) !important"></span>
+            <span class="bt-dd-panel-col-title">RULE 1 — DAILY LOSS LIMIT (5.00%)</span>
+            <span class="bt-dd-panel-badge bt-dd-panel-badge--accent">Safe</span>
           </div>
-          <div class="hf-dd-panel-rows">
-            <div class="hf-dd-panel-row"><span class="hf-dd-panel-key">Day open equity</span><span class="hf-dd-panel-val">$12,847.32</span></div>
-            <div class="hf-dd-panel-row"><span class="hf-dd-panel-key">Breach level</span><span class="hf-dd-panel-val hf-dd-panel-val--red">$12,204.95</span></div>
-            <div class="hf-dd-panel-row"><span class="hf-dd-panel-key">Current loss</span><span class="hf-dd-panel-val">$158.02 (1.23%)</span></div>
-            <div class="hf-dd-panel-row"><span class="hf-dd-panel-key">Buffer remaining</span><span class="hf-dd-panel-val hf-dd-panel-val--accent">$484.35</span></div>
+          <div class="bt-dd-panel-rows">
+            <div class="bt-dd-panel-row"><span class="bt-dd-panel-key">Day open equity</span><span class="bt-dd-panel-val">$12,847.32</span></div>
+            <div class="bt-dd-panel-row"><span class="bt-dd-panel-key">Breach level</span><span class="bt-dd-panel-val bt-dd-panel-val--red">$12,204.95</span></div>
+            <div class="bt-dd-panel-row"><span class="bt-dd-panel-key">Current loss</span><span class="bt-dd-panel-val">$158.02 (1.23%)</span></div>
+            <div class="bt-dd-panel-row"><span class="bt-dd-panel-key">Buffer remaining</span><span class="bt-dd-panel-val bt-dd-panel-val--accent">$484.35</span></div>
           </div>
-          <div class="hf-dd-panel-note">Checked intraday in real-time. Resets 00:00 UTC.</div>
+          <div class="bt-dd-panel-note">Checked intraday in real-time. Resets 00:00 UTC.</div>
         </div>
-        <div class="hf-dd-panel-col">
-          <div class="hf-dd-panel-col-header">
-            <span class="hf-dd-panel-dot" style="background:var(--amber) !important"></span>
-            <span class="hf-dd-panel-col-title">RULE 2 — EOD TRAILING LOSS LIMIT (5.00%)</span>
-            <span class="hf-dd-panel-badge hf-dd-panel-badge--accent">Safe</span>
+        <div class="bt-dd-panel-col">
+          <div class="bt-dd-panel-col-header">
+            <span class="bt-dd-panel-dot" style="background:var(--amber) !important"></span>
+            <span class="bt-dd-panel-col-title">RULE 2 — EOD TRAILING LOSS LIMIT (5.00%)</span>
+            <span class="bt-dd-panel-badge bt-dd-panel-badge--accent">Safe</span>
           </div>
-          <div class="hf-dd-panel-rows">
-            <div class="hf-dd-panel-row"><span class="hf-dd-panel-key">EOD high water mark</span><span class="hf-dd-panel-val">$12,847.32</span></div>
-            <div class="hf-dd-panel-row"><span class="hf-dd-panel-key">Breach level</span><span class="hf-dd-panel-val hf-dd-panel-val--red">$12,204.95</span></div>
-            <div class="hf-dd-panel-row"><span class="hf-dd-panel-key">Drawdown from HWM</span><span class="hf-dd-panel-val">$269.79 (2.10%)</span></div>
-            <div class="hf-dd-panel-row"><span class="hf-dd-panel-key">Buffer remaining</span><span class="hf-dd-panel-val hf-dd-panel-val--accent">$372.57</span></div>
+          <div class="bt-dd-panel-rows">
+            <div class="bt-dd-panel-row"><span class="bt-dd-panel-key">EOD high water mark</span><span class="bt-dd-panel-val">$12,847.32</span></div>
+            <div class="bt-dd-panel-row"><span class="bt-dd-panel-key">Breach level</span><span class="bt-dd-panel-val bt-dd-panel-val--red">$12,204.95</span></div>
+            <div class="bt-dd-panel-row"><span class="bt-dd-panel-key">Drawdown from HWM</span><span class="bt-dd-panel-val">$269.79 (2.10%)</span></div>
+            <div class="bt-dd-panel-row"><span class="bt-dd-panel-key">Buffer remaining</span><span class="bt-dd-panel-val bt-dd-panel-val--accent">$372.57</span></div>
           </div>
-          <div class="hf-dd-panel-note">Checked at end of day. HWM trails upward with equity gains.</div>
+          <div class="bt-dd-panel-note">Checked at end of day. HWM trails upward with equity gains.</div>
         </div>
       </div>
-      <div class="hf-dd-panel-footer">
+      <div class="bt-dd-panel-footer">
         <span>Trading day resets 00:00 UTC</span>
-        <span class="hf-dd-panel-sep">|</span>
+        <span class="bt-dd-panel-sep">|</span>
         <span>Daily = intraday real-time</span>
-        <span class="hf-dd-panel-sep">|</span>
+        <span class="bt-dd-panel-sep">|</span>
         <span>Trailing = checked at EOD</span>
       </div>
     </div>
 
-    <span class="hf-divider"></span>
+    <span class="bt-divider"></span>
 
-    <div class="hf-stat-group">
-      <span class="hf-stat-label">TARGET</span>
-      <div class="hf-target-bar">
-        <div class="hf-target-fill" id="hf-target-fill" style="width:42% !important; background-color:var(--indigo) !important"></div>
+    <div class="bt-stat-group">
+      <span class="bt-stat-label">TARGET</span>
+      <div class="bt-target-bar">
+        <div class="bt-target-fill" id="bt-target-fill" style="width:42% !important; background-color:var(--indigo) !important"></div>
       </div>
-      <span class="hf-target-value" id="hf-target-val" style="color:var(--indigo) !important">4.2%</span>
-      <span class="hf-target-suffix">/ 10%</span>
+      <span class="bt-target-value" id="bt-target-val" style="color:var(--indigo) !important">4.2%</span>
+      <span class="bt-target-suffix">/ 10%</span>
     </div>
 
-    <span class="hf-divider"></span>
+    <span class="bt-divider"></span>
 
-    <div class="hf-stat-group">
-      <span class="hf-stat-label">HWM</span>
-      <span class="hf-stat-value" id="hf-hwm">$12,847.32</span>
+    <div class="bt-stat-group">
+      <span class="bt-stat-label">HWM</span>
+      <span class="bt-stat-value" id="bt-hwm">$12,847.32</span>
     </div>
 
-    <span class="hf-divider" id="hf-disabled-divider" style="display:none !important"></span>
-    <span class="hf-disabled-msg" id="hf-disabled-msg"><svg class="hf-icon-disabled" width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="2"/><line x1="3.5" y1="3.5" x2="12.5" y2="12.5" stroke="currentColor" stroke-width="2"/></svg> Daily loss limit hit — trading paused</span>
+    <span class="bt-divider" id="bt-disabled-divider" style="display:none !important"></span>
+    <span class="bt-disabled-msg" id="bt-disabled-msg"><svg class="bt-icon-disabled" width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="2"/><line x1="3.5" y1="3.5" x2="12.5" y2="12.5" stroke="currentColor" stroke-width="2"/></svg> Daily loss limit hit — trading paused</span>
 
-    <span class="hf-spacer"></span>
+    <span class="bt-spacer"></span>
   </div>
 
-  <div class="hf-sub-strip">
-    <span class="hf-sub-strip-title">Beanstock Trading Extension</span>
-    <span class="hf-sub-strip-body">Your daily loss limit of 5% has been reached. New trade submissions are blocked until the next trading day (resets 00:00 UTC).</span>
-    <a class="hf-sub-strip-btn" href="#">View Dashboard →</a>
-    <span class="hf-sub-strip-via">via Beanstock Trading extension</span>
+  <div class="bt-sub-strip">
+    <span class="bt-sub-strip-title">Beanstock Trading Extension</span>
+    <span class="bt-sub-strip-body">Your daily loss limit of 5% has been reached. New trade submissions are blocked until the next trading day (resets 00:00 UTC).</span>
+    <a class="bt-sub-strip-btn" href="#">View Dashboard →</a>
+    <span class="bt-sub-strip-via">via Beanstock Trading extension</span>
   </div>
 </div>
 
@@ -202,15 +202,15 @@ function setState(mode) {
     const btnId = mode === 'target-high' ? 'btn-target-high' : 'btn-' + mode;
     document.getElementById(btnId).classList.add('active');
 
-    const banner = document.getElementById('hf-banner');
-    const daily = document.getElementById('hf-daily');
-    const trailing = document.getElementById('hf-trailing');
-    const targetFill = document.getElementById('hf-target-fill');
-    const targetVal = document.getElementById('hf-target-val');
-    const ddStack = document.getElementById('hf-dd-stack');
-    const disabledDiv = document.getElementById('hf-disabled-divider');
+    const banner = document.getElementById('bt-banner');
+    const daily = document.getElementById('bt-daily');
+    const trailing = document.getElementById('bt-trailing');
+    const targetFill = document.getElementById('bt-target-fill');
+    const targetVal = document.getElementById('bt-target-val');
+    const ddStack = document.getElementById('bt-dd-stack');
+    const disabledDiv = document.getElementById('bt-disabled-divider');
 
-    banner.classList.remove('hf-blocked', 'hf-warning');
+    banner.classList.remove('bt-blocked', 'bt-warning');
 
     switch (mode) {
         case 'normal':
@@ -225,32 +225,32 @@ function setState(mode) {
             disabledDiv.style.setProperty('display', 'none', 'important');
             // Remove warning icons
             ddStack.innerHTML = `
-              <div class="hf-dd-row">
-                <span class="hf-dd-label">DAILY</span>
-                <span class="hf-dd-value" id="hf-daily" style="color:var(--accent) !important">1.23%</span>
-                <span class="hf-dd-suffix">/ 5.00%</span>
+              <div class="bt-dd-row">
+                <span class="bt-dd-label">DAILY</span>
+                <span class="bt-dd-value" id="bt-daily" style="color:var(--accent) !important">1.23%</span>
+                <span class="bt-dd-suffix">/ 5.00%</span>
               </div>
-              <div class="hf-dd-row">
-                <span class="hf-dd-label">TRAILING</span>
-                <span class="hf-dd-value" id="hf-trailing" style="color:var(--accent) !important">2.10%</span>
-                <span class="hf-dd-suffix">/ 5.00%</span>
+              <div class="bt-dd-row">
+                <span class="bt-dd-label">TRAILING</span>
+                <span class="bt-dd-value" id="bt-trailing" style="color:var(--accent) !important">2.10%</span>
+                <span class="bt-dd-suffix">/ 5.00%</span>
               </div>`;
             break;
 
         case 'warning':
-            banner.classList.add('hf-warning');
+            banner.classList.add('bt-warning');
             ddStack.innerHTML = `
-              <div class="hf-dd-row">
-                <span class="hf-dd-label">DAILY</span>
-                <span class="hf-dd-value" id="hf-daily" style="color:var(--amber) !important">4.32%</span>
-                <span class="hf-dd-suffix">/ 5.00%</span>
-                <span class="hf-dd-warn" style="color:var(--amber) !important">⚠</span>
+              <div class="bt-dd-row">
+                <span class="bt-dd-label">DAILY</span>
+                <span class="bt-dd-value" id="bt-daily" style="color:var(--amber) !important">4.32%</span>
+                <span class="bt-dd-suffix">/ 5.00%</span>
+                <span class="bt-dd-warn" style="color:var(--amber) !important">⚠</span>
               </div>
-              <div class="hf-dd-row">
-                <span class="hf-dd-label">TRAILING</span>
-                <span class="hf-dd-value" id="hf-trailing" style="color:var(--amber) !important">4.10%</span>
-                <span class="hf-dd-suffix">/ 5.00%</span>
-                <span class="hf-dd-warn" style="color:var(--amber) !important">⚠</span>
+              <div class="bt-dd-row">
+                <span class="bt-dd-label">TRAILING</span>
+                <span class="bt-dd-value" id="bt-trailing" style="color:var(--amber) !important">4.10%</span>
+                <span class="bt-dd-suffix">/ 5.00%</span>
+                <span class="bt-dd-warn" style="color:var(--amber) !important">⚠</span>
               </div>`;
             targetFill.style.setProperty('width', '42%', 'important');
             targetFill.style.setProperty('background-color', 'var(--indigo)', 'important');
@@ -260,17 +260,17 @@ function setState(mode) {
             break;
 
         case 'disabled':
-            banner.classList.add('hf-blocked');
+            banner.classList.add('bt-blocked');
             ddStack.innerHTML = `
-              <div class="hf-dd-row">
-                <span class="hf-dd-label">DAILY</span>
-                <span class="hf-dd-value" id="hf-daily" style="color:var(--accent) !important">1.23%</span>
-                <span class="hf-dd-suffix">/ 5.00%</span>
+              <div class="bt-dd-row">
+                <span class="bt-dd-label">DAILY</span>
+                <span class="bt-dd-value" id="bt-daily" style="color:var(--accent) !important">1.23%</span>
+                <span class="bt-dd-suffix">/ 5.00%</span>
               </div>
-              <div class="hf-dd-row">
-                <span class="hf-dd-label">TRAILING</span>
-                <span class="hf-dd-value" id="hf-trailing" style="color:var(--accent) !important">2.10%</span>
-                <span class="hf-dd-suffix">/ 5.00%</span>
+              <div class="bt-dd-row">
+                <span class="bt-dd-label">TRAILING</span>
+                <span class="bt-dd-value" id="bt-trailing" style="color:var(--accent) !important">2.10%</span>
+                <span class="bt-dd-suffix">/ 5.00%</span>
               </div>`;
             targetFill.style.setProperty('width', '42%', 'important');
             targetFill.style.setProperty('background-color', 'var(--indigo)', 'important');
@@ -281,15 +281,15 @@ function setState(mode) {
 
         case 'target-high':
             ddStack.innerHTML = `
-              <div class="hf-dd-row">
-                <span class="hf-dd-label">DAILY</span>
-                <span class="hf-dd-value" id="hf-daily" style="color:var(--accent) !important">1.23%</span>
-                <span class="hf-dd-suffix">/ 5.00%</span>
+              <div class="bt-dd-row">
+                <span class="bt-dd-label">DAILY</span>
+                <span class="bt-dd-value" id="bt-daily" style="color:var(--accent) !important">1.23%</span>
+                <span class="bt-dd-suffix">/ 5.00%</span>
               </div>
-              <div class="hf-dd-row">
-                <span class="hf-dd-label">TRAILING</span>
-                <span class="hf-dd-value" id="hf-trailing" style="color:var(--accent) !important">2.10%</span>
-                <span class="hf-dd-suffix">/ 5.00%</span>
+              <div class="bt-dd-row">
+                <span class="bt-dd-label">TRAILING</span>
+                <span class="bt-dd-value" id="bt-trailing" style="color:var(--accent) !important">2.10%</span>
+                <span class="bt-dd-suffix">/ 5.00%</span>
               </div>`;
             targetFill.style.setProperty('width', '100%', 'important');
             targetFill.style.setProperty('background-color', 'var(--accent)', 'important');
@@ -301,19 +301,19 @@ function setState(mode) {
 }
 
 // Wire DD panel toggle for preview
-const ddTrigger = document.getElementById('hf-dd-trigger');
-const ddPanel = document.getElementById('hf-dd-panel');
+const ddTrigger = document.getElementById('bt-dd-trigger');
+const ddPanel = document.getElementById('bt-dd-panel');
 if (ddTrigger && ddPanel) {
   ddTrigger.addEventListener('click', (e) => {
     e.stopPropagation();
-    ddPanel.classList.toggle('hf-dd-panel--open');
+    ddPanel.classList.toggle('bt-dd-panel--open');
     const rect = ddTrigger.getBoundingClientRect();
-    const bannerRect = document.getElementById('hf-banner').getBoundingClientRect();
+    const bannerRect = document.getElementById('bt-banner').getBoundingClientRect();
     ddPanel.style.left = (rect.left - bannerRect.left) + 'px';
   });
   document.addEventListener('click', (e) => {
     if (!ddPanel.contains(e.target) && !ddTrigger.contains(e.target)) {
-      ddPanel.classList.remove('hf-dd-panel--open');
+      ddPanel.classList.remove('bt-dd-panel--open');
     }
   });
 }

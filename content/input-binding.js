@@ -1,6 +1,6 @@
 // Input detection, binding loop, and immediate update scheduling
 (() => {
-  const HF = window.__HF;
+  const BT = window.__BT;
 
   const bound = new WeakSet();
   let bindLoop = null;
@@ -10,7 +10,7 @@
     if (updateTimer) clearTimeout(updateTimer);
     updateTimer = setTimeout(() => {
       updateTimer = null;
-      HF.banner.updateBanner(HF.banner.getPendingNotional());
+      BT.banner.updateBanner(BT.banner.getPendingNotional());
     }, 0);
   }
 
@@ -34,28 +34,28 @@
       const opts = { capture: true, passive: true };
 
       input.addEventListener("focus", () => {
-        HF.state.lastEditedInput = input;
+        BT.state.lastEditedInput = input;
         scheduleUpdate();
-        if (HF.utils.isLikelySizeInput(input)) HF.mirrorPreview.onSizeInputChange(input);
+        if (BT.utils.isLikelySizeInput(input)) BT.mirrorPreview.onSizeInputChange(input);
       }, opts);
       input.addEventListener("input", () => {
-        HF.state.lastEditedInput = input;
+        BT.state.lastEditedInput = input;
         scheduleUpdate();
-        if (HF.utils.isLikelySizeInput(input) || isLikelyPriceInput(input)) {
-          HF.mirrorPreview.onSizeInputChange(input);
+        if (BT.utils.isLikelySizeInput(input) || isLikelyPriceInput(input)) {
+          BT.mirrorPreview.onSizeInputChange(input);
         }
       }, opts);
-      input.addEventListener("keydown", () => { HF.state.lastEditedInput = input; scheduleUpdate(); }, opts);
-      input.addEventListener("keyup", () => { HF.state.lastEditedInput = input; scheduleUpdate(); }, opts);
+      input.addEventListener("keydown", () => { BT.state.lastEditedInput = input; scheduleUpdate(); }, opts);
+      input.addEventListener("keyup", () => { BT.state.lastEditedInput = input; scheduleUpdate(); }, opts);
       input.addEventListener("change", () => {
-        HF.state.lastEditedInput = input;
-        if (HF.utils.isLikelySizeInput(input) || isLikelyPriceInput(input)) {
-          HF.mirrorPreview.onSizeInputChange(input);
+        BT.state.lastEditedInput = input;
+        if (BT.utils.isLikelySizeInput(input) || isLikelyPriceInput(input)) {
+          BT.mirrorPreview.onSizeInputChange(input);
         }
         scheduleUpdate();
       }, opts);
       input.addEventListener("blur", () => {
-        HF.mirrorPreview.onSizeInputBlur(input);
+        BT.mirrorPreview.onSizeInputBlur(input);
       }, opts);
     }
   }
@@ -64,9 +64,9 @@
     if (bindLoop) return;
     bindInputsOnce();
     bindLoop = setInterval(() => {
-      if (!document.getElementById(HF.state.BANNER_ID)) return;
+      if (!document.getElementById(BT.state.BANNER_ID)) return;
       bindInputsOnce();
-      HF.pairSupport.checkPairSupport();
+      BT.pairSupport.checkPairSupport();
     }, 500);
   }
 
@@ -76,7 +76,7 @@
     bindLoop = null;
   }
 
-  HF.inputBinding = {
+  BT.inputBinding = {
     bindInputsOnce,
     startBindingLoop,
     stopBindingLoop,

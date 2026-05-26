@@ -1,6 +1,6 @@
 // Registration payment flow — fills HL Send modal and watches for completion
 (() => {
-  const HF = window.__HF;
+  const BT = window.__BT;
 
   let registrationInterval = null;
 
@@ -43,21 +43,21 @@
 
         chrome.runtime.sendMessage({ action: "hlPaymentFormFilled" });
 
-        let container = document.getElementById("hf-toast-container");
+        let container = document.getElementById("bt-toast-container");
         if (!container) {
           container = document.createElement("div");
-          container.id = "hf-toast-container";
-          container.className = "hf-toast-container";
+          container.id = "bt-toast-container";
+          container.className = "bt-toast-container";
           (document.body || document.documentElement).appendChild(container);
         }
 
         const toast = document.createElement("div");
-        toast.className = "hf-toast hf-toast--info hf-toast-show";
+        toast.className = "bt-toast bt-toast--info bt-toast-show";
         toast.innerHTML =
-          '<div class="hf-toast-icon"><img src="' + chrome.runtime.getURL("icon48.png") + '" style="height: 16px; width: 16px; margin-top: 2px; opacity: 0.9;" alt="Beanstock Trading" /></div>' +
-          '<div class="hf-toast-content">' +
-            '<div class="hf-toast-title">Registration Payment</div>' +
-            '<div class="hf-toast-msg">Review the transfer details and confirm to complete your payment.</div>' +
+          '<div class="bt-toast-icon"><img src="' + chrome.runtime.getURL("icon48.png") + '" style="height: 16px; width: 16px; margin-top: 2px; opacity: 0.9;" alt="Beanstock Trading" /></div>' +
+          '<div class="bt-toast-content">' +
+            '<div class="bt-toast-title">Registration Payment</div>' +
+            '<div class="bt-toast-msg">Review the transfer details and confirm to complete your payment.</div>' +
           '</div>';
 
         container.appendChild(toast);
@@ -80,7 +80,7 @@
       if (!document.body.contains(destInput) || destInput.offsetParent === null) {
         clearInterval(watchInterval);
         console.log("[Beanstock] Send modal closed — payment likely submitted");
-        HF.api.getUserAddress()
+        BT.api.getUserAddress()
           .then((senderAddress) => {
             chrome.runtime.sendMessage({
               action: "hlPaymentSent",
@@ -138,7 +138,7 @@
         clearInterval(registrationInterval);
         sessionStorage.removeItem("hf_pending_registration");
 
-        const connectedAddr = HF.api.detectAddressFromPage();
+        const connectedAddr = BT.api.detectAddressFromPage();
         if (connectedAddr) {
           chrome.runtime.sendMessage({
             action: "hlPaymentWalletDetected",
@@ -152,7 +152,7 @@
     }, 500);
   }
 
-  HF.payment = {
+  BT.payment = {
     processRegistrationPayment,
   };
 })();

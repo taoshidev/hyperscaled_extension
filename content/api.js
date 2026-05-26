@@ -1,7 +1,7 @@
 // Data fetching via background service worker messages
 (() => {
-  const HF = window.__HF;
-  const { ACCOUNT } = HF.state;
+  const BT = window.__BT;
+  const { ACCOUNT } = BT.state;
 
   function detectAddressFromPage() {
     try {
@@ -92,9 +92,9 @@
     try {
       const result = await sendToBackground({ action: "fetchTraderLimits", address });
 
-      // Caps live on the HS side. Validator returns static USD figures
+      // Caps live on the BT side. Validator returns static USD figures
       // (max_*_usd = ratio × starting account_size), so we derive the static
-      // leverage ratio and apply it to the live HS balance. This matches what
+      // leverage ratio and apply it to the live BT balance. This matches what
       // the tgbot does and lets the caps track realized PnL.
       const accountBalance = ACCOUNT.accountBalance;
       const fundedSize = parseFloat(result.account_size) || ACCOUNT.fundedSize || 0;
@@ -109,11 +109,11 @@
       if (Number.isFinite(totalUsd) && totalUsd > 0) {
         ACCOUNT.maxPortfolio = (totalUsd / fundedSize) * accountBalance;
       }
-      HF.state.limitsLoaded = true;
+      BT.state.limitsLoaded = true;
 
       // Re-render the mirror preview card if it's already visible with stale limit values
-      if (HF.mirrorPreview) HF.mirrorPreview.refreshIfVisible();
-      HF.toast?.evaluateOversizeState?.();
+      if (BT.mirrorPreview) BT.mirrorPreview.refreshIfVisible();
+      BT.toast?.evaluateOversizeState?.();
     } catch (e) {
       console.error("[Beanstock] Trader limits fetch failed:", e);
     }
@@ -130,7 +130,7 @@
       if (pairs.length > 0) {
         // Build a reverse map: any symbol key (uppercased) → friendly display name
         // e.g. "XYZ:CL" → "WTIOIL", "XYZ:WTIOIL" → "WTIOIL", "BTC" → "BTC"
-        HF.state.hlCoinToDisplay = {};
+        BT.state.hlCoinToDisplay = {};
         const symbols = new Set();
         pairs.forEach(p => {
           const friendly = p.trade_pair_id.replace(/USDC?$/, "").toUpperCase();
@@ -138,24 +138,24 @@
           // mainnet omits hl_coin — fall back to the derived friendly name
           const hlKey = p.hl_coin ? p.hl_coin.toUpperCase() : friendly;
           symbols.add(hlKey);
-          HF.state.hlCoinToDisplay[hlKey] = friendly;
+          BT.state.hlCoinToDisplay[hlKey] = friendly;
           // HL URLs use xyz:<friendly> (e.g. /trade/xyz:WTIOIL) even when
           // hl_coin uses a different ticker (e.g. xyz:CL). Add both forms.
           if (hlKey.startsWith("XYZ:")) {
             const xyzFriendly = "XYZ:" + friendly;
             symbols.add(xyzFriendly);
-            HF.state.hlCoinToDisplay[xyzFriendly] = friendly;
+            BT.state.hlCoinToDisplay[xyzFriendly] = friendly;
           }
         });
-        HF.state.SUPPORTED_SYMBOLS = [...symbols];
+        BT.state.SUPPORTED_SYMBOLS = [...symbols];
         console.log("[Beanstock] Loaded", pairs.length, "HL-supported pairs from validator");
       }
-      HF.state.pairsLoaded = true;
-      HF.pairSupport.checkPairSupport(true);
+      BT.state.pairsLoaded = true;
+      BT.pairSupport.checkPairSupport(true);
     } catch (e) {
       console.error("[Beanstock] Trade pairs fetch failed, using defaults:", e);
-      HF.state.pairsLoaded = true;
-      HF.pairSupport.checkPairSupport(true);
+      BT.state.pairsLoaded = true;
+      BT.pairSupport.checkPairSupport(true);
     }
   }
 
@@ -165,7 +165,7 @@
       for (const [key, val] of Object.entries(result)) {
         const price = parseFloat(val);
         if (price > 0 && /^[A-Z]/.test(key)) {
-          HF.state.midPrices[key.toUpperCase()] = price;
+          BT.state.midPrices[key.toUpperCase()] = price;
         }
       }
     } catch (e) {
@@ -184,12 +184,12 @@
         if (result.status === "unregistered" || result.status === "error") {
           if (JSON.stringify(result).toLowerCase().includes("unregistered")) {
             sessionStorage.setItem("hf_pending_registration", "true");
-            HF.payment.processRegistrationPayment();
+            BT.payment.processRegistrationPayment();
           }
         }
         ACCOUNT.isRegistered = false;
         ACCOUNT.registrationChecked = true;
-        HF.banner.updateBannerFromValidator();
+        BT.banner.updateBannerFromValidator();
         return;
       }
 
@@ -209,7 +209,7 @@
 
       ACCOUNT.isRegistered = true;
       ACCOUNT.registrationChecked = true;
-      ACCOUNT.inChallenge = HF.utils.resolveChallengeModeFromValidator(result);
+      ACCOUNT.inChallenge = BT.utils.resolveChallengeModeFromValidator(result);
 
       const dd = result.drawdown || {};
       const currentEquity = parseFloat(dd.current_equity) || 1;
@@ -235,23 +235,23 @@
       // openSingleUsed) is populated only by checkBalance() from HL's
       // clearinghouseState. The validator's `net_leverage` is not used as a
       // fallback — better to leave them at their initial values (downstream
-      // shows "--" / 0) than to display HS-scale numbers labelled HL.
+      // shows "--" / 0) than to display BT-scale numbers labelled HL.
 
-      // HS per-pair position values come pre-computed from background's
+      // BT per-pair position values come pre-computed from background's
       // fetchValidatorData (strict size × price = sum of signed `q` ×
       // current HL mid price). Same form for both content and popup
       // consumers; no local derivation here.
       ACCOUNT.hsPositionsByCoin = (result.hsPositionsByCoin && typeof result.hsPositionsByCoin === 'object')
         ? result.hsPositionsByCoin : {};
 
-      HF.state.validatorDataLoaded = true;
-      HF.banner.updateBannerFromValidator();
-      HF.toast?.evaluateOversizeState?.();
+      BT.state.validatorDataLoaded = true;
+      BT.banner.updateBannerFromValidator();
+      BT.toast?.evaluateOversizeState?.();
     } catch (e) {
       console.error("[Beanstock] Validator fetch failed:", e);
       if (e.message.toLowerCase().includes("unregistered")) {
         sessionStorage.setItem("hf_pending_registration", "true");
-        HF.payment.processRegistrationPayment();
+        BT.payment.processRegistrationPayment();
       }
     }
   }
@@ -261,7 +261,7 @@
     console.log("[Beanstock] checkBalance address:", address);
     if (!address) {
       console.warn("[Beanstock] No address found");
-      HF.state.balanceVerified = false;
+      BT.state.balanceVerified = false;
       return;
     }
 
@@ -269,15 +269,15 @@
       const result = await sendToBackground({ action: "fetchBalance", address });
 
       console.log("[Beanstock] Balance result:", result);
-      HF.state.currentBalance = Number(result.accountValue) || 0;
-      ACCOUNT.hlBalance = HF.state.currentBalance;
-      ACCOUNT.hlEquity = HF.state.currentBalance;
+      BT.state.currentBalance = Number(result.accountValue) || 0;
+      ACCOUNT.hlBalance = BT.state.currentBalance;
+      ACCOUNT.hlEquity = BT.state.currentBalance;
       if (result && typeof result === "object") {
         // Remap HL coin keys (e.g. "XYZ:CL") to display/exposure keys (e.g. "WTIOIL")
         // so that cap lookups using the URL symbol ("XYZ:WTIOIL") resolve correctly.
         // Native pairs like "BTC" pass through unchanged.
         const remapKeys = (raw) => {
-          const display = HF.state.hlCoinToDisplay || {};
+          const display = BT.state.hlCoinToDisplay || {};
           const out = {};
           for (const [k, v] of Object.entries(raw || {})) {
             const key = display[k] || k;
@@ -317,19 +317,19 @@
           ? result.exposureSource
           : "hyperliquid-balance";
       }
-      HF.state.balanceVerified = true;
+      BT.state.balanceVerified = true;
 
       updateBannerBalance();
-      HF.inputBinding.scheduleUpdate();
-      HF.toast?.evaluateOversizeState?.();
+      BT.inputBinding.scheduleUpdate();
+      BT.toast?.evaluateOversizeState?.();
     } catch (e) {
       console.error("[Beanstock] Balance check failed:", e);
     }
   }
 
   function updateBannerBalance() {
-    const banner = document.getElementById(HF.state.BANNER_ID);
-    if (banner) HF.banner.applyBannerStateClasses(banner);
+    const banner = document.getElementById(BT.state.BANNER_ID);
+    if (banner) BT.banner.applyBannerStateClasses(banner);
   }
 
   function startBalanceChecking() {
@@ -338,19 +338,19 @@
     Promise.all([checkBalance(), fetchValidatorData()]).then(() => fetchTraderLimits());
     fetchTradePairs();
     fetchMidPrices();
-    if (HF.state.balanceCheckTimer) clearInterval(HF.state.balanceCheckTimer);
-    HF.state.balanceCheckTimer = setInterval(() => {
+    if (BT.state.balanceCheckTimer) clearInterval(BT.state.balanceCheckTimer);
+    BT.state.balanceCheckTimer = setInterval(() => {
       checkBalance();
       fetchValidatorData();
       fetchTraderLimits();
       fetchMidPrices();
-    }, HF.state.BALANCE_CHECK_INTERVAL);
+    }, BT.state.BALANCE_CHECK_INTERVAL);
   }
 
   function stopBalanceChecking() {
-    if (HF.state.balanceCheckTimer) {
-      clearInterval(HF.state.balanceCheckTimer);
-      HF.state.balanceCheckTimer = null;
+    if (BT.state.balanceCheckTimer) {
+      clearInterval(BT.state.balanceCheckTimer);
+      BT.state.balanceCheckTimer = null;
     }
   }
 
@@ -382,9 +382,9 @@
       ACCOUNT.inChallenge = false;
       ACCOUNT.isRegistered = false;
       ACCOUNT.registrationChecked = false;
-      HF.state.validatorDataLoaded = false;
-      HF.banner.updateBannerFromValidator();
-      HF.toast?.dismissOversizeToast?.();
+      BT.state.validatorDataLoaded = false;
+      BT.banner.updateBannerFromValidator();
+      BT.toast?.dismissOversizeToast?.();
 
       checkBalance(newAddress);
       fetchValidatorData(newAddress);
@@ -393,7 +393,7 @@
     }
   });
 
-  HF.api = {
+  BT.api = {
     detectAddressFromPage,
     getUserAddress,
     fetchTraderLimits,
