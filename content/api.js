@@ -92,6 +92,10 @@
     try {
       const result = await sendToBackground({ action: "fetchTraderLimits", address });
 
+      // Drop responses that raced an address switch
+      const currentAddress = await getUserAddress();
+      if (currentAddress && currentAddress.toLowerCase() !== address.toLowerCase()) return;
+
       // Caps live on the HS side. Validator returns static USD figures
       // (max_*_usd = ratio × starting account_size), so we derive the static
       // leverage ratio and apply it to the live HS balance. This matches what
@@ -109,8 +113,13 @@
       if (Number.isFinite(totalUsd) && totalUsd > 0) {
         ACCOUNT.maxPortfolio = (totalUsd / fundedSize) * accountBalance;
       }
-      // Absent on older backends → null/empty, checks fall back to two-layer behavior
-      ACCOUNT.tier = Number.isInteger(result.tier) ? result.tier : null;
+      // Absent on older backends → null/empty, checks fall back to two-layer behavior.
+      // Challenge accounts are tier 1 by definition, so derive it when the
+      // backend predates the field; funded tiers depend on size cutoffs we
+      // don't replicate client-side.
+      ACCOUNT.tier = Number.isInteger(result.tier) ? result.tier
+        : result.in_challenge_period === true ? 1
+        : null;
       const byClass = {};
       for (const [cls, usd] of Object.entries(result.max_asset_class_usd || {})) {
         const v = parseFloat(usd);
@@ -164,6 +173,9 @@
       }
       HF.state.pairsLoaded = true;
       HF.pairSupport.checkPairSupport(true);
+      // Re-evaluate surfaces that may have rendered before pair data arrived
+      if (HF.mirrorPreview) HF.mirrorPreview.refreshIfVisible();
+      HF.toast?.evaluateOversizeState?.();
     } catch (e) {
       console.error("[Hyperscaled] Trade pairs fetch failed, using defaults:", e);
       HF.state.pairsLoaded = true;
@@ -356,6 +368,9 @@
       fetchValidatorData();
       fetchTraderLimits();
       fetchMidPrices();
+      // Retry until the first successful trade-pairs load; without it every
+      // cap falls back to the deprecated class-level figure for the session
+      if (!Object.keys(HF.state.hlCoinToDisplay).length) fetchTradePairs();
     }, HF.state.BALANCE_CHECK_INTERVAL);
   }
 
@@ -393,6 +408,9 @@
       ACCOUNT.hsPositionsByCoin = {};
       ACCOUNT.tier = null;
       ACCOUNT.maxByAssetClass = {};
+      ACCOUNT.maxPositionPerPair = 0;
+      ACCOUNT.maxPortfolio = 0;
+      HF.state.limitsLoaded = false;
       ACCOUNT.inChallenge = false;
       ACCOUNT.isRegistered = false;
       ACCOUNT.registrationChecked = false;

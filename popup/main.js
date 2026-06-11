@@ -11,6 +11,7 @@ import { initExplainers } from './explain.js';
 const state = {
     storedAddress: null,
     traderLimits: null,
+    lastValidatorResult: null,
     pairCategory: {},       // display symbol → asset class, from /trade-pairs
     pairTierLeverage: {},   // display symbol → { tier: leverage multiplier }
     hlBalance: 0,
@@ -66,18 +67,20 @@ async function restoreFromCache() {
         if (hlBalanceEl) hlBalanceEl.textContent = fmtUsd(state.hlBalance);
     }
 
+    // Limits must be in state before the cached validator render reads them
+    if (limitsCache?.data) {
+        state.traderLimits = limitsCache.data;
+    }
+
     if (validatorCache?.data && validatorCache.data.status === 'success') {
         if (validatorCache.data.subaccount_status === 'eliminated') {
             hideDashboard();
             hideUnregistered();
             showEliminated();
         } else {
+            state.lastValidatorResult = validatorCache.data;
             applyValidatorData(validatorCache.data, state);
         }
-    }
-
-    if (limitsCache?.data) {
-        state.traderLimits = limitsCache.data;
     }
 
     if (eventsCache?.data) {
@@ -134,6 +137,7 @@ async function refreshValidatorData() {
             return;
         }
 
+        state.lastValidatorResult = result;
         applyValidatorData(result, state);
     } catch (e) {
         console.error('[Hyperscaled Popup] Validator data fetch failed:', e.message, e);
@@ -156,12 +160,14 @@ async function refreshTraderLimits() {
 }
 
 async function refreshTradePairs() {
+    if (!state.storedAddress) return;
     try {
         const result = await safeSendMessage({ action: 'fetchTradePairs' });
         const pairs = (result.allowed || result.allowed_trade_pairs || []).filter(
             p => p.trade_pair_source === 'hyperliquid' && !p.trade_pair_id.toLowerCase().startsWith('xyz:')
         );
         if (pairs.length === 0) return;
+        const hadPairs = Object.keys(state.pairTierLeverage).length > 0;
         const category = {}, tierLeverage = {};
         pairs.forEach(p => {
             const symbol = p.trade_pair_id.replace(/USDC?$/, '').toUpperCase();
@@ -170,6 +176,11 @@ async function refreshTradePairs() {
         });
         state.pairCategory = category;
         state.pairTierLeverage = tierLeverage;
+        // First pair data after render: re-render so caps don't sit on the
+        // deprecated class-level fallback until the next refresh tick
+        if (!hadPairs && state.lastValidatorResult) {
+            applyValidatorData(state.lastValidatorResult, state);
+        }
     } catch (e) {
         console.error('Trade pairs fetch failed:', e);
     }
@@ -218,6 +229,7 @@ function disconnectWallet() {
     chrome.storage.local.remove(['hlAddress', 'lastEventTimestampMs', 'recentEvents']);
     state.storedAddress = null;
     state.traderLimits = null;
+    state.lastValidatorResult = null;
     state.openTotalUsed = 0;
     state.openSingleUsed = 0;
     state.notionalByPair = {};

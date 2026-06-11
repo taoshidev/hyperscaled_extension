@@ -193,7 +193,7 @@
     const maxTotal = effectiveMaxTotalUsd();
     const classMax = effectiveMaxClassUsd(resolvedSymbol);   // null → no class cap
     const classNow = classExposureUsd(resolvedSymbol);
-    const classLabel = assetClassOf(resolvedSymbol) || 'class';
+    const classLabel = String(assetClassOf(resolvedSymbol) || 'class').replace(/[^a-z_]/gi, '');
 
     // ── Branch detection (add | reduce | flip | new) ──────────────────────
     // Source HL signed exposure (positionValue, signed by szi) for direction

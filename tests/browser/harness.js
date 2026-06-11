@@ -20,8 +20,8 @@
  *   4.  Oversize toast: native pair breach
  *   5.  Oversize toast: xyz pair breach (WTIOIL)
  *   6.  Oversize toast: portfolio cap breach
- *   7.  Trade blocking when at per-pair cap (native)
- *   8.  Trade blocking when at per-pair cap (xyz)
+ *   7.  Caps never block trades (native) — advisory only
+ *   8.  Caps never block trades (xyz) — advisory only
  *   9.  Reduce-intent bypass: native (BTC sell on long)
  *   10. Reduce-intent bypass: xyz (WTIOIL sell on long via XYZ:WTIOIL URL symbol)
  *   11. marginLimitBasisUsd no double-count
@@ -341,7 +341,7 @@
 
   // ── 8 · Trade blocking — native ───────────────────────────────────────────
   async function testTradeBlockingNative() {
-    section('8 · Trade blocking — BTC at cap');
+    section('8 · Caps are advisory — BTC at cap does not block');
     const snap = snapshotAccount();
     const stSnap = snapshotState();
 
@@ -361,11 +361,13 @@
     await wait(50);
     assert('NOT blocked at $400 BTC (under $686 cap)', !HF.state.shouldBlockTrade);
 
+    // Caps are advisory: HL orders pass through; the validator clamps the HS
+    // mirror at fill time. Blocking is reserved for unsupported pairs.
     ACCOUNT.notionalByPair = { BTC: 686 };
     ACCOUNT.openTotalUsed = 686;
     HF.tradeGate.checkAndBlockButtons();
     await wait(50);
-    assert('BLOCKED at $686 BTC (at cap, leftSingle = 0)', HF.state.shouldBlockTrade);
+    assert('NOT blocked at $686 BTC (at cap — caps warn, never block)', !HF.state.shouldBlockTrade);
 
     restoreAccount(snap);
     restoreState(stSnap);
@@ -374,7 +376,7 @@
 
   // ── 9 · Trade blocking — xyz pair ─────────────────────────────────────────
   async function testTradeBlockingXyz() {
-    section('9 · Trade blocking — WTIOIL (xyz) at cap');
+    section('9 · Caps are advisory — WTIOIL (xyz) at cap does not block');
     const snap = snapshotAccount();
     const stSnap = snapshotState();
 
@@ -399,7 +401,7 @@
     ACCOUNT.openTotalUsed = 686;
     HF.tradeGate.checkAndBlockButtons();
     await wait(50);
-    assert('WTIOIL BLOCKED at $686 (at cap)', HF.state.shouldBlockTrade);
+    assert('WTIOIL NOT blocked at $686 (at cap — caps warn, never block)', !HF.state.shouldBlockTrade);
 
     restoreAccount(snap);
     restoreState(stSnap);

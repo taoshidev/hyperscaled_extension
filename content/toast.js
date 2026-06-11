@@ -462,7 +462,6 @@
         return {
           sym: key,
           pairMax: effectiveMaxSingleUsd(key),
-          value: Math.abs(Number(hsPairs[key]?.value || hsPairs[sym]?.value) || 0),
           hlTarget: (Number(hlByPair[sym]) || 0) * mirror,
         };
       })
@@ -473,7 +472,11 @@
     const classTargets = {};
     for (const [sym, v] of Object.entries(hlByPair)) {
       const cls = assetClassOf(String(sym).toUpperCase());
-      if (cls) classTargets[cls] = (classTargets[cls] || 0) + (Number(v) || 0) * mirror;
+      // Sanitized for innerHTML use downstream
+      if (cls) {
+        const safeCls = String(cls).replace(/[^a-z_]/gi, '');
+        classTargets[safeCls] = (classTargets[safeCls] || 0) + (Number(v) || 0) * mirror;
+      }
     }
     const overClasses = Object.entries(classTargets)
       .map(([cls, hlTarget]) => ({ cls, cap: Number(ACCOUNT.maxByAssetClass?.[cls]) || 0, hlTarget }))
@@ -497,9 +500,11 @@
     if (overClasses.length > 0) {
       const w = overClasses[0];
       const more = overClasses.length > 1 ? ` (+${overClasses.length - 1} more classes over cap)` : '';
+      // Phrased as a projection: per-pair caps may keep actual HS class
+      // exposure below the class cap even when the HL projection exceeds it
       lines.push(
-        '<b>' + w.cls + '</b> HS class exposure is at the cap of <b>' + fmt(w.cap) + '</b>' + more + '. ' +
-        'HL exposure projects to <b>' + fmt(w.hlTarget) + '</b> in HS terms.'
+        '<b>' + w.cls + '</b> HL exposure projects to <b>' + fmt(w.hlTarget) + '</b> in HS terms, ' +
+        'over the class cap of <b>' + fmt(w.cap) + '</b>' + more + '.'
       );
     }
     if (totalOver) {
@@ -531,7 +536,7 @@
       const w = overClasses[0];
       const excess = Math.max(0, w.hlTarget - w.cap);
       const excessSuffix = excess > 0.01 ? ' (HL +' + fmt(excess) + ')' : '';
-      summary = w.cls + ' class HS at cap ' + fmt(w.cap) + excessSuffix;
+      summary = w.cls + ' class over cap ' + fmt(w.cap) + excessSuffix;
     } else {
       const excess = Math.max(0, hlTotalTarget - totalMax);
       const excessSuffix = excess > 0.01 ? ' (HL +' + fmt(excess) + ')' : '';

@@ -269,7 +269,11 @@ export function applyValidatorData(result, state) {
         const backendSize = parseFloat(state.traderLimits.account_size) || accountSize || 0;
         if (backendSize > 0 && backendPair > 0)  hsMaxPerPair = (backendPair  / backendSize) * accountBalance;
         if (backendSize > 0 && backendTotal > 0) hsMaxTotal   = (backendTotal / backendSize) * accountBalance;
-        hsTier = Number.isInteger(state.traderLimits.tier) ? state.traderLimits.tier : null;
+        // Challenge accounts are tier 1 by definition — derive when the
+        // backend predates the tier field; funded tiers are not derived
+        hsTier = Number.isInteger(state.traderLimits.tier) ? state.traderLimits.tier
+            : state.traderLimits.in_challenge_period === true ? 1
+            : null;
         for (const [cls, usd] of Object.entries(state.traderLimits.max_asset_class_usd || {})) {
             const v = parseFloat(usd);
             if (backendSize > 0 && Number.isFinite(v) && v > 0) hsMaxByClass[cls] = (v / backendSize) * accountBalance;
