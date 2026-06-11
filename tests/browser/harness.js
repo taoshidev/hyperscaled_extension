@@ -29,6 +29,10 @@
  *   13. Pair support: native pairs supported
  *   14. Pair support: xyz pairs supported
  *   15. Pair support: unsupported pair triggers block
+ *   16. Per-pair tier caps (GOLD ≠ SILVER) with fallbacks
+ *   17. Class cap helpers (assetClassOf / effectiveMaxClassUsd / classExposureUsd)
+ *   18. Oversize toast: class cap breach (pairs individually under cap)
+ *   19. Two-layer fallback: no class data → no class toast
  */
 (() => {
   'use strict';
@@ -103,6 +107,10 @@
       await testMirrorRatio();
       await testPairSupportNative();
       await testPairSupportXyz();
+      await testPerPairTierCaps();
+      await testClassCapHelpers();
+      await testOversizeToastClass();
+      await testTwoLayerFallback();
     } finally {
       restoreAccount(accountSnap);
       restoreState(stateSnap);
@@ -505,6 +513,151 @@
     HF.state._unsupportedPairBlocked = false;
     assert('EURUSD is not supported', !isSymbolSupported('EURUSD'));
     restoreState(stSnap);
+  }
+
+  function snapshotPairMaps() {
+    return {
+      pairCategory: JSON.parse(JSON.stringify(HF.state.pairCategory || {})),
+      pairTierLeverage: JSON.parse(JSON.stringify(HF.state.pairTierLeverage || {})),
+    };
+  }
+  function restorePairMaps(s) {
+    HF.state.pairCategory = s.pairCategory;
+    HF.state.pairTierLeverage = s.pairTierLeverage;
+  }
+
+  // ── 16 · Per-pair tier caps ────────────────────────────────────────────────
+  async function testPerPairTierCaps() {
+    section('16 · Per-pair tier caps (GOLD ≠ SILVER)');
+    const snap = snapshotAccount();
+    const stSnap = snapshotState();
+    const pmSnap = snapshotPairMaps();
+    const { effectiveMaxSingleUsd } = HF.utils;
+
+    ACCOUNT.accountBalance = 100000;
+    ACCOUNT.tier = 1;
+    ACCOUNT.maxPositionPerPair = 50000;
+    HF.state.limitsLoaded = true;
+    HF.state.pairTierLeverage = {
+      GOLD:   { 1: 1.0, 2: 2.0, 3: 3.0, 4: 4.0 },
+      SILVER: { 1: 0.5, 2: 1.0, 3: 1.5, 4: 2.0 },
+    };
+
+    assert('GOLD cap = 1.0 × balance ($100k)', Math.abs(effectiveMaxSingleUsd('GOLD') - 100000) < 1, effectiveMaxSingleUsd('GOLD'));
+    assert('SILVER cap = 0.5 × balance ($50k)', Math.abs(effectiveMaxSingleUsd('SILVER') - 50000) < 1, effectiveMaxSingleUsd('SILVER'));
+
+    ACCOUNT.tier = 3;
+    assert('Tier 3: SILVER cap = 1.5 × balance ($150k)', Math.abs(effectiveMaxSingleUsd('SILVER') - 150000) < 1);
+
+    ACCOUNT.tier = null;
+    assert('No tier (old backend) → class-level fallback ($50k)', effectiveMaxSingleUsd('GOLD') === 50000);
+
+    ACCOUNT.tier = 1;
+    assert('Unknown pair → class-level fallback ($50k)', effectiveMaxSingleUsd('DOGE') === 50000);
+
+    restoreAccount(snap);
+    restoreState(stSnap);
+    restorePairMaps(pmSnap);
+  }
+
+  // ── 17 · Class cap helpers ─────────────────────────────────────────────────
+  async function testClassCapHelpers() {
+    section('17 · Class cap helpers');
+    const snap = snapshotAccount();
+    const stSnap = snapshotState();
+    const pmSnap = snapshotPairMaps();
+    const { assetClassOf, effectiveMaxClassUsd, classExposureUsd } = HF.utils;
+
+    HF.state.pairCategory = { GOLD: 'commodities', SILVER: 'commodities', BTC: 'crypto' };
+    ACCOUNT.maxByAssetClass = { commodities: 206000, crypto: 206000 };
+    ACCOUNT.hsPositionsByCoin = {
+      GOLD:   { value: 60000 },
+      SILVER: { value: -30000 },
+      BTC:    { value: 40000 },
+    };
+
+    assert('assetClassOf(GOLD) = commodities', assetClassOf('GOLD') === 'commodities');
+    assert('assetClassOf(EURUSD) = null', assetClassOf('EURUSD') === null);
+    assert('Class cap (GOLD) = $206k', effectiveMaxClassUsd('GOLD') === 206000);
+    assert('Class cap null for unknown class', effectiveMaxClassUsd('EURUSD') === null);
+    assert('Class exposure (commodities) = $90k (|60k| + |−30k|)', classExposureUsd('GOLD') === 90000);
+    assert('Class exposure (crypto) = $40k', classExposureUsd('BTC') === 40000);
+
+    ACCOUNT.maxByAssetClass = {};
+    assert('Empty class map → null (check skipped)', effectiveMaxClassUsd('GOLD') === null);
+
+    restoreAccount(snap);
+    restoreState(stSnap);
+    restorePairMaps(pmSnap);
+  }
+
+  // ── 18 · Oversize toast — class cap breach ─────────────────────────────────
+  async function testOversizeToastClass() {
+    section('18 · Oversize toast — class cap breach');
+    const snap = snapshotAccount();
+    const stSnap = snapshotState();
+    const pmSnap = snapshotPairMaps();
+
+    // mirror = 1; each pair within its own cap, class total over
+    ACCOUNT.hlBalance = 100000;
+    ACCOUNT.accountBalance = 100000;
+    ACCOUNT.tier = 1;
+    ACCOUNT.maxPositionPerPair = 100000;
+    ACCOUNT.maxPortfolio = 400000;
+    ACCOUNT.maxByAssetClass = { commodities: 100000 };
+    HF.state.pairCategory = { GOLD: 'commodities', SILVER: 'commodities' };
+    HF.state.pairTierLeverage = { GOLD: { 1: 1.0 }, SILVER: { 1: 0.5 } };
+    ACCOUNT.filledNotionalByPair = { GOLD: 80000, SILVER: 40000 };
+    ACCOUNT.filledTotal = 120000;
+    HF.state.limitsLoaded = true;
+
+    HF.toast.evaluateOversizeState();
+    await wait(50);
+
+    assert('Toast shown when commodities ($120k) > class cap ($100k)', oversizeToastVisible());
+    const el = document.querySelector('.hf-toast--oversize');
+    assert('Toast mentions commodities', el?.textContent?.toLowerCase().includes('commodities') ?? false);
+
+    ACCOUNT.filledNotionalByPair = { GOLD: 50000, SILVER: 40000 };
+    ACCOUNT.filledTotal = 90000;
+    HF.toast.evaluateOversizeState();
+    await wait(50);
+    assert('Toast dismissed when class total ($90k) < cap', !oversizeToastVisible());
+
+    HF.toast.dismissOversizeToast();
+    restoreAccount(snap);
+    restoreState(stSnap);
+    restorePairMaps(pmSnap);
+  }
+
+  // ── 19 · Two-layer fallback ────────────────────────────────────────────────
+  async function testTwoLayerFallback() {
+    section('19 · Two-layer fallback (old backend)');
+    const snap = snapshotAccount();
+    const stSnap = snapshotState();
+    const pmSnap = snapshotPairMaps();
+
+    // Same exposure as #18 but no tier / class data → no breach, no toast
+    ACCOUNT.hlBalance = 100000;
+    ACCOUNT.accountBalance = 100000;
+    ACCOUNT.tier = null;
+    ACCOUNT.maxPositionPerPair = 200000;
+    ACCOUNT.maxPortfolio = 400000;
+    ACCOUNT.maxByAssetClass = {};
+    HF.state.pairCategory = {};
+    HF.state.pairTierLeverage = {};
+    ACCOUNT.filledNotionalByPair = { GOLD: 80000, SILVER: 40000 };
+    ACCOUNT.filledTotal = 120000;
+    HF.state.limitsLoaded = true;
+
+    HF.toast.evaluateOversizeState();
+    await wait(50);
+    assert('No toast: two-layer caps not breached, class check skipped', !oversizeToastVisible());
+
+    HF.toast.dismissOversizeToast();
+    restoreAccount(snap);
+    restoreState(stSnap);
+    restorePairMaps(pmSnap);
   }
 
   // ── Run ────────────────────────────────────────────────────────────────────
