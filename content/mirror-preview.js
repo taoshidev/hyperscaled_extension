@@ -182,14 +182,18 @@
     // from effectiveMax*Usd.
     const ratio = getMirrorRatio();
     const hsOrder = ratio > 0 ? notional * ratio : 0;
-    const { fmt, getCurrentSymbol, effectiveMaxSingleUsd, effectiveMaxTotalUsd, getActiveOrderSide } = HF.utils;
+    const { fmt, getCurrentSymbol, effectiveMaxSingleUsd, effectiveMaxTotalUsd,
+            effectiveMaxClassUsd, classExposureUsd, assetClassOf, getActiveOrderSide } = HF.utils;
 
     const symbol = getCurrentSymbol();
     const side = getActiveOrderSide(input);
     const resolvedSymbol = HF.utils.resolveExposureSymbol(symbol);
 
-    const pairMax  = effectiveMaxSingleUsd();
+    const pairMax  = effectiveMaxSingleUsd(resolvedSymbol);
     const maxTotal = effectiveMaxTotalUsd();
+    const classMax = effectiveMaxClassUsd(resolvedSymbol);   // null → no class cap
+    const classNow = classExposureUsd(resolvedSymbol);
+    const classLabel = assetClassOf(resolvedSymbol) || 'class';
 
     // ── Branch detection (add | reduce | flip | new) ──────────────────────
     // Source HL signed exposure (positionValue, signed by szi) for direction
@@ -231,6 +235,7 @@
     let afterHsPair = currentHsPair;
     let mirrorsTo = 0;
     let pairCapBinds = false;
+    let classCapBinds = false;
     let portCapBinds = false;
     let stillOver = false;        // reduce branch: HL after still ≥ pair cap
 
@@ -242,6 +247,11 @@
         pairCapBinds = true;
       }
       let proposed = Math.max(0, proposedAfter - currentHsPair);
+      const classAfter = classNow + proposed;
+      if (classMax != null && classAfter > classMax + 0.01) {
+        proposed = Math.max(0, proposed - (classAfter - classMax));
+        classCapBinds = true;
+      }
       const portAfter = hsTotalNow + proposed;
       if (maxTotal > 0 && portAfter > maxTotal + 0.01) {
         proposed = Math.max(0, proposed - (portAfter - maxTotal));
@@ -266,6 +276,11 @@
       if (pairMax > 0 && proposed > pairMax + 0.01) {
         proposed = pairMax;
         pairCapBinds = true;
+      }
+      const classAfter = classNow - currentHsPair + proposed;
+      if (classMax != null && classAfter > classMax + 0.01) {
+        proposed = Math.max(0, proposed - (classAfter - classMax));
+        classCapBinds = true;
       }
       const portAfter = hsTotalNow - currentHsPair + proposed;
       if (maxTotal > 0 && portAfter > maxTotal + 0.01) {
@@ -309,33 +324,33 @@
     const warningEl = el.querySelector('#hf-mp-warning');
     if (warningEl) {
       const lines = [];
-      const capPhrase = (kind) =>
-        kind === 'both'
-          ? 'the per-pair cap of <b>' + fmt(pairMax) + '</b> and portfolio cap of <b>' + fmt(maxTotal) + '</b>'
-          : kind === 'pair'
-          ? 'the per-pair cap of <b>' + fmt(pairMax) + '</b>'
-          : 'the portfolio cap of <b>' + fmt(maxTotal) + '</b>';
-      const bindKind = (pairCapBinds && portCapBinds) ? 'both' : (pairCapBinds ? 'pair' : 'port');
+      const bindingPhrases = [];
+      if (pairCapBinds) bindingPhrases.push('the per-pair cap of <b>' + fmt(pairMax) + '</b>');
+      if (classCapBinds) bindingPhrases.push('the ' + classLabel + ' class cap of <b>' + fmt(classMax) + '</b>');
+      if (portCapBinds) bindingPhrases.push('the portfolio cap of <b>' + fmt(maxTotal) + '</b>');
+      const capPhrase = () => bindingPhrases.join(' and ');
+      const anyCapBinds = pairCapBinds || classCapBinds || portCapBinds;
 
       if (stillOver) {
         lines.push('After this reduction, HL pair would still exceed the cap. HS stays at <b>' + fmt(pairMax) + '</b> — none of this order mirrors until HL drops below the cap.');
         lines.push('HL trading is unaffected.');
-      } else if ((branch === 'new' || branch === 'add') && (pairCapBinds || portCapBinds)) {
+      } else if ((branch === 'new' || branch === 'add') && anyCapBinds) {
         if (mirrorsTo < 0.01) {
-          const desc = (bindKind === 'pair')
+          const desc = bindingPhrases.length > 1
+            ? 'HS is at multiple caps (' + capPhrase() + ')'
+            : pairCapBinds
             ? 'HS pair is at the cap of <b>' + fmt(pairMax) + '</b>'
-            : (bindKind === 'port')
-            ? 'HS portfolio is at the cap of <b>' + fmt(maxTotal) + '</b>'
-            : 'HS pair and portfolio are at the caps';
+            : classCapBinds
+            ? 'HS ' + classLabel + ' exposure is at the class cap of <b>' + fmt(classMax) + '</b>'
+            : 'HS portfolio is at the cap of <b>' + fmt(maxTotal) + '</b>';
           lines.push(desc + '. None of this order mirrors.');
           lines.push('HL trading is unaffected.');
         } else {
-          lines.push('Order exceeds ' + capPhrase(bindKind) + '. HS will mirror only <b>' + fmt(mirrorsTo) + '</b> before capping at the limit.');
+          lines.push('Order exceeds ' + capPhrase() + '. HS will mirror only <b>' + fmt(mirrorsTo) + '</b> before capping at the limit.');
           lines.push('HL trading is unaffected.');
-          // Suggest a smaller HL order — only when the pair cap (alone)
-          // binds; portfolio-bound headroom depends on other pairs and isn't
-          // a clean "lower this order to X" recommendation.
-          if (pairCapBinds && !portCapBinds && ratio > 0) {
+          // Suggest a smaller HL order — only when the pair cap alone binds;
+          // class/portfolio headroom depends on other pairs.
+          if (pairCapBinds && !classCapBinds && !portCapBinds && ratio > 0) {
             const cappedHlRaw = Math.max(0, pairMax - currentHsPair) / ratio;
             const cappedHl = Math.floor(cappedHlRaw * 100) / 100;
             if (cappedHl > 0) {
@@ -343,13 +358,13 @@
             }
           }
         }
-      } else if (branch === 'flip' && (pairCapBinds || portCapBinds)) {
+      } else if (branch === 'flip' && anyCapBinds) {
         const oldS = (currentSide || '').toUpperCase();
         const newS = (flippedSide || '').toUpperCase();
         if (afterHsPair < 0.01) {
-          lines.push('This flips your position. HS will close <b>' + fmt(currentHsPair) + ' ' + oldS + '</b>; the new ' + newS + ' is fully blocked by ' + capPhrase(bindKind) + ', so none of the new side mirrors.');
+          lines.push('This flips your position. HS will close <b>' + fmt(currentHsPair) + ' ' + oldS + '</b>; the new ' + newS + ' is fully blocked by ' + capPhrase() + ', so none of the new side mirrors.');
         } else {
-          lines.push('This flips your position. HS will close <b>' + fmt(currentHsPair) + ' ' + oldS + '</b> and open <b>' + fmt(afterHsPair) + ' ' + newS + '</b>, capped by ' + capPhrase(bindKind) + '.');
+          lines.push('This flips your position. HS will close <b>' + fmt(currentHsPair) + ' ' + oldS + '</b> and open <b>' + fmt(afterHsPair) + ' ' + newS + '</b>, capped by ' + capPhrase() + '.');
         }
         lines.push('HL trading is unaffected.');
       }

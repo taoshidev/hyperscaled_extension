@@ -109,6 +109,14 @@
       if (Number.isFinite(totalUsd) && totalUsd > 0) {
         ACCOUNT.maxPortfolio = (totalUsd / fundedSize) * accountBalance;
       }
+      // Absent on older backends → null/empty, checks fall back to two-layer behavior
+      ACCOUNT.tier = Number.isInteger(result.tier) ? result.tier : null;
+      const byClass = {};
+      for (const [cls, usd] of Object.entries(result.max_asset_class_usd || {})) {
+        const v = parseFloat(usd);
+        if (Number.isFinite(v) && v > 0) byClass[cls] = (v / fundedSize) * accountBalance;
+      }
+      ACCOUNT.maxByAssetClass = byClass;
       HF.state.limitsLoaded = true;
 
       // Re-render the mirror preview card if it's already visible with stale limit values
@@ -131,10 +139,14 @@
         // Build a reverse map: any symbol key (uppercased) → friendly display name
         // e.g. "XYZ:CL" → "WTIOIL", "XYZ:WTIOIL" → "WTIOIL", "BTC" → "BTC"
         HF.state.hlCoinToDisplay = {};
+        HF.state.pairCategory = {};
+        HF.state.pairTierLeverage = {};
         const symbols = new Set();
         pairs.forEach(p => {
           const friendly = p.trade_pair_id.replace(/USDC?$/, "").toUpperCase();
           symbols.add(friendly);
+          HF.state.pairCategory[friendly] = p.trade_pair_category || null;
+          HF.state.pairTierLeverage[friendly] = p.subaccount_positional_leverage_by_tier || null;
           // mainnet omits hl_coin — fall back to the derived friendly name
           const hlKey = p.hl_coin ? p.hl_coin.toUpperCase() : friendly;
           symbols.add(hlKey);
