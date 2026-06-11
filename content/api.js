@@ -391,6 +391,8 @@
       ACCOUNT.signedNotionalByPair = {};
       ACCOUNT.totalUnrealizedPnl = null;
       ACCOUNT.hsPositionsByCoin = {};
+      ACCOUNT.tier = null;
+      ACCOUNT.maxByAssetClass = {};
       ACCOUNT.inChallenge = false;
       ACCOUNT.isRegistered = false;
       ACCOUNT.registrationChecked = false;

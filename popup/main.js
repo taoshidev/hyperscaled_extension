@@ -281,6 +281,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             refreshBalance();
             refreshValidatorData();
             refreshTraderLimits();
+            refreshTradePairs();
         });
     }
 
@@ -326,6 +327,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             refreshBalance();
             refreshValidatorData();
             refreshTraderLimits();
+            refreshTradePairs();
             settingsHlSaveBtn.textContent = 'Saved';
             setTimeout(() => { settingsHlSaveBtn.textContent = 'Save'; }, 1500);
         });
@@ -377,6 +379,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     refreshBalance();
     refreshValidatorData();
     refreshTraderLimits();
+    refreshTradePairs();
     // refreshEvents(state.storedAddress);  // Order Events section commented out
     state.refreshIntervalId = setInterval(updateData, 10000);
 });

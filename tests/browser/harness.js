@@ -195,6 +195,8 @@
     const stSnap = snapshotState();
 
     ACCOUNT.hlEquity = 1372;
+    ACCOUNT.accountBalance = 1372;
+    ACCOUNT.tier = null;             // pin: per-pair cap from class-level value
     ACCOUNT.maxPositionPerPair = 686;
     ACCOUNT.maxPortfolio = 2744;
     HF.state.limitsLoaded = true;
@@ -238,10 +240,14 @@
     const stSnap = snapshotState();
 
     ACCOUNT.hlEquity = 1372;
+    ACCOUNT.hlBalance = 1372;
+    ACCOUNT.accountBalance = 1372;   // mirror = 1
+    ACCOUNT.tier = null;
+    ACCOUNT.maxByAssetClass = {};
     ACCOUNT.maxPositionPerPair = 686;
     ACCOUNT.maxPortfolio = 2744;
-    ACCOUNT.notionalByPair = { BTC: 800 };
-    ACCOUNT.openTotalUsed = 800;
+    ACCOUNT.filledNotionalByPair = { BTC: 800 };
+    ACCOUNT.filledTotal = 800;
     HF.state.limitsLoaded = true;
 
     HF.toast.evaluateOversizeState();
@@ -252,8 +258,8 @@
     assert('Toast mentions BTC', el?.textContent?.includes('BTC') ?? false);
 
     // Resolve breach
-    ACCOUNT.notionalByPair = { BTC: 500 };
-    ACCOUNT.openTotalUsed = 500;
+    ACCOUNT.filledNotionalByPair = { BTC: 500 };
+    ACCOUNT.filledTotal = 500;
     HF.toast.evaluateOversizeState();
     await wait(50);
     assert('Toast dismissed when BTC ($500) < cap ($686)', !oversizeToastVisible());
@@ -270,11 +276,15 @@
     const stSnap = snapshotState();
 
     ACCOUNT.hlEquity = 1372;
+    ACCOUNT.hlBalance = 1372;
+    ACCOUNT.accountBalance = 1372;   // mirror = 1
+    ACCOUNT.tier = null;
+    ACCOUNT.maxByAssetClass = {};
     ACCOUNT.maxPositionPerPair = 686;
     ACCOUNT.maxPortfolio = 2744;
     // After remap, xyz exposure stored under display name "WTIOIL"
-    ACCOUNT.notionalByPair = { WTIOIL: 800 };
-    ACCOUNT.openTotalUsed = 800;
+    ACCOUNT.filledNotionalByPair = { WTIOIL: 800 };
+    ACCOUNT.filledTotal = 800;
     HF.state.limitsLoaded = true;
 
     HF.toast.evaluateOversizeState();
@@ -285,8 +295,8 @@
     assert('Toast mentions WTIOIL', el?.textContent?.includes('WTIOIL') ?? false);
 
     // Resolve breach
-    ACCOUNT.notionalByPair = { WTIOIL: 400 };
-    ACCOUNT.openTotalUsed = 400;
+    ACCOUNT.filledNotionalByPair = { WTIOIL: 400 };
+    ACCOUNT.filledTotal = 400;
     HF.toast.evaluateOversizeState();
     await wait(50);
     assert('Toast dismissed when WTIOIL under cap', !oversizeToastVisible());
@@ -303,10 +313,14 @@
     const stSnap = snapshotState();
 
     ACCOUNT.hlEquity = 1372;
+    ACCOUNT.hlBalance = 1372;
+    ACCOUNT.accountBalance = 1372;   // mirror = 1
+    ACCOUNT.tier = null;
+    ACCOUNT.maxByAssetClass = {};
     ACCOUNT.maxPositionPerPair = 686;
     ACCOUNT.maxPortfolio = 2744;
-    ACCOUNT.notionalByPair = { BTC: 686, ETH: 686, WTIOIL: 686, GOLD: 686 };
-    ACCOUNT.openTotalUsed = 2744 + 1;  // just over portfolio cap
+    ACCOUNT.filledNotionalByPair = { BTC: 686, ETH: 686, WTIOIL: 686, GOLD: 686 };
+    ACCOUNT.filledTotal = 2744 + 1;  // just over portfolio cap
     HF.state.limitsLoaded = true;
 
     HF.toast.evaluateOversizeState();
@@ -314,8 +328,8 @@
     assert('Toast shown when total just over portfolio cap', oversizeToastVisible());
 
     // Under cap
-    ACCOUNT.openTotalUsed = 2000;
-    ACCOUNT.notionalByPair = { BTC: 500, ETH: 500 };
+    ACCOUNT.filledNotionalByPair = { BTC: 500, ETH: 500 };
+    ACCOUNT.filledTotal = 2000;
     HF.toast.evaluateOversizeState();
     await wait(50);
     assert('Toast dismissed when total back under cap', !oversizeToastVisible());

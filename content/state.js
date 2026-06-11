@@ -68,14 +68,6 @@
     hlCoinToDisplay: {},
     pairCategory: {},       // display symbol (e.g. "GOLD") → asset class, from /trade-pairs
     pairTierLeverage: {},   // display symbol → { tier: leverage multiplier }
-    // From /trade-pairs, keyed by friendly symbol ("GOLD", "BTC"):
-    //   pairCategory:     asset class string, e.g. "commodities"
-    //   pairTierLeverage: { "1": mult, ..., "4": mult } — the per-pair caps
-    //                     the validator enforces; bases differ within a class
-    //                     (GOLD 1.0 vs SILVER 0.5), so never assume one
-    //                     class-wide per-pair value.
-    pairCategory: {},
-    pairTierLeverage: {},
     validatorDataLoaded: false,
     limitsLoaded: false,
     pairsLoaded: false,
