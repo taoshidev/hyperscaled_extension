@@ -261,13 +261,25 @@ export function applyValidatorData(result, state) {
     // the equivalent leverage ratio and re-applied to live accountBalance.
     let hsMaxPerPair = 0;
     let hsMaxTotal   = 0;
+    let hsTier = null;
+    const hsMaxByClass = {};
     if (hsAvailable && state.traderLimits) {
         const backendPair = parseFloat(state.traderLimits.max_position_per_pair_usd) || 0;
         const backendTotal = parseFloat(state.traderLimits.max_portfolio_usd) || 0;
         const backendSize = parseFloat(state.traderLimits.account_size) || accountSize || 0;
         if (backendSize > 0 && backendPair > 0)  hsMaxPerPair = (backendPair  / backendSize) * accountBalance;
         if (backendSize > 0 && backendTotal > 0) hsMaxTotal   = (backendTotal / backendSize) * accountBalance;
+        hsTier = Number.isInteger(state.traderLimits.tier) ? state.traderLimits.tier : null;
+        for (const [cls, usd] of Object.entries(state.traderLimits.max_asset_class_usd || {})) {
+            const v = parseFloat(usd);
+            if (backendSize > 0 && Number.isFinite(v) && v > 0) hsMaxByClass[cls] = (v / backendSize) * accountBalance;
+        }
     }
+    // Per-pair cap from the pair's own tier multiplier; class-level figure as fallback
+    const hsPairCapFor = (sym) => {
+        const lev = Number(state.pairTierLeverage?.[sym]?.[hsTier]) || 0;
+        return (lev > 0 && hsAvailable) ? lev * accountBalance : hsMaxPerPair;
+    };
     // ── HS row per-pair entries: filled from validator (actual size × price,
     // already capped by validator at fill time), pending projected from HL
     // resting orders × ratio (since HL pending hasn't filled, validator has
@@ -294,9 +306,6 @@ export function applyValidatorData(result, state) {
         .filter(({ hsFilled, hsPending }) => hsFilled + hsPending > 0)
         .sort((a, b) => (b.hsFilled + b.hsPending) - (a.hsFilled + a.hsPending));
 
-    const hsLargestPairNotional = hsPerAssetEntries.length > 0
-        ? Math.max(...hsPerAssetEntries.map(e => e.hsFilled))
-        : 0;
     const hsFilledTotal = Object.values(hsPositionsMap).reduce(
         (s, e) => s + Math.abs(Number(e?.value) || 0), 0);
     const hsPendingTotal = hsAvailable ? pendingTotalHl * r : 0;
@@ -308,10 +317,14 @@ export function applyValidatorData(result, state) {
     if (hsBasisValueEl) hsBasisValueEl.textContent = accountBalance == null ? '--' : fmtUsd(accountBalance);
     if (hsBasisHlEquityEl) hsBasisHlEquityEl.textContent = hlBal > 0 ? fmtUsd(hlBal) : '--';
 
+    // Tightest per-pair headroom among open positions; full default cap when flat
     const hsPerPairRemainingEl = document.getElementById('hsPerPairRemaining');
-    if (hsPerPairRemainingEl) hsPerPairRemainingEl.textContent = hsAvailable
-        ? fmtUsd(Math.max(hsMaxPerPair - hsLargestPairNotional, 0))
-        : '--';
+    if (hsPerPairRemainingEl) {
+        const remaining = hsPerAssetEntries.length > 0
+            ? Math.min(...hsPerAssetEntries.map(e => Math.max(0, hsPairCapFor(e.sym) - e.hsFilled)))
+            : hsMaxPerPair;
+        hsPerPairRemainingEl.textContent = hsAvailable ? fmtUsd(remaining) : '--';
+    }
 
     // Portfolio-level room — passed to per-pair projection so each pair's
     // growth respects the shared portfolio cap. The per-pair branch logic
@@ -320,12 +333,29 @@ export function applyValidatorData(result, state) {
     // additional exposure — it offsets first.
     const portfolioRoom = hsAvailable ? Math.max(0, hsMaxTotal - hsFilledTotal) : 0;
 
+    // Class room shares the same budget semantics as portfolioRoom; Infinity = no class cap
+    const hsClassCurrent = {};
+    hsPerAssetEntries.forEach((e) => {
+        const cls = state.pairCategory?.[e.sym];
+        if (cls && hsMaxByClass[cls] != null) hsClassCurrent[cls] = (hsClassCurrent[cls] || 0) + e.hsFilled;
+    });
+    const hsClassRoomFor = (sym) => {
+        const cls = state.pairCategory?.[sym];
+        const cap = cls != null ? hsMaxByClass[cls] : null;
+        return cap != null ? Math.max(0, cap - (hsClassCurrent[cls] || 0)) : Infinity;
+    };
+
     // Project once per pair so per-asset and total rows stay consistent.
     const hsProjections = hsAvailable
-        ? hsPerAssetEntries.map((e) => ({
-            ...e,
-            ...projectPairAfterFill(e.hsSignedFilled, e.hsPending, hsMaxPerPair, portfolioRoom),
-        }))
+        ? hsPerAssetEntries.map((e) => {
+            const cap = hsPairCapFor(e.sym);
+            return {
+                ...e,
+                cap,
+                ...projectPairAfterFill(e.hsSignedFilled, e.hsPending, cap,
+                    Math.min(portfolioRoom, hsClassRoomFor(e.sym))),
+            };
+        })
         : [];
 
     const hsPerPairSubBarsEl = document.getElementById('hsPerPairSubBars');
@@ -333,9 +363,9 @@ export function applyValidatorData(result, state) {
         if (hsProjections.length === 0) {
             hsPerPairSubBarsEl.innerHTML = '';
         } else {
-            hsPerPairSubBarsEl.innerHTML = hsProjections.map(({ sym, hsFilled, branch, currentMag, afterMag, pairCapBinds, portCapBinds }) => {
-                const filledPct = hsMaxPerPair > 0 ? Math.min((currentMag / hsMaxPerPair) * 100, 100) : 0;
-                const afterPct  = hsMaxPerPair > 0 ? Math.min((afterMag   / hsMaxPerPair) * 100, 100) : 0;
+            hsPerPairSubBarsEl.innerHTML = hsProjections.map(({ sym, branch, cap, currentMag, afterMag, pairCapBinds, portCapBinds }) => {
+                const filledPct = cap > 0 ? Math.min((currentMag / cap) * 100, 100) : 0;
+                const afterPct  = cap > 0 ? Math.min((afterMag   / cap) * 100, 100) : 0;
 
                 // Bar segments (mirror-preview branch logic):
                 //   add/new : solid = current,   overlay = after − current  (growth)
@@ -358,7 +388,7 @@ export function applyValidatorData(result, state) {
 
                 const safeSymbol = sym.replace(/[^A-Z0-9._-]/g, '');
                 const display    = formatPairLabel(safeSymbol);
-                const isOver     = hsMaxPerPair > 0 && currentMag > hsMaxPerPair;
+                const isOver     = cap > 0 && currentMag > cap;
 
                 const fillBg     = isOver ? 'rgb(239, 68, 68)' : capColor(solidPct);
                 const pendingBg  = isReduce ? REDUCE_STRIPE_POPUP : pendingStripeBg(isOver ? 100 : afterPct);
@@ -388,7 +418,52 @@ export function applyValidatorData(result, state) {
                             <div class="capacity-asset-fill" style="width: ${solidPct.toFixed(1)}%; background: ${fillBg};"></div>
                             <div class="capacity-asset-fill capacity-asset-fill--pending" style="width: ${overlayPct.toFixed(1)}%; left: ${solidPct.toFixed(1)}%; background: ${pendingBg};"></div>
                         </div>
-                        <span class="${valueCls}">${fmtUsd(currentMag)}${pendingMid} / ${fmtUsd(hsMaxPerPair)}</span>
+                        <span class="${valueCls}">${fmtUsd(currentMag)}${pendingMid} / ${fmtUsd(cap)}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+    }
+
+    // ── Asset class sub-caps — shown only when /limits provides them ────────
+    const hsClassRowEl = document.getElementById('hsClassRow');
+    const hsClassSubBarsEl = document.getElementById('hsClassSubBars');
+    if (hsClassRowEl && hsClassSubBarsEl) {
+        const byClass = {};
+        hsProjections.forEach((p) => {
+            const cls = state.pairCategory?.[p.sym];
+            if (!cls || hsMaxByClass[cls] == null) return;
+            const b = byClass[cls] || (byClass[cls] = { current: 0, after: 0 });
+            b.current += p.currentMag;
+            b.after += p.afterMag;
+        });
+        const classRows = Object.entries(byClass).sort((a, b) => b[1].after - a[1].after);
+        if (!hsAvailable || classRows.length === 0) {
+            hsClassRowEl.style.display = 'none';
+            hsClassSubBarsEl.innerHTML = '';
+        } else {
+            hsClassRowEl.style.display = '';
+            hsClassSubBarsEl.innerHTML = classRows.map(([cls, { current, after }]) => {
+                const cap = hsMaxByClass[cls];
+                const currentPct = Math.min((current / cap) * 100, 100);
+                const afterPct   = Math.min((after   / cap) * 100, 100);
+                const overlayPct = Math.max(0, afterPct - currentPct);
+                const isOver = current > cap;
+                const fillBg = isOver ? 'rgb(239, 68, 68)' : capColor(currentPct);
+                const trackCls = isOver ? 'capacity-asset-track capacity-asset-track--over' : 'capacity-asset-track';
+                const valueCls = isOver ? 'capacity-asset-value capacity-asset-value--over' : 'capacity-asset-value';
+                const delta = after - current;
+                const pendingMid = Math.abs(delta) > 0.01
+                    ? ` <span class="capacity-asset-pending" style="color:${capColor(afterPct)}">${delta >= 0 ? '+' : '−'} ${fmtUsd(Math.abs(delta))} pending</span>`
+                    : '';
+                return `
+                    <div class="capacity-asset-row">
+                        <span class="capacity-asset-symbol">${cls.toUpperCase().replace(/[^A-Z]/g, '')}</span>
+                        <div class="${trackCls}">
+                            <div class="capacity-asset-fill" style="width: ${currentPct.toFixed(1)}%; background: ${fillBg};"></div>
+                            <div class="capacity-asset-fill capacity-asset-fill--pending" style="width: ${overlayPct.toFixed(1)}%; left: ${currentPct.toFixed(1)}%; background: ${pendingStripeBg(afterPct)};"></div>
+                        </div>
+                        <span class="${valueCls}">${fmtUsd(current)}${pendingMid} / ${fmtUsd(cap)}</span>
                     </div>
                 `;
             }).join('');

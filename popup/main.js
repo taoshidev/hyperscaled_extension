@@ -11,6 +11,8 @@ import { initExplainers } from './explain.js';
 const state = {
     storedAddress: null,
     traderLimits: null,
+    pairCategory: {},       // display symbol → asset class, from /trade-pairs
+    pairTierLeverage: {},   // display symbol → { tier: leverage multiplier }
     hlBalance: 0,
     openTotalUsed: 0,
     openSingleUsed: 0,
@@ -153,10 +155,31 @@ async function refreshTraderLimits() {
     }
 }
 
+async function refreshTradePairs() {
+    try {
+        const result = await safeSendMessage({ action: 'fetchTradePairs' });
+        const pairs = (result.allowed || result.allowed_trade_pairs || []).filter(
+            p => p.trade_pair_source === 'hyperliquid' && !p.trade_pair_id.toLowerCase().startsWith('xyz:')
+        );
+        if (pairs.length === 0) return;
+        const category = {}, tierLeverage = {};
+        pairs.forEach(p => {
+            const symbol = p.trade_pair_id.replace(/USDC?$/, '').toUpperCase();
+            category[symbol] = p.trade_pair_category || null;
+            tierLeverage[symbol] = p.subaccount_positional_leverage_by_tier || null;
+        });
+        state.pairCategory = category;
+        state.pairTierLeverage = tierLeverage;
+    } catch (e) {
+        console.error('Trade pairs fetch failed:', e);
+    }
+}
+
 function updateData() {
     refreshBalance();
     refreshValidatorData();
     refreshTraderLimits();
+    refreshTradePairs();
     // refreshEvents(state.storedAddress);  // Order Events section commented out — re-enable with HTML in popup.html / sidepanel.html
 }
 

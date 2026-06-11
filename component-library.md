@@ -66,6 +66,13 @@ A single block showing the validator-enforced leverage limits on the funded HS a
             <span class="capacity-remaining"><span id="hsPerPairRemaining">--</span> left</span>
         </div>
     </div>
+    <!-- Hidden until /limits provides max_asset_class_usd; rows only for classes with exposure -->
+    <div class="capacity-row" id="hsClassRow" style="display: none;">
+        <div class="capacity-row-header">
+            <span class="capacity-row-label">Asset Class Limits</span>
+        </div>
+        <div class="capacity-asset-list" id="hsClassSubBars"><!-- one sub-bar per asset class --></div>
+    </div>
     <div class="capacity-row">
         <div class="capacity-row-header">
             <span class="capacity-row-label">Portfolio Limit</span>
@@ -109,11 +116,12 @@ A single block showing the validator-enforced leverage limits on the funded HS a
 ### Rules
 
 - Bars use the DD severity scale (teal/amber/red) — same `capColor()` thresholds as the banner DD bars and the injected mirror preview, so proximity-to-cap reads consistently across surfaces. JS sets the fill `background` inline based on severity.
-- Two rows: "Per Pair Limit" and "Portfolio Limit".
+- Three rows: "Per Pair Limit", "Asset Class Limits", and "Portfolio Limit". The class row stays hidden (`display: none`) until `/limits` returns `max_asset_class_usd`, and renders one sub-bar per class with open exposure (uppercase class name as the label, e.g. `COMMODITIES`).
+- Per-pair caps come from each pair's `subaccount_positional_leverage_by_tier[tier]` (via `/trade-pairs` + the `tier` field on `/limits`), so caps can differ between pairs in the same class; the class-level `max_position_per_pair_usd` is only a fallback for older backends. The "left" footer shows the tightest per-pair headroom among open positions.
 - The basis note shows the scaling ratio as a formula (`HS balance ÷ HL equity = ratio`) so the trader can verify the conversion against their own readings.
 - "HL trading is unrestricted" replaces the earlier "no HL-side cap" — same meaning, framed positively (what the trader can do, not what's missing).
 - Filled exposure comes from `hsPositionsByCoin` (validator's authoritative size × price). Pending overlay comes from HL resting-orders × mirror ratio (validator only records pending at fill time, so HL clearinghouse is the source).
-- Pending is projected against signed current exposure using the mirror-preview branch logic (`add | reduce | flip | new`). A buy pending against a short is **reduce** or **flip**, not additive. Each pair's after-magnitude is then clamped by `pair_cap` and shared `portfolio_room`. The total row aggregates per-pair after-magnitudes — never the raw sum of pending notional.
+- Pending is projected against signed current exposure using the mirror-preview branch logic (`add | reduce | flip | new`). A buy pending against a short is **reduce** or **flip**, not additive. Each pair's after-magnitude is then clamped by `pair_cap` and the shared `min(portfolio_room, class_room)` budget. The total row aggregates per-pair after-magnitudes — never the raw sum of pending notional.
 - Bar segments per branch: add/new = solid current + overlay growth (severity stripe); reduce = solid after + overlay closing tail (teal stripe matching mirror preview); flip = solid jumps to after on new side, no overlay.
 - The `± $X pending` text shows the net magnitude delta (sign indicates direction). Insert it *between* filled and `/ cap` so the row reads as a math expression: `$filled + $pending pending / $cap`. Sign and value are space-separated (`+ $171.94`). Same format applies to per-pair and portfolio rows. Append `(capped)` when `pair_cap` or `portfolio_room` binds the projection.
 - Per-asset row labels show the full Vanta pair name with `/USDC` suffix (e.g. `BTC/USDC`, `ETH/USDC`) so the trader can tell mirrored pairs apart from any unmirrored holdings (`BTC/USDT` etc.) on HL.
