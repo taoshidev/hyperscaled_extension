@@ -71,10 +71,7 @@ A single block showing the validator-enforced leverage limits on the funded HS a
         <div class="capacity-bar">
             <div class="capacity-fill capacity-fill--total" id="hsCapacityFill" style="width: 15%;"></div>
         </div>
-        <div class="capacity-footer">
-            <span class="capacity-used">All positions</span>
-            <span class="capacity-remaining"><span id="hsCapacityRemaining">$1,701.79</span> left</span>
-        </div>
+        <div class="capacity-basis-note" id="hsPortfolioNote" style="margin-top: var(--space-1);">The portfolio limit is the overall ceiling and sits below the sum of your asset-class limits — you can't fill every class to its own cap at once.</div>
     </div>
 </div>
 ```
@@ -118,10 +115,8 @@ A single block showing the validator-enforced leverage limits on the funded HS a
 - Both the per-class and total rows clamp their aggregated after-magnitude to the row's own cap before display. Per-pair projections each claim the full shared room independently, so the raw sum across same-class (or all) pairs can exceed the cap; the validator caps the row at fill time, so the excess never mirrors. The bar simply fills to `$cap / $cap` — the popup shows no unreachable over-cap figure and no `(capped)` tag (the full bar conveys it).
 - Bar segments per branch: add/new = solid current + overlay growth (severity stripe); reduce = solid after + overlay closing tail (teal stripe matching mirror preview); flip = solid jumps to after on new side, no overlay.
 - The `± $X pending` text shows the net magnitude delta (sign indicates direction). Insert it *between* filled and `/ cap` so the row reads as a math expression: `$filled + $pending pending / $cap`. Sign and value are space-separated (`+ $171.94`). Same format applies to per-class and portfolio rows. The popup does not append a `(capped)` tag — that cue lives only in the mirror preview's order-entry detail line.
-- Per-asset row labels show the full Vanta pair name with `/USDC` suffix (e.g. `BTC/USDC`, `ETH/USDC`) so the trader can tell mirrored pairs apart from any unmirrored holdings (`BTC/USDT` etc.) on HL.
-- When open positions exist, render one sub-bar per asset in the "Per Pair Limit" row; each sub-bar scales against per-pair max capacity and is sorted descending by notional.
-- Per Pair Limit header is label-only (no right value). Each asset sub-row right value is `$used / $max` for that same per-pair cap.
-- The asset list uses a single CSS grid (`display: grid` on `.capacity-asset-list`, `display: contents` on each `.capacity-asset-row`). Symbol / track / value share columns across all rows so every bar's track is the same width — otherwise the row with longer pending text would have a narrower bar, and a smaller yellow segment could visually appear shorter than a larger green segment, breaking severity-by-length comparison.
+- The Portfolio Limit row carries a faint note (`#hsPortfolioNote`, reusing `.capacity-basis-note`), shown only on multi-class accounts (when the Asset Class row is visible): the portfolio cap is the overall ceiling and sits below the sum of the class caps, so the trader can't fill every class to its own cap at once. There is no `(capped)`-style sum figure — the prose alone carries it.
+- The class sub-bar list uses a single CSS grid (`display: grid` on `.capacity-asset-list`, `display: contents` on each `.capacity-asset-row`). Symbol / track / value share columns across all rows so every bar's track is the same width — otherwise the row with longer pending text would have a narrower bar, and a smaller yellow segment could visually appear shorter than a larger green segment, breaking severity-by-length comparison.
 - Bar fill width and background are set inline via `style="width: XX%; background: ..."` calculated from JS.
 
 ### Oversized state modifiers

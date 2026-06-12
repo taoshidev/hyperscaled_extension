@@ -439,10 +439,16 @@ export function applyValidatorData(result, state) {
         }
     }
 
+    // Portfolio cap is tighter than the sum of class caps — show the note only
+    // when class caps exist (i.e. the Asset Class row is visible).
+    const hsPortfolioNoteEl = document.getElementById('hsPortfolioNote');
+    if (hsPortfolioNoteEl) {
+        hsPortfolioNoteEl.style.display = (hsClassRowEl && hsClassRowEl.style.display !== 'none') ? '' : 'none';
+    }
+
     const hsCapacityUsedEl = document.getElementById('hsCapacityUsed');
     const hsCapacityMaxEl = document.getElementById('hsCapacityMax');
     const hsCapacityFillEl = document.getElementById('hsCapacityFill');
-    const hsCapacityRemainingEl = document.getElementById('hsCapacityRemaining');
     const hsTotalOver = capsAvailable && hsMaxTotal > 0 && hsFilledTotal > hsMaxTotal;
 
     // Aggregate per-pair projections for the total row so reduce/flip pairs
@@ -501,9 +507,6 @@ export function applyValidatorData(result, state) {
                 : pendingStripeBg(hsTotalOver ? 100 : totalAfterPct);
         }
     }
-    if (hsCapacityRemainingEl) hsCapacityRemainingEl.textContent = capsAvailable
-        ? fmtUsd(Math.max(hsMaxTotal - hsAfterTotal, 0))
-        : '--';
 
     showDashboard();
     state.dashboardShown = true;

@@ -438,11 +438,11 @@ A single block showing the validator-enforced leverage limits on the funded HS a
 
 **Rule:** The phrase "HL trading is unrestricted" replaces the older "no HL-side cap". The trader needs to know HL orders won't be blocked at the exchange — the validator only enforces caps on the HS mirror at fill time.
 
-**Rule:** Two rows: **Per Pair Limit** (validator's per-pair cap) and **Portfolio Limit** (validator's portfolio cap). Both are HS-scale.
+**Rule:** Two rows: **Asset Class Limits** (validator's per-class caps; multi-class accounts only) and **Portfolio Limit** (validator's portfolio cap). The per-pair cap is shown in the injected mirror preview, not the popup. All HS-scale. The Portfolio Limit row carries a faint note (multi-class only) noting the portfolio cap sits below the sum of the class caps.
 
 **Rule:** Bars consume `hsPositionsByCoin` (validator's authoritative size × price) for filled exposure and HL's resting-order notional × mirror ratio for the pending overlay. The validator records pending only at fill time, so projected pending must come from HL clearinghouse.
 
-**Rule:** Pending is projected against current SIGNED exposure using the same `add | reduce | flip | new` branch logic as the injected mirror preview (`content/mirror-preview.js`). Background's `extractPendingBuyNotional` only emits buy-side resting orders, so a buy pending against a short position must be treated as **reduce** (or **flip** if larger), never as additive exposure. Per-pair after-magnitude is `|currentSigned + pendingBuy|`, then clamped by `pair_cap` and `portfolio_room`. The total row aggregates per-pair after-magnitudes (also clamped at portfolio cap) — never the raw sum of pending notional.
+**Rule:** Pending is projected against current SIGNED exposure using the same `add | reduce | flip | new` branch logic as the injected mirror preview (`content/mirror-preview.js`). Background's `extractPendingBuyNotional` only emits buy-side resting orders, so a buy pending against a short position must be treated as **reduce** (or **flip** if larger), never as additive exposure. Per-pair after-magnitude is `|currentSigned + pendingBuy|`, then clamped by `pair_cap`, `class_room`, and `portfolio_room`. The per-class and total rows aggregate per-pair after-magnitudes (each clamped at its own cap) — never the raw sum of pending notional.
 
 **Rule:** Bar segments per branch:
 - **add / new** — solid = current magnitude, overlay = (after − current) growth, stripe in severity color of after %
