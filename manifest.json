@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Hyperscaled",
-  "version": "1.0.13",
+  "version": "1.0.14",
   "description": "Track your Hyperscaled account and Hyperliquid positions",
   "action": {
     "default_icon": {
