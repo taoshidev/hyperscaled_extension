@@ -359,11 +359,12 @@
         } else {
           lines.push('Order exceeds ' + capPhrase() + '. HS will mirror only <b>' + fmt(mirrorsTo) + '</b> before capping at the limit.');
           lines.push('HL trading is unaffected.');
-          // Suggest a smaller HL order — only when the pair cap alone binds;
-          // class/portfolio headroom depends on other pairs.
-          if (pairCapBinds && !classCapBinds && !portCapBinds && ratio > 0) {
-            const cappedHlRaw = Math.max(0, pairMax - currentHsPair) / ratio;
-            const cappedHl = Math.floor(cappedHlRaw * 100) / 100;
+          // mirrorsTo is already clamped by all three caps, so here (a cap
+          // binds) it equals the tightest cap's HS headroom — mirrorsTo / ratio
+          // is the largest HL order that clears pair, class and portfolio alike.
+          // Floor to the cent so the suggested value always stays under the cap.
+          if (ratio > 0) {
+            const cappedHl = Math.floor((mirrorsTo / ratio) * 100) / 100;
             if (cappedHl > 0) {
               lines.push('Lower this HL order to <b>' + fmt(cappedHl) + '</b> or less to mirror fully.');
             }

@@ -374,14 +374,19 @@ export function applyValidatorData(result, state) {
             hsClassRowEl.style.display = '';
             hsClassSubBarsEl.innerHTML = classRows.map(([cls, { current, after }]) => {
                 const cap = hsMaxByClass[cls];
+                // Each pair projects against the full class room independently, so
+                // the summed `after` can exceed the cap. Clamp it: the validator
+                // caps the class at fill time, so the excess never mirrors. The
+                // bar fills to 100%, which conveys the cap without a text tag.
+                const cappedAfter = Math.min(after, cap);
                 const currentPct = Math.min((current / cap) * 100, 100);
-                const afterPct   = Math.min((after   / cap) * 100, 100);
+                const afterPct   = Math.min((cappedAfter / cap) * 100, 100);
                 const overlayPct = Math.max(0, afterPct - currentPct);
                 const isOver = current > cap;
                 const fillBg = isOver ? 'rgb(239, 68, 68)' : capColor(currentPct);
                 const trackCls = isOver ? 'capacity-asset-track capacity-asset-track--over' : 'capacity-asset-track';
                 const valueCls = isOver ? 'capacity-asset-value capacity-asset-value--over' : 'capacity-asset-value';
-                const delta = after - current;
+                const delta = cappedAfter - current;
                 const pendingMid = Math.abs(delta) > 0.01
                     ? ` <span class="capacity-asset-pending" style="color:${capColor(afterPct)}">${delta >= 0 ? '+' : '−'} ${fmtUsd(Math.abs(delta))} pending</span>`
                     : '';
@@ -412,7 +417,6 @@ export function applyValidatorData(result, state) {
     const totalDelta = hsAfterTotal - hsFilledTotal;
     const totalShrinks = totalDelta < -0.01;
     const totalGrows = totalDelta > 0.01;
-    const totalCapped = hsProjections.some((p) => p.pairCapBinds || p.portCapBinds);
 
     const totalFilledPct = capsAvailable && hsMaxTotal > 0 ? Math.min((hsFilledTotal / hsMaxTotal) * 100, 100) : 0;
     const totalAfterPct  = capsAvailable && hsMaxTotal > 0 ? Math.min((hsAfterTotal  / hsMaxTotal) * 100, 100) : 0;
@@ -433,11 +437,10 @@ export function applyValidatorData(result, state) {
             hsCapacityUsedEl.textContent = '--';
         } else {
             const pendingTextColor = capColor(hsTotalOver ? 100 : totalAfterPct);
-            const cappedTag = totalCapped ? ' (capped)' : '';
             let pendingMid = '';
             if (Math.abs(totalDelta) > 0.01) {
                 const sign = totalDelta >= 0 ? '+' : '−';
-                pendingMid = ` <span class="capacity-asset-pending" style="color:${pendingTextColor}">${sign} ${fmtUsd(Math.abs(totalDelta))} pending${cappedTag}</span>`;
+                pendingMid = ` <span class="capacity-asset-pending" style="color:${pendingTextColor}">${sign} ${fmtUsd(Math.abs(totalDelta))} pending</span>`;
             }
             hsCapacityUsedEl.innerHTML = `${fmtUsd(hsFilledTotal)}${pendingMid}`;
         }
