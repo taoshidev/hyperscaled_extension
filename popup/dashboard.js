@@ -2,7 +2,6 @@ import { fmtUsd } from './format.js';
 import { showDashboard } from './screens.js';
 
 const CHALLENGE_TARGET = 10;
-const DRAWDOWN_MAX = 5;
 
 // DD-aligned severity scale: teal < 70% → amber 70–90% → red ≥ 90% or breached.
 // Same colors as banner ddColor() and the injected mirror preview, so capacity
@@ -117,24 +116,32 @@ export function applyValidatorData(result, state) {
 
     const cp = result.challenge_period || {};
     const dd = result.drawdown || {};
-    const currentEquity = parseFloat(dd.current_equity) || 1;
     // HS Account balance must come from account_size_data.balance — that is
     // realized PnL only (per the validator's transform: balance ≈ account_size
-    // + total_realized_pnl − fees). Falling back to accountSize × currentEquity
+    // + total_realized_pnl − fees). Falling back to accountSize × current_equity
     // mixes in unrealized PnL via current_equity's ratio, producing a wrong
     // number labelled "balance". Show "--" instead when the field is missing.
     const validatorEquity = accountBalance;
-    const returnsPct = (currentEquity - 1) * 100;
+    // Realized return on starting capital drives both the challenge progress
+    // and the funded "Realized Return" readout. null when balance/size
+    // unavailable → render "--", never a wrong number.
+    const realizedReturnPct = (accountBalance != null && accountSize > 0)
+        ? (accountBalance / accountSize - 1) * 100 : null;
     const targetPct = CHALLENGE_TARGET;
-    const challengeCompletionPct = targetPct > 0 ? Math.min((returnsPct / targetPct) * 100, 100) : 0;
+    const challengeCompletionPct = (realizedReturnPct != null && targetPct > 0)
+        ? Math.min((realizedReturnPct / targetPct) * 100, 100) : 0;
     const inChallenge = cp.bucket !== 'SUBACCOUNT_FUNDED';
 
     const drawdownPct = parseFloat(dd.intraday_drawdown_pct) || 0;
-    const drawdownLimitPct = parseFloat(dd.intraday_threshold_pct) || DRAWDOWN_MAX;
-    const drawdownUsagePct = parseFloat(dd.intraday_usage_pct) || 0;
     const trailingDrawdownPct = parseFloat(dd.eod_drawdown_pct) || 0;
-    const trailingDrawdownLimitPct = parseFloat(dd.eod_threshold_pct) || DRAWDOWN_MAX;
+    const drawdownUsagePct = parseFloat(dd.intraday_usage_pct) || 0;
     const trailingDrawdownUsagePct = parseFloat(dd.eod_usage_pct) || 0;
+    // Thresholds come from the validator only — null when absent, rendered as
+    // "--". Never fall back to a fixed number (funded EOD is 8%, not 5%).
+    const intradayThr = parseFloat(dd.intraday_threshold_pct);
+    const eodThr = parseFloat(dd.eod_threshold_pct);
+    const drawdownLimitPct = Number.isFinite(intradayThr) && intradayThr > 0 ? intradayThr : null;
+    const trailingDrawdownLimitPct = Number.isFinite(eodThr) && eodThr > 0 ? eodThr : null;
 
     const fundedBalanceEl = document.getElementById('fundedBalance');
     if (fundedBalanceEl) fundedBalanceEl.textContent = validatorEquity == null ? '--' : fmtUsd(validatorEquity);
@@ -164,19 +171,46 @@ export function applyValidatorData(result, state) {
         statusBadge.textContent = inChallenge ? 'In Challenge' : 'Funded';
     }
 
+    // Funded accounts have no profit target: relabel the section, drop the
+    // progress bar and goal label, and show plain realized return.
+    const challengeTitleEl = document.getElementById('challengeSectionTitle');
+    if (challengeTitleEl) challengeTitleEl.textContent = inChallenge ? 'Challenge Progress' : 'Realized Return';
+
+    // Funded accounts have no target — the help text must not talk about
+    // passing a challenge. Set both branches so an address switch re-renders it.
+    const challengeInfoEl = document.getElementById('info-challengeProgress');
+    if (challengeInfoEl) {
+        challengeInfoEl.textContent = inChallenge
+            ? "Shows how close you are to hitting your profit target. You need to reach a 10% return on your challenge account starting capital to pass the challenge. The bar fills as your return approaches the target. Once it reaches 100%, you've passed and move to a funded account."
+            : "Your realized return on the funded account's starting capital — closed-trade P&L minus fees, as a percentage of your starting size. Funded accounts have no profit target.";
+    }
+
     const challengeValueEl = document.getElementById('challengeValue');
     const challengeFillEl = document.getElementById('challengeFill');
     const challengeLabelEl = document.getElementById('challengeLabel');
-    if (challengeValueEl) challengeValueEl.textContent = `${returnsPct.toFixed(2)}% / ${targetPct}%`;
+    const returnText = realizedReturnPct == null ? '--' : `${realizedReturnPct.toFixed(2)}%`;
+    if (challengeValueEl) {
+        challengeValueEl.textContent = (inChallenge && realizedReturnPct != null)
+            ? `${realizedReturnPct.toFixed(2)}% / ${targetPct}%`
+            : returnText;
+    }
+    const challengeBarEl = challengeFillEl ? challengeFillEl.closest('.progress-bar') : null;
+    const challengeLabelWrapEl = challengeLabelEl ? challengeLabelEl.closest('.progress-label') : null;
+    if (challengeBarEl) challengeBarEl.style.display = inChallenge ? '' : 'none';
+    if (challengeLabelWrapEl) challengeLabelWrapEl.style.display = inChallenge ? '' : 'none';
     if (challengeFillEl) {
         challengeFillEl.style.width = Math.min(challengeCompletionPct, 100) + '%';
     }
-    if (challengeLabelEl) {
-        const remainingPct = targetPct - returnsPct;
-        const remainingDollar = accountSize * (remainingPct / 100);
-        challengeLabelEl.textContent = remainingPct > 0
-            ? `${fmtUsd(remainingDollar)} to target (${targetPct}% goal)`
-            : 'Target reached!';
+    if (challengeLabelEl && inChallenge) {
+        if (realizedReturnPct == null) {
+            challengeLabelEl.textContent = '--';
+        } else {
+            const remainingPct = targetPct - realizedReturnPct;
+            const remainingDollar = accountSize * (remainingPct / 100);
+            challengeLabelEl.textContent = remainingPct > 0
+                ? `${fmtUsd(remainingDollar)} to target (${targetPct}% goal)`
+                : 'Target reached!';
+        }
     }
 
     const dailyDrawdownValueEl = document.getElementById('dailyDrawdownValue');
@@ -185,10 +219,10 @@ export function applyValidatorData(result, state) {
     const trailingDrawdownFillEl = document.getElementById('trailingDrawdownFill');
     const drawdownLabelEl = document.getElementById('drawdownLabel');
     if (dailyDrawdownValueEl) {
-        dailyDrawdownValueEl.textContent = `${drawdownPct.toFixed(3)}% / ${drawdownLimitPct.toFixed(0)}%`;
+        dailyDrawdownValueEl.textContent = `${drawdownPct.toFixed(3)}% / ${drawdownLimitPct == null ? '--' : drawdownLimitPct.toFixed(0) + '%'}`;
     }
     if (trailingDrawdownValueEl) {
-        trailingDrawdownValueEl.textContent = `${trailingDrawdownPct.toFixed(3)}% / ${trailingDrawdownLimitPct.toFixed(0)}%`;
+        trailingDrawdownValueEl.textContent = `${trailingDrawdownPct.toFixed(3)}% / ${trailingDrawdownLimitPct == null ? '--' : trailingDrawdownLimitPct.toFixed(0) + '%'}`;
     }
     if (dailyDrawdownFillEl) {
         dailyDrawdownFillEl.style.width = Math.min(drawdownUsagePct, 100) + '%';
@@ -211,17 +245,18 @@ export function applyValidatorData(result, state) {
             ? accountSize * dayOpenRatio : null;
         const hwmUsd = (accountSize > 0 && Number.isFinite(hwmRatio) && hwmRatio > 0)
             ? accountSize * hwmRatio : null;
-        const dailyBufferPct = drawdownLimitPct - drawdownPct;
-        const trailingBufferPct = trailingDrawdownLimitPct - trailingDrawdownPct;
-        const dailyBufferText = dayOpenUsd == null
+        // Buffer needs the threshold; null threshold → "--", never a wrong figure.
+        const dailyBufferPct = drawdownLimitPct == null ? null : drawdownLimitPct - drawdownPct;
+        const trailingBufferPct = trailingDrawdownLimitPct == null ? null : trailingDrawdownLimitPct - trailingDrawdownPct;
+        const dailyBufferText = (dayOpenUsd == null || dailyBufferPct == null)
             ? '--'
             : fmtUsd(Math.max(dayOpenUsd * (dailyBufferPct / 100), 0));
-        const trailingBufferText = hwmUsd == null
+        const trailingBufferText = (hwmUsd == null || trailingBufferPct == null)
             ? '--'
             : fmtUsd(Math.max(hwmUsd * (trailingBufferPct / 100), 0));
         drawdownLabelEl.textContent =
-            `Intraday ${dailyBufferText} (${dailyBufferPct.toFixed(2)}%) · ` +
-            `EOD trailing ${trailingBufferText} (${trailingBufferPct.toFixed(2)}%) buffer`;
+            `Intraday ${dailyBufferText} (${dailyBufferPct == null ? '--' : dailyBufferPct.toFixed(2) + '%'}) · ` +
+            `EOD trailing ${trailingBufferText} (${trailingBufferPct == null ? '--' : trailingBufferPct.toFixed(2) + '%'}) buffer`;
     }
 
     // ── Mirror ratio (used by HS capacity block) ───────────────────────────────

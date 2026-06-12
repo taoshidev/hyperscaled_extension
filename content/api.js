@@ -236,7 +236,6 @@
       ACCOUNT.inChallenge = HF.utils.resolveChallengeModeFromValidator(result);
 
       const dd = result.drawdown || {};
-      const currentEquity = parseFloat(dd.current_equity) || 1;
       const accountSizeData = result.account_size_data || null;
       const balanceField = parseFloat(accountSizeData?.balance);
       ACCOUNT.accountBalance = Number.isFinite(balanceField) && balanceField > 0 ? balanceField : null;
@@ -245,15 +244,24 @@
       ACCOUNT.dailyOpenRatio = Number.isFinite(dailyOpen) && dailyOpen > 0 ? dailyOpen : null;
       ACCOUNT.eodHwmRatio = Number.isFinite(eodHwm) && eodHwm > 0 ? eodHwm : null;
       ACCOUNT.validatorEquity = ACCOUNT.accountBalance;
-      ACCOUNT.challengeCurrent = (currentEquity - 1) * 100;
+      // Realized return on starting capital (balance = account_size +
+      // realized_pnl − fees), not the mark-to-market current_equity. Both
+      // challenge and funded report realized return.
+      const acctSize = parseFloat(result.account_size) || 0;
+      ACCOUNT.challengeCurrent = (ACCOUNT.accountBalance != null && acctSize > 0)
+        ? (ACCOUNT.accountBalance / acctSize - 1) * 100
+        : 0;
       ACCOUNT.drawdownCurrent = parseFloat(dd.intraday_drawdown_pct) || 0;
-      ACCOUNT.drawdownMax = parseFloat(dd.intraday_threshold_pct) || ACCOUNT.drawdownMax;
       ACCOUNT.daily_loss_pct = parseFloat(dd.intraday_drawdown_pct) || 0;
       ACCOUNT.eod_trailing_loss_pct = parseFloat(dd.eod_drawdown_pct) || 0;
       ACCOUNT.intraday_usage_pct = parseFloat(dd.intraday_usage_pct) || 0;
       ACCOUNT.eod_usage_pct = parseFloat(dd.eod_usage_pct) || 0;
-      ACCOUNT.intraday_threshold_pct = parseFloat(dd.intraday_threshold_pct) || ACCOUNT.intraday_threshold_pct;
-      ACCOUNT.eod_threshold_pct = parseFloat(dd.eod_threshold_pct) || ACCOUNT.eod_threshold_pct;
+      // Thresholds come from the validator only — never fall back to a number.
+      // Missing/zero → null so the UI shows "--" instead of a wrong limit.
+      const intradayThr = parseFloat(dd.intraday_threshold_pct);
+      const eodThr = parseFloat(dd.eod_threshold_pct);
+      ACCOUNT.intraday_threshold_pct = Number.isFinite(intradayThr) && intradayThr > 0 ? intradayThr : null;
+      ACCOUNT.eod_threshold_pct = Number.isFinite(eodThr) && eodThr > 0 ? eodThr : null;
 
       // Exposure (notionalByPair, signedNotionalByPair, openTotalUsed,
       // openSingleUsed) is populated only by checkBalance() from HL's
@@ -399,6 +407,8 @@
       ACCOUNT.eod_trailing_loss_pct = 0;
       ACCOUNT.intraday_usage_pct = 0;
       ACCOUNT.eod_usage_pct = 0;
+      ACCOUNT.intraday_threshold_pct = null;
+      ACCOUNT.eod_threshold_pct = null;
       ACCOUNT.openSingleUsed = 0;
       ACCOUNT.openTotalUsed = 0;
       ACCOUNT.exposureSource = "none";

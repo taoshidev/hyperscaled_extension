@@ -186,12 +186,14 @@ The toast is built dynamically in `content/toast.js` (`showOversizeToast()`). Re
 
 A self-contained section displaying a tracked metric with a title and optional right-hand header value, one or more progress bars, and a sublabel. Challenge Progress uses a title/value header; Current Drawdown is title-only in the header (details live in Intraday / EOD Trailing rows).
 
+The header value is **realized return** (`balance / account_size − 1`, where `balance = account_size + realized PnL − fees`) — not the mark-to-market equity return. The section title text lives in `<span id="challengeSectionTitle">` so JS can swap it per account state (see Funded variant). Missing balance/size → `--`, never a wrong number.
+
 ### HTML structure
 
 ```html
 <div class="section">
   <div class="section-header">
-    <div class="section-title">Challenge Progress</div>
+    <div class="section-title"><span id="challengeSectionTitle">Challenge Progress</span></div>
     <div class="section-value challenge">6.45% / 10%</div>
   </div>
   <div class="progress-bar">
@@ -246,6 +248,8 @@ A self-contained section displaying a tracked metric with a title and optional r
 | Row value color | `--amber` |
 | Bar background | `rgba(251, 191, 36, 0.1)` (amber tint) |
 | Fill gradient | `linear-gradient(90deg, #fbbf24, #f59e0b)` |
+
+**Funded variant** — funded accounts have no profit target, so the Challenge Progress section becomes a plain readout: the title swaps to "Realized Return", the header value shows realized return alone (e.g. `12.50%`, no `/ target`), and the progress bar and goal sublabel are hidden (`display: none`). Challenge accounts keep the title/value/bar/label as above, with progress measured against the fixed 10% target. The same realized-return basis drives both. (The banner mirrors this: its `TARGET` stat is rendered only for challenge accounts.)
 
 ---
 
