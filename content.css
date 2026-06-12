@@ -193,7 +193,7 @@
   font-weight: 400 !important;
   color: var(--text-label) !important;
   text-transform: uppercase !important;
-  width: 52px !important;
+  width: 88px !important;
   flex-shrink: 0 !important;
   white-space: nowrap !important;
 }
@@ -254,6 +254,23 @@
 /* ── Spacer ─────────────────────────────────────────────────────────────── */
 #hf-banner .hf-spacer {
   flex: 1 !important;
+}
+
+/* ── Rules link ─────────────────────────────────────────────────────────── */
+#hf-banner .hf-rules-link {
+  font-family: var(--font-ui) !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  color: var(--text-label) !important;
+  text-decoration: none !important;
+  letter-spacing: 0.02em !important;
+  white-space: nowrap !important;
+  padding: 2px 6px !important;
+  border-radius: 3px !important;
+  transition: color 0.15s ease !important;
+}
+#hf-banner .hf-rules-link:hover {
+  color: var(--text-primary) !important;
 }
 
 
@@ -740,6 +757,88 @@ button.hf-trade-blocked:disabled {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85) !important;
 }
 
+/* ── Oversize toast — compact banner-style, dismissible ──────────────────────── */
+#hf-toast-container .hf-toast--compact {
+  display: inline-flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 8px !important;
+  width: auto !important;
+  max-width: 420px !important;
+  padding: 6px 10px !important;
+  border-radius: 8px !important;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.5),
+    0 6px 18px rgba(0, 0, 0, 0.4) !important;
+  font-size: 11px !important;
+  line-height: 1.3 !important;
+}
+#hf-toast-container .hf-toast--compact .hf-toast-icon {
+  font-size: 13px !important;
+  padding: 0 !important;
+  color: #f87171 !important;
+  flex-shrink: 0 !important;
+}
+#hf-toast-container .hf-toast--compact .hf-toast-summary {
+  color: rgba(255, 255, 255, 0.92) !important;
+  font-weight: 500 !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+  letter-spacing: 0.1px !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+}
+#hf-toast-container .hf-toast--compact .hf-toast-expand,
+#hf-toast-container .hf-toast--compact .hf-toast-close {
+  all: unset !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 18px !important;
+  height: 18px !important;
+  border-radius: 4px !important;
+  color: rgba(255, 255, 255, 0.55) !important;
+  font-size: 13px !important;
+  cursor: pointer !important;
+  flex-shrink: 0 !important;
+  transition: color 0.15s ease, background 0.15s ease !important;
+}
+#hf-toast-container .hf-toast--compact .hf-toast-expand:hover,
+#hf-toast-container .hf-toast--compact .hf-toast-close:hover {
+  color: rgba(255, 255, 255, 0.95) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+#hf-toast-container .hf-toast--compact.hf-toast--expanded .hf-toast-expand {
+  transform: rotate(180deg) !important;
+}
+#hf-toast-container .hf-toast--compact .hf-toast-details {
+  display: none !important;
+  flex: 1 0 100% !important;
+  margin-top: 6px !important;
+  padding-top: 6px !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: rgba(255, 255, 255, 0.78) !important;
+  font-size: 11px !important;
+  line-height: 1.5 !important;
+}
+#hf-toast-container .hf-toast--compact.hf-toast--expanded .hf-toast-details {
+  display: block !important;
+}
+#hf-toast-container .hf-toast--compact .hf-toast-details b {
+  color: #ffffff !important;
+  font-weight: 600 !important;
+  font-family: 'Menlo', monospace !important;
+  font-variant-numeric: tabular-nums !important;
+}
+#hf-toast-container .hf-toast--compact .hf-toast-detail-line {
+  display: block !important;
+}
+#hf-toast-container .hf-toast--compact .hf-toast-detail-line + .hf-toast-detail-line {
+  margin-top: 6px !important;
+}
+
 /* ── Order Blocked — compact, dismissible variant ──────────────────────── */
 #hf-toast-container .hf-toast--blocked {
   width: 280px !important;
@@ -980,15 +1079,13 @@ button.hf-trade-blocked:disabled {
   margin: 0 0 0 5px; padding: 0;
 }
 
-/* ── Capacity sections ── */
+/* ── Capacity sections — uniform 8px rhythm, no dividers ── */
 #hf-mirror-preview .hf-mp-capacity {
   display: block;
-  margin: 0; padding: 0;
+  margin: 0 0 8px 0; padding: 0;
 }
-#hf-mirror-preview .hf-mp-capacity--pair {
-  margin: 0 0 8px 0;
-  padding: 0 0 8px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+#hf-mirror-preview .hf-mp-capacity:last-child {
+  margin-bottom: 0;
 }
 #hf-mirror-preview .hf-mp-cap-header {
   display: flex;
@@ -1029,8 +1126,8 @@ button.hf-trade-blocked:disabled {
 #hf-mirror-preview .hf-mp-bar-current {
   display: block;
   height: 100%;
-  background: #6466f1;
-  transition: width 0.2s ease;
+  background: #00c6a7;
+  transition: width 0.2s ease, background 0.2s ease;
   min-width: 0;
   margin: 0; padding: 0;
   border-radius: 0;
@@ -1038,7 +1135,7 @@ button.hf-trade-blocked:disabled {
 #hf-mirror-preview .hf-mp-bar-pending {
   display: block;
   height: 100%;
-  background: rgba(100, 102, 241, 0.4);
+  background: rgba(0, 198, 167, 0.4);
   transition: width 0.2s ease, background 0.2s ease;
   min-width: 0;
   margin: 0; padding: 0;
@@ -1051,4 +1148,43 @@ button.hf-trade-blocked:disabled {
   color: rgba(255, 255, 255, 0.35);
   font-variant-numeric: tabular-nums;
   margin: 0; padding: 0;
+}
+
+/* ── Cap-exceeded warning ── */
+#hf-mirror-preview .hf-mp-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0 0 8px 0;
+  padding: 8px 10px;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.32);
+  border-radius: 6px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #fca5a5;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+#hf-mirror-preview .hf-mp-warning-icon {
+  color: #f87171;
+  font-size: 13px;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+#hf-mirror-preview .hf-mp-warning-text {
+  flex: 1;
+  min-width: 0;
+}
+#hf-mirror-preview .hf-mp-warning-text b {
+  color: #fecaca;
+  font-weight: 600;
+  font-family: 'Menlo', monospace;
+  font-variant-numeric: tabular-nums;
+}
+#hf-mirror-preview .hf-mp-warning-line {
+  display: block;
+}
+#hf-mirror-preview .hf-mp-warning-line + .hf-mp-warning-line {
+  margin-top: 4px;
 }

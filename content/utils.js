@@ -4,9 +4,46 @@
   const { ACCOUNT } = HF.state;
 
   function marginLimitBasisUsd() {
-    const walletEquity = Number(ACCOUNT.hlEquity) || 0;
-    const openNotional = Number(ACCOUNT.openTotalUsed) || 0;
-    return walletEquity + openNotional;
+    // Caps live on the HS side now (= ratio × accountBalance), so the
+    // fallback basis when validator limits haven't loaded is the live HS
+    // balance. Trade-gate / mirror-preview compare HS-mapped exposure to
+    // this, not raw HL equity.
+    return Number(ACCOUNT.accountBalance) || 0;
+  }
+
+  // Multiplier that converts HL-side notional to HS-side notional.
+  // HS_value = HL_value × mirrorMultiplier — mirrors tgbot's `weight × hs_bal`
+  // expressed as a single up-front multiply.
+  function getMirrorMultiplier() {
+    const hlBal = Number(ACCOUNT.hlBalance) || 0;
+    const accountBalance = Number(ACCOUNT.accountBalance) || 0;
+    if (hlBal <= 0 || accountBalance <= 0) return 0;
+    return accountBalance / hlBal;
+  }
+
+  // Resolves a URL symbol (e.g. "XYZ:WTIOIL") or HL coin (e.g. "XYZ:CL") to
+  // the canonical display/exposure key used in notionalByPair and signedNotionalByPair.
+  // Native pairs like "BTC" pass through unchanged. xyz pairs resolve through
+  // hlCoinToDisplay (built by fetchTradePairs) so that both "XYZ:CL" and
+  // "XYZ:WTIOIL" map to the same "WTIOIL" key that validator data uses.
+  function resolveExposureSymbol(symbol) {
+    if (!symbol) return null;
+    const display = HF.state.hlCoinToDisplay || {};
+    return display[symbol] || symbol;
+  }
+
+  // True when the order side is opposite the current position direction —
+  // i.e. selling a long or buying a short. Used to bypass cap-based gating
+  // when the user is reducing exposure (which should always be allowed,
+  // even when current exposure is already over the cap).
+  function isReduceIntent(symbol, side) {
+    if (!symbol || (side !== "buy" && side !== "sell")) return false;
+    const resolved = resolveExposureSymbol(symbol);
+    const signed = Number(ACCOUNT.signedNotionalByPair?.[resolved]) || 0;
+    if (Math.abs(signed) <= 0.01) return false;
+    if (signed > 0 && side === "sell") return true;
+    if (signed < 0 && side === "buy") return true;
+    return false;
   }
 
   function resolveChallengeModeFromValidator(result) {
@@ -18,7 +55,21 @@
     return true;
   }
 
-  function effectiveMaxSingleUsd() {
+  function assetClassOf(symbol) {
+    const sym = resolveExposureSymbol(symbol || getCurrentSymbol());
+    return (sym && HF.state.pairCategory?.[sym]) || null;
+  }
+
+  // Per-pair cap in HS USD. Prefers the pair's own tier multiplier from
+  // /trade-pairs (caps differ within a class, e.g. GOLD vs SILVER); falls
+  // back to the class-level /limits figure, then to the margin basis.
+  function effectiveMaxSingleUsd(symbol) {
+    const sym = resolveExposureSymbol(symbol || getCurrentSymbol());
+    const accountBalance = Number(ACCOUNT.accountBalance) || 0;
+    const lev = Number(HF.state.pairTierLeverage?.[sym]?.[ACCOUNT.tier]) || 0;
+    if (HF.state.limitsLoaded && lev > 0 && accountBalance > 0) {
+      return lev * accountBalance;
+    }
     if (HF.state.limitsLoaded && ACCOUNT.maxPositionPerPair > 0) {
       return ACCOUNT.maxPositionPerPair;
     }
@@ -30,6 +81,26 @@
       return ACCOUNT.maxPortfolio;
     }
     return marginLimitBasisUsd();
+  }
+
+  // Per-class cap in HS USD, or null when none applies — callers skip the check
+  function effectiveMaxClassUsd(symbol) {
+    const cls = assetClassOf(symbol);
+    const cap = cls ? Number(ACCOUNT.maxByAssetClass?.[cls]) : 0;
+    return cap > 0 ? cap : null;
+  }
+
+  // Combined |HS notional| of filled positions in symbol's asset class
+  function classExposureUsd(symbol) {
+    const cls = assetClassOf(symbol);
+    if (!cls) return 0;
+    let sum = 0;
+    for (const [coin, pos] of Object.entries(ACCOUNT.hsPositionsByCoin || {})) {
+      if (HF.state.pairCategory?.[coin] === cls) {
+        sum += Math.abs(Number(pos?.value) || 0);
+      }
+    }
+    return sum;
   }
 
   const fmt = (n) =>
@@ -125,7 +196,8 @@
   }
 
   function getCurrentSymbol() {
-    const urlMatch = location.pathname.match(/\/trade\/(@?\w+)/);
+    // Match /trade/xyz:EUR, /trade/@BTC, /trade/BTC etc — capture dex prefix if present
+    const urlMatch = location.pathname.match(/\/trade\/(@?[\w:]+)/);
     if (urlMatch) {
       return urlMatch[1].replace(/^@/, "").toUpperCase();
     }
@@ -489,9 +561,15 @@
 
   HF.utils = {
     marginLimitBasisUsd,
+    getMirrorMultiplier,
+    resolveExposureSymbol,
+    isReduceIntent,
     resolveChallengeModeFromValidator,
+    assetClassOf,
     effectiveMaxSingleUsd,
     effectiveMaxTotalUsd,
+    effectiveMaxClassUsd,
+    classExposureUsd,
     fmt,
     pct,
     clamp,

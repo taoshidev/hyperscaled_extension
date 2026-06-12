@@ -3,7 +3,6 @@
   const HF = window.__HF;
 
   const bound = new WeakSet();
-  let clampDebounceTimer = null;
   let bindLoop = null;
   let updateTimer = null;
 
@@ -13,6 +12,14 @@
       updateTimer = null;
       HF.banner.updateBanner(HF.banner.getPendingNotional());
     }, 0);
+  }
+
+  function isLikelyPriceInput(input) {
+    if (!(input instanceof HTMLInputElement)) return false;
+    const hint = (
+      (input.placeholder || '') + ' ' + (input.getAttribute('aria-label') || '')
+    ).toLowerCase();
+    return hint.includes('price') || hint.includes('limit');
   }
 
   function bindInputsOnce() {
@@ -33,12 +40,8 @@
       }, opts);
       input.addEventListener("input", () => {
         HF.state.lastEditedInput = input;
-        HF.toast.resetBlockedToastDismissed();
-        HF.tradeGate.releaseForcedTradeBlock();
         scheduleUpdate();
-        clearTimeout(clampDebounceTimer);
-        if (HF.utils.isLikelySizeInput(input)) {
-          clampDebounceTimer = setTimeout(() => HF.clamping.clampInputIfNeeded(input), 400);
+        if (HF.utils.isLikelySizeInput(input) || isLikelyPriceInput(input)) {
           HF.mirrorPreview.onSizeInputChange(input);
         }
       }, opts);
@@ -46,15 +49,12 @@
       input.addEventListener("keyup", () => { HF.state.lastEditedInput = input; scheduleUpdate(); }, opts);
       input.addEventListener("change", () => {
         HF.state.lastEditedInput = input;
-        if (HF.utils.isLikelySizeInput(input)) {
-          HF.clamping.clampInputIfNeeded(input);
+        if (HF.utils.isLikelySizeInput(input) || isLikelyPriceInput(input)) {
           HF.mirrorPreview.onSizeInputChange(input);
         }
         scheduleUpdate();
       }, opts);
       input.addEventListener("blur", () => {
-        clearTimeout(clampDebounceTimer);
-        if (HF.utils.isLikelySizeInput(input)) HF.clamping.clampInputIfNeeded(input);
         HF.mirrorPreview.onSizeInputBlur(input);
       }, opts);
     }
@@ -67,7 +67,6 @@
       if (!document.getElementById(HF.state.BANNER_ID)) return;
       bindInputsOnce();
       HF.pairSupport.checkPairSupport();
-      HF.clamping.checkAndClampOrderValue();
     }, 500);
   }
 

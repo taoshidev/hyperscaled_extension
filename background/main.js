@@ -6,25 +6,35 @@ import { pollEventsForStoredAddress } from './events.js';
 import { handlePaymentMessage, attemptBackgroundVerification } from './payment.js';
 import { showPositionNotification, setupNotificationClickHandler } from './notifications.js';
 
-// ── Extension icon click ─────────────────────────────────────────────────────
-chrome.action.onClicked.addListener(() => {
-  showPositionNotification();
+// ── Side panel on icon click ─────────────────────────────────────────────────
+// openPanelOnActionClick: true makes the browser open/close the side panel
+// automatically when the toolbar icon is clicked. onClicked no longer fires
+// when this is set, so notification triggers are alarm-driven instead.
+chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
+
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
 });
 
 // ── Alarms ───────────────────────────────────────────────────────────────────
-chrome.alarms.create('pollEvents', { periodInMinutes: EVENT_POLL_INTERVAL_MINUTES });
+// Order Events polling suspended along with the popup section — the
+// entity-miner /events endpoint was returning empty for live accounts and
+// the popup UI is commented out. To restore: re-enable pollEvents alarm
+// creation + handler + startup call here, plus refreshEvents() and
+// initEventsPagination() in popup/main.js, and uncomment the HTML in
+// popup.html / sidepanel.html.
+// chrome.alarms.create('pollEvents', { periodInMinutes: EVENT_POLL_INTERVAL_MINUTES });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === 'pollEvents') {
-    pollEventsForStoredAddress();
-  }
+  // if (alarm.name === 'pollEvents') {
+  //   pollEventsForStoredAddress();
+  // }
   if (alarm.name === 'hl-verify-poll') {
     attemptBackgroundVerification();
   }
 });
 
-// Poll events on service worker startup
-pollEventsForStoredAddress();
+// pollEventsForStoredAddress();
 
 // ── Message router ───────────────────────────────────────────────────────────
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {

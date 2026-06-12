@@ -42,7 +42,7 @@
             <div class="not-registered-hero">
                 <div class="not-registered-icon">⬡</div>
                 <div class="not-registered-title">Welcome to Hyperscaled</div>
-                <div class="not-registered-body">Enter your Hyperliquid wallet address to check your challenge status. No wallet connection required — address only.</div>
+                <div class="not-registered-body">Enter your Hyperliquid wallet address to check your account status. No wallet connection required — address only.</div>
             </div>
             <div class="not-registered-card">
                 <div class="not-registered-card-header">
@@ -114,7 +114,7 @@
             <div class="eliminated-status-card">
                 <div class="eliminated-icon">✕</div>
                 <div class="eliminated-title">Account Eliminated</div>
-                <div class="eliminated-body">This challenge account has been eliminated. Your drawdown limit was breached and the account is no longer active.</div>
+                <div class="eliminated-body">This account has been eliminated. Your drawdown limit was breached and the account is no longer active.</div>
             </div>
             <div class="eliminated-action-card">
                 <a href="https://hyperscaled.trade/dashboard" target="_blank" class="eliminated-new-btn">Start a new challenge →</a>
@@ -128,14 +128,14 @@
         <!-- Section 1: Account Balances (2-column grid) -->
         <div class="balance-grid">
             <div class="balance-card">
-                <div class="balance-label">Funded Account <button class="info-toggle" aria-expanded="false" data-info="fundedAccount"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5.5v.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button></div>
-                <div class="info-expand" id="info-fundedAccount" hidden>Your account balance as tracked by the Vanta Network validator. This reflects your starting capital plus or minus unrealized P&L from open positions. This balance determines your challenge progress and drawdown calculations.</div>
+                <div class="balance-label">HS Account <button class="info-toggle" aria-expanded="false" data-info="fundedAccount"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5.5v.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button></div>
+                <div class="info-expand" id="info-fundedAccount" hidden>Your HS account balance as tracked by the Vanta Network validator. This is your starting capital plus realized P&L (from closed trades) minus fees — unrealized P&L from open positions is shown separately below. This balance is the basis for measuring your realized return, and for your leverage limits and drawdown calculations.</div>
                 <div class="balance-value"><span id="fundedBalance">--</span></div>
                 <div class="balance-change positive"><span id="fundedChange">--</span></div>
             </div>
             <div class="balance-card">
                 <div class="balance-label">HL Account <button class="info-toggle" aria-expanded="false" data-info="hlAccount"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5.5v.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button></div>
-                <div class="info-expand" id="info-hlAccount" hidden>Your live equity on Hyperliquid. This is your actual wallet balance on the exchange. It may differ slightly from the funded account value due to sync timing between the validator and the exchange.</div>
+                <div class="info-expand" id="info-hlAccount" hidden>Your live equity on Hyperliquid. This is your actual wallet balance on the exchange. It may differ slightly from the HS account balance due to sync timing between the validator and the exchange.</div>
                 <div class="balance-value"><span id="hlBalance">--</span></div>
                 <div class="balance-sublabel">Live equity</div>
             </div>
@@ -144,10 +144,10 @@
         <!-- Section 2: Challenge Progress -->
         <div class="section">
             <div class="section-header">
-                <div class="section-title">Challenge Progress <button class="info-toggle" aria-expanded="false" data-info="challengeProgress"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5.5v.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button></div>
+                <div class="section-title"><span id="challengeSectionTitle">Challenge Progress</span> <button class="info-toggle" aria-expanded="false" data-info="challengeProgress"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5.5v.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button></div>
                 <div class="section-value challenge"><span id="challengeValue">--</span></div>
             </div>
-            <div class="info-expand" id="info-challengeProgress" hidden>Shows how close you are to hitting your profit target. You need to reach a 10% return on your funded account to pass the challenge. The bar fills as your return approaches the target. Once it reaches 100%, you've passed and move to a funded account.</div>
+            <div class="info-expand" id="info-challengeProgress" hidden>Shows how close you are to hitting your profit target. You need to reach a 10% return on your challenge account starting capital to pass the challenge. The bar fills as your return approaches the target. Once it reaches 100%, you've passed and move to a funded account.</div>
             <div class="progress-bar">
                 <div class="progress-fill" id="challengeFill" style="width: 0%;"></div>
             </div>
@@ -159,10 +159,10 @@
             <div class="section-header">
                 <div class="section-title">Current Drawdown <button class="info-toggle" aria-expanded="false" data-info="currentDrawdown"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5.5v.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button></div>
             </div>
-            <div class="info-expand" id="info-currentDrawdown" hidden>Drawdown tracks both your daily (intraday) and trailing (end-of-day) loss against their limits. If either one exceeds its threshold, your challenge is breached. Daily and trailing are shown as separate bars, each with its own usage level — amber means caution, red means danger. Keep both as low as possible.</div>
+            <div class="info-expand" id="info-currentDrawdown" hidden>This section tracks both your intraday and end-of-day (EOD) trailing drawdown against their limits. If either one exceeds its threshold, your account is breached. Each is shown as a separate bar with its own usage level — amber means caution, red means danger. Keep both as low as possible.</div>
             <div class="drawdown-row">
                 <div class="drawdown-row-header">
-                    <span class="drawdown-row-label">Daily</span>
+                    <span class="drawdown-row-label">Intraday</span>
                     <span class="drawdown-row-value" id="dailyDrawdownValue">--</span>
                 </div>
                 <div class="progress-bar drawdown-bar">
@@ -171,7 +171,7 @@
             </div>
             <div class="drawdown-row">
                 <div class="drawdown-row-header">
-                    <span class="drawdown-row-label">Trailing</span>
+                    <span class="drawdown-row-label">EOD Trailing</span>
                     <span class="drawdown-row-value" id="trailingDrawdownValue">--</span>
                 </div>
                 <div class="progress-bar drawdown-bar">
@@ -181,97 +181,42 @@
             <div class="progress-label"><span id="drawdownLabel">--</span></div>
         </div>
 
-        <!-- Section 4a: Trading Capacity (Hyperliquid) -->
-        <div class="capacity-block">
+        <!-- Section 4: Leverage & Buying Power (HS-side limits; HL is uncapped) -->
+        <div class="capacity-block capacity-block--hs">
             <div class="capacity-header">
-                <span class="capacity-title">Trading Capacity (Hyperliquid) <button class="info-toggle" aria-expanded="false" data-info="tradingCapacity"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5.5v.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button></span>
+                <span class="capacity-title">Leverage &amp; Buying Power <button class="info-toggle" aria-expanded="false" data-info="tradingCapacity"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5.5v.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button></span>
             </div>
-            <div class="info-expand" id="info-tradingCapacity" hidden>These limits control how much notional exposure you can take on your Hyperliquid account. They are calculated from your HL wallet balance and enforced automatically when you place orders.
-                <span class="info-expand-item"><strong>Per Asset</strong> — max position size in any single asset. Calculated as your HL equity × <span id="infoPerAssetMultiplier">--</span>. Prevents over-concentration.</span>
-                <span class="info-expand-item"><strong>Total Available Size</strong> — max combined value of all positions. Calculated as your HL equity × <span id="infoTotalMultiplier">--</span>. This is your overall leverage cap.</span>
+            <div class="info-expand" id="info-tradingCapacity" hidden>Validator-enforced leverage limits on your HS account. Per-pair, asset-class and portfolio limits are fixed leverage ratios applied to your live HS balance. Trading on Hyperliquid itself is never restricted by these limits — any portion of a fill that would exceed them simply isn't mirrored to your HS account.
+                <span class="info-expand-item"><strong>Per Pair Limit</strong> — Maximum notional in any single pair. Each pair has its own leverage ratio (&times; your live HS balance), so the cap differs pair to pair — the active pair's limit is shown in the order-entry preview on Hyperliquid.</span>
+                <span class="info-expand-item"><strong>Asset Class Limit</strong> — Maximum combined notional across all pairs in one asset class (crypto, equities, indices, commodities). Calculated as the validator's per-class leverage ratio &times; your live HS balance.</span>
+                <span class="info-expand-item"><strong>Portfolio Limit</strong> — Maximum aggregate notional across all open positions on your HS account. Calculated as the validator's portfolio leverage ratio &times; your live HS balance.</span>
             </div>
             <div class="capacity-basis-note">
-                Based on HL equity of <span id="capacityBasisValue">--</span>
+                Scaling ratio: HS balance <span id="hsBasisValue">--</span> &divide; HL equity <span id="hsBasisHlEquity">--</span> = <span id="hsBasisRatio">--</span>
             </div>
 
-            <!-- Per-asset row -->
-            <div class="capacity-row">
+            <!-- Asset class sub-caps — hidden until /limits provides max_asset_class_usd -->
+            <div class="capacity-row" id="hsClassRow" style="display: none;">
                 <div class="capacity-row-header">
-                    <span class="capacity-row-label">Per Asset <span class="capacity-multiplier" id="perAssetMultiplier"></span></span>
+                    <span class="capacity-row-label">Asset Class Limits</span>
                 </div>
-                <div class="capacity-asset-list" id="perPairSubBars"></div>
-                <div class="capacity-footer">
-                    <span class="capacity-used" id="perPairBreakdown">No open positions</span>
-                    <span class="capacity-remaining" id="perPairRemainingWrapper"><span id="perPairRemaining"></span> left</span>
-                </div>
+                <div class="capacity-asset-list" id="hsClassSubBars"></div>
             </div>
 
             <!-- Total available size row -->
             <div class="capacity-row">
                 <div class="capacity-row-header">
-                    <span class="capacity-row-label">Total Available Size <span class="capacity-multiplier" id="totalMultiplier"></span></span>
-                    <span class="capacity-row-value"><span id="capacityUsed">--</span> / <span id="capacityMax">--</span></span>
-                </div>
-                <div class="capacity-bar">
-                    <div class="capacity-fill capacity-fill--total" id="capacityFill" style="width: 0%;"></div>
-                </div>
-                <div class="capacity-footer">
-                    <span class="capacity-used">All positions</span>
-                    <span class="capacity-remaining"><span id="capacityRemaining">--</span> left</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- Section 4b: Trading Capacity (Hyperscaled) -->
-        <div class="capacity-block capacity-block--hs">
-            <div class="capacity-header">
-                <span class="capacity-title">Trading Capacity (Hyperscaled) <button class="info-toggle" aria-expanded="false" data-info="tradingCapacityHs"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5.5v.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button></span>
-            </div>
-            <div class="info-expand" id="info-tradingCapacityHs" hidden>The same capacity limits shown above, but mirrored to your Hyperscaled funded account. These values match the scale used by your challenge target and drawdown limits, so you can compare them directly.</div>
-            <div class="capacity-basis-note">
-                Mirrored from HL at <span id="hsBasisRatio">--</span> — based on account size of <span id="hsBasisValue">--</span>
-            </div>
-
-            <!-- Per-asset row (mirrored) -->
-            <div class="capacity-row">
-                <div class="capacity-row-header">
-                    <span class="capacity-row-label">Per Asset</span>
-                </div>
-                <div class="capacity-asset-list" id="hsPerPairSubBars"></div>
-                <div class="capacity-footer">
-                    <span class="capacity-used" id="hsPerPairBreakdown">No open positions</span>
-                    <span class="capacity-remaining"><span id="hsPerPairRemaining">--</span> left</span>
-                </div>
-            </div>
-
-            <!-- Total available size row (mirrored) -->
-            <div class="capacity-row">
-                <div class="capacity-row-header">
-                    <span class="capacity-row-label">Total Available Size</span>
+                    <span class="capacity-row-label">Portfolio Limit</span>
                     <span class="capacity-row-value"><span id="hsCapacityUsed">--</span> / <span id="hsCapacityMax">--</span></span>
                 </div>
                 <div class="capacity-bar">
                     <div class="capacity-fill capacity-fill--total" id="hsCapacityFill" style="width: 0%;"></div>
                 </div>
-                <div class="capacity-footer">
-                    <span class="capacity-used">All positions</span>
-                    <span class="capacity-remaining"><span id="hsCapacityRemaining">--</span> left</span>
-                </div>
+                <div class="capacity-basis-note" id="hsPortfolioNote" style="display: none; margin-top: var(--space-1);">The portfolio limit is the overall ceiling and sits below the sum of your asset-class limits — you can't fill every class to its own cap at once.</div>
             </div>
         </div>
 
-        <!-- Section 5: Open Positions -->
-        <div class="section">
-            <div class="section-header section-header--positions">
-                <div class="section-title section-title--uppercase">Open Positions <button class="info-toggle" aria-expanded="false" data-info="openPositions"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5.5v.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button></div>
-            </div>
-            <div class="info-expand" id="info-openPositions" hidden>Your currently open trades as reported by the Vanta Network validator, mirrored from your Hyperliquid account. P&L shown is unrealized (the position hasn't been closed yet). Value is the notional size of the position. Entry is the average price you entered at.</div>
-            <div id="positionsContainer">
-                <div class="no-more-positions">Loading positions...</div>
-            </div>
-        </div>
-
-        <!-- Section 6: Next Payout -->
+        <!-- Section 5: Next Payout -->
         <div class="payout-card">
             <div class="payout-content">
                 <div class="payout-left">
@@ -283,7 +228,11 @@
             </div>
         </div>
 
-        <!-- Order Events -->
+        <!-- Order Events — temporarily hidden. Trade history is available via
+             the "View Full Analytics" link below; the entity-miner /events
+             endpoint was returning empty for live accounts and the value here
+             duplicates analytics. Restore by un-commenting and re-enabling
+             refreshEvents() / initEventsPagination() in popup/main.js.
         <div class="section">
             <div class="section-header">
                 <div class="section-title">Order Events <button class="info-toggle" aria-expanded="false" data-info="orderEvents"><svg width="12" height="12" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 7v4M8 5.5v.01" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button></div>
@@ -294,11 +243,12 @@
                 <div class="no-more-positions">Loading events...</div>
             </div>
             <div class="events-pagination" id="eventsPagination" hidden>
-                <button type="button" id="eventsPagePrev" class="events-page-btn" disabled aria-label="Previous page">‹</button>
+                <button type="button" id="eventsPagePrev" class="events-page-btn" disabled aria-label="Previous page">&lsaquo;</button>
                 <span class="events-page-label" id="eventsPageLabel" aria-live="polite"></span>
-                <button type="button" id="eventsPageNext" class="events-page-btn" disabled aria-label="Next page">›</button>
+                <button type="button" id="eventsPageNext" class="events-page-btn" disabled aria-label="Next page">&rsaquo;</button>
             </div>
         </div>
+        -->
 
         <!-- Analytics Link -->
         <div class="section">
@@ -443,6 +393,7 @@
         <!-- Footer -->
         <div class="footer">
             <div class="footer-text">Powered by Vanta Network on Bittensor</div>
+            <div class="footer-version">v1.0.13</div>
         </div>
     </div>
 

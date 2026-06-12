@@ -2,8 +2,9 @@ import { fmtUsd } from './format.js';
 
 export function setPlaceholders() {
     const ids = ['fundedBalance', 'fundedChange', 'challengeValue', 'challengeLabel',
-                 'dailyDrawdownValue', 'trailingDrawdownValue', 'drawdownLabel', 'perPairUsed', 'perPairMax', 'perPairRemaining',
-                 'capacityUsed', 'capacityMax', 'capacityRemaining'];
+                 'dailyDrawdownValue', 'trailingDrawdownValue', 'drawdownLabel',
+                 'hsBasisRatio', 'hsBasisValue', 'hsBasisHlEquity',
+                 'hsCapacityUsed', 'hsCapacityMax'];
     for (const id of ids) {
         const el = document.getElementById(id);
         if (el) el.textContent = '--';

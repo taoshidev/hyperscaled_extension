@@ -103,6 +103,17 @@
     return TRADE_BTN_KEYWORDS.some((kw) => aria.includes(kw));
   }
 
+  // Broader check — covers <button> and [role="button"] for the hard gate
+  function isTradeInteractionTarget(target) {
+    const el = target?.closest?.('button, [role="button"]');
+    if (!el) return false;
+    if (el.closest('#hf-banner') || el.closest('#hf-toast-container')) return false;
+    const text = normalizeTradeText(el.textContent);
+    const aria = normalizeTradeText(el.getAttribute('aria-label') || '');
+    const combined = text + ' ' + aria;
+    return TRADE_BTN_KEYWORDS.some((kw) => combined.includes(kw));
+  }
+
   function findTradeButtons() {
     const results = [];
     const buttons = document.querySelectorAll("button");
@@ -309,17 +320,35 @@
     tradeGuardAbort = new AbortController();
 
     const opts = { capture: true, passive: false, signal: tradeGuardAbort.signal };
+
+    function hardGate(e, submitter) {
+      // Re-evaluate synchronously so state is fresh even if scheduleUpdate hasn't fired
+      if (!HF.state._unsupportedPairBlocked) checkAndBlockButtons();
+
+      // Hard gate: catches cases where button detection fails (role=button,
+      // child targets, etc.) The over-cap flow no longer blocks — this only
+      // fires for unsupported pairs (which have their own overlay) or
+      // explicit forceBlockTrade calls (none in the cap path now).
+      if (HF.state.shouldBlockTrade && isTradeInteractionTarget(e.target)) {
+        cancelBlockedTrade(e);
+        return;
+      }
+
+      // Fallback: form-based detection
+      if (shouldBlockTradeInteraction(e.target, submitter || null)) cancelBlockedTrade(e);
+    }
+
     const clickLikeHandler = (e) => {
       maybeBlockDepositWhileOwningAssets(e, null);
-      if (shouldBlockTradeInteraction(e.target, null)) cancelBlockedTrade(e);
+      hardGate(e, null);
     };
     const submitHandler = (e) => {
       maybeBlockDepositWhileOwningAssets(e, e.submitter || null);
-      if (shouldBlockTradeInteraction(e.target, e.submitter || null)) cancelBlockedTrade(e);
+      hardGate(e, e.submitter || null);
     };
     const enterHandler = (e) => {
       if (e.key !== "Enter") return;
-      if (shouldBlockTradeInteraction(e.target, null)) cancelBlockedTrade(e);
+      hardGate(e, null);
     };
 
     window.addEventListener("pointerdown", clickLikeHandler, opts);
@@ -337,44 +366,21 @@
   }
 
   function checkAndBlockButtons() {
-    if (!HF.state.balanceVerified) return;
-    if (!HF.state.validatorDataLoaded) return;
-
-    if (HF.utils.isTpSlOrderType()) {
-      HF.state.shouldBlockTrade = HF.state.forcedTradeBlock;
+    // HL orders are no longer blocked when they exceed the HS cap — the
+    // mirror-preview card surfaces the over-cap state as a warning and the
+    // user can still confirm. Real blocks remain for unsupported pairs and
+    // explicit `forceBlockTrade` calls (e.g., drawdown breach handling, if
+    // wired up later).
+    if (HF.state._unsupportedPairBlocked) {
+      HF.state.shouldBlockTrade = true;
       enforceTradeBlock();
       startTradeBlockObserver();
       installTradeGuards();
       return;
     }
 
-    const { getHLLeverage, getCurrentSymbol, effectiveMaxSingleUsd, effectiveMaxTotalUsd, readOrderValueFromDOM } = HF.utils;
-
-    const hlLev = getHLLeverage();
-    const pending = HF.banner.getPendingNotional();
-    const symbol = getCurrentSymbol();
-    const currentPairNotional = (symbol && ACCOUNT.notionalByPair[symbol]) || 0;
-
-    const maxNotionalPerPair = effectiveMaxSingleUsd();
-    const maxNotionalTotal = effectiveMaxTotalUsd();
-
-    const leftSingle = maxNotionalPerPair - currentPairNotional;
-    const leftTotal = maxNotionalTotal - ACCOUNT.openTotalUsed;
-
-    const alreadyAtLimit = leftSingle <= 0 || leftTotal <= 0;
-    const overSingle = pending > 0 && pending >= leftSingle;
-    const overTotal = pending > 0 && pending >= leftTotal;
-    const orderValue = readOrderValueFromDOM();
-    const maxAllowedFromCurrent = Math.max(Math.min(leftSingle, leftTotal), 0);
-    const overByOrderValue = orderValue > maxAllowedFromCurrent + 0.01;
-
-    HF.state.shouldBlockTrade = HF.state.forcedTradeBlock || alreadyAtLimit || overSingle || overTotal || overByOrderValue;
-    logTradeGateDiagnostics({
-      source: "checkAndBlockButtons",
-      pendingNotional: pending,
-      orderValue,
-      details: { alreadyAtLimit, overSingle, overTotal, overByOrderValue },
-    });
+    HF.state.shouldBlockTrade = HF.state.forcedTradeBlock || false;
+    logTradeGateDiagnostics({ source: "checkAndBlockButtons" });
     enforceTradeBlock();
     startTradeBlockObserver();
     installTradeGuards();
@@ -391,4 +397,12 @@
     stopTradeBlockObserver,
     bypassDepositBlockAndRetry,
   };
+
+  // If pair-support already flagged an unsupported pair before trade-gate loaded, enforce now.
+  if (HF.state._unsupportedPairBlocked) {
+    HF.state.shouldBlockTrade = true;
+    enforceTradeBlock();
+    startTradeBlockObserver();
+    installTradeGuards();
+  }
 })();

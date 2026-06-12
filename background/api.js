@@ -76,6 +76,118 @@ export async function fetchTradePairs() {
   return res.json();
 }
 
+// Cache the list of non-default HL DEX prefixes (e.g. ["xyz"]) so we can fetch
+// clearinghouseState for each one. Mirrors the behavior of Vanta's
+// hyperliquid_tracker._hl_non_default_dexes() and the SDK's
+// _get_non_default_dexes(): without this we'd miss perp equity and positions
+// on any HIP-3 dex other than the hardcoded "xyz".
+let _nonDefaultDexCache = null;
+
+async function getNonDefaultDexes() {
+  if (_nonDefaultDexCache !== null) return _nonDefaultDexCache;
+  try {
+    const data = await fetchTradePairs();
+    const pairs = Array.isArray(data) ? data : (data?.allowed || data?.allowed_trade_pairs || []);
+    const dexes = new Set();
+    for (const p of pairs) {
+      const hlCoin = p?.hl_coin;
+      if (typeof hlCoin === 'string' && hlCoin.includes(':')) {
+        const dex = hlCoin.split(':')[0].toLowerCase();
+        if (dex) dexes.add(dex);
+      }
+    }
+    _nonDefaultDexCache = Array.from(dexes).sort();
+    console.log('[Hyperscaled BG] Discovered non-default dexes:', _nonDefaultDexCache);
+    return _nonDefaultDexCache;
+  } catch (e) {
+    // Do NOT cache the empty list on failure — that would silently strand
+    // dex equity/positions until the next extension reload. Return [] for
+    // this call only; the next call retries.
+    console.warn('[Hyperscaled BG] Trade pairs fetch failed, retrying next call:', e.message);
+    return [];
+  }
+}
+
+// Map friendly coin (validator's `tp` prefix, e.g. "WTIOIL") to the HL
+// coin used in clearinghouse / allMids (e.g. "XYZ:CL"). Native pairs map
+// to themselves (BTC → BTC). Cached on first success; on failure return
+// the empty map for this call only and retry next time.
+let _friendlyToHlCoinCache = null;
+
+async function getFriendlyToHlCoin() {
+  if (_friendlyToHlCoinCache !== null) return _friendlyToHlCoinCache;
+  try {
+    const data = await fetchTradePairs();
+    const pairs = Array.isArray(data) ? data : (data?.allowed || data?.allowed_trade_pairs || []);
+    const map = {};
+    for (const p of pairs) {
+      const tp = p?.trade_pair;
+      let friendly;
+      if (typeof tp === 'string') friendly = tp.split('/')[0].toUpperCase();
+      else if (Array.isArray(tp)) friendly = String(tp[0] || '').toUpperCase();
+      else continue;
+      if (!friendly) continue;
+      const hlCoin = (p?.hl_coin || friendly).toString().toUpperCase();
+      map[friendly] = hlCoin;
+    }
+    _friendlyToHlCoinCache = map;
+    return map;
+  } catch (e) {
+    console.warn('[Hyperscaled BG] Trade pairs fetch failed for coin map, retrying next call:', e.message);
+    return {};
+  }
+}
+
+// Derive per-coin HS position values strictly as size × price:
+//   size  = sum of signed `q` (quantity) across the position's filled
+//           orders (Vanta emits q on every Order.to_dashboard when set;
+//           falls back to v/pr with sign by order_type when q is absent
+//           on a fill).
+//   price = HL mid price for the coin's hl_coin form.
+// Skips closed positions, fills lacking both q and v/pr, pairs without
+// a resolvable price, and dust. Result keyed by uppercase friendly coin
+// (BTC, ETH, WTIOIL, …) — same form as ACCOUNT.filledNotionalByPair.
+function deriveHsPositionsByCoin(positions, midPrices, friendlyToHl) {
+  const out = {};
+  if (!Array.isArray(positions)) return out;
+  for (const pos of positions) {
+    if (!pos || pos.is_closed_position || pos.close_ms) continue;
+    let netQuantity = 0;
+    for (const fill of (pos.filled_orders || [])) {
+      const q = parseFloat(fill?.quantity);
+      if (Number.isFinite(q)) {
+        netQuantity += q;
+        continue;
+      }
+      const v = parseFloat(fill?.value);
+      const pr = parseFloat(fill?.price);
+      if (Number.isFinite(v) && Number.isFinite(pr) && pr > 0) {
+        const sideSign = String(fill?.order_type || '').toUpperCase() === 'LONG' ? 1 : -1;
+        netQuantity += sideSign * (Math.abs(v) / pr);
+      }
+    }
+    if (!Number.isFinite(netQuantity) || Math.abs(netQuantity) < 1e-12) continue;
+
+    const tp = pos.trade_pair || '';
+    const rawSymbol = typeof tp === 'string'
+      ? tp.replace(/\/.*$/, '')
+      : (tp[0] || '');
+    const coin = String(rawSymbol).replace(/USD[CT]?$/, '').toUpperCase();
+    if (!coin) continue;
+
+    // Look up HL mid price: native pairs use the coin directly (BTC),
+    // HIP-3 dex pairs need the hl_coin form (WTIOIL → XYZ:CL).
+    const hlCoinKey = (friendlyToHl && friendlyToHl[coin]) || coin;
+    const price = parseFloat(midPrices?.[hlCoinKey]) || parseFloat(midPrices?.[coin]) || 0;
+    if (!(price > 0)) continue;
+
+    const value = Math.abs(netQuantity) * price;
+    const side = netQuantity > 0 ? 'long' : 'short';
+    out[coin] = { quantity: netQuantity, value, side };
+  }
+  return out;
+}
+
 // ── Trader limits ────────────────────────────────────────────────────────────
 
 export async function fetchTraderLimits(address) {
@@ -121,6 +233,12 @@ function transformTraderResponse(raw) {
             order_uuid: oid,
             order_type: o.t,
             value: o.v,
+            // Signed per-fill quantity. Validator's Order.to_dashboard emits
+            // `q` whenever quantity is non-null (Vanta order.py:203). Sum across
+            // a position's fills equals Vanta's internal `net_quantity` — the
+            // canonical signed coin count. We use this × current mark price
+            // for a strict size × price position value, never `nl × *`.
+            quantity: o.q,
             execution_type: o.e,
             processed_ms: o.p,
             leverage: o.l,
@@ -171,15 +289,37 @@ function transformTraderResponse(raw) {
 export async function fetchValidatorData(address) {
   const normalizedAddress = address.toLowerCase();
   const cacheKey = `cache_validator_${normalizedAddress}`;
-  const res = await fetchWithTimeout(`${VALIDATOR_URL}/hl-traders/${normalizedAddress}`);
-  if (!res.ok) throw new Error(`Validator API error ${res.status}`);
-  const raw = await res.json();
+
+  // Fetch validator dashboard + HL mid prices in parallel. Mid prices are
+  // needed to derive HS position values as size × price. A failed mid
+  // prices call is non-fatal — hsPositionsByCoin will be empty for that
+  // refresh and downstream UI shows "--" rather than fabricated values.
+  const [valRes, midsRes] = await Promise.all([
+    fetchWithTimeout(`${VALIDATOR_URL}/hl-traders/${normalizedAddress}`),
+    fetchWithTimeout(HL_API_URL + '/info', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'allMids' })
+    })
+  ]);
+  if (!valRes.ok) throw new Error(`Validator API error ${valRes.status}`);
+  const raw = await valRes.json();
   const result = transformTraderResponse(raw);
 
   if (result.hl_address && result.hl_address.toLowerCase() !== normalizedAddress) {
     console.warn('[Hyperscaled BG] Address mismatch — queried:', normalizedAddress, 'got:', result.hl_address);
     return { status: 'not_registered' };
   }
+
+  let midPrices = {};
+  if (midsRes.ok) {
+    try { midPrices = await midsRes.json(); } catch {}
+  }
+  const friendlyToHl = await getFriendlyToHlCoin();
+  const positionsList = Array.isArray(result.positions)
+    ? result.positions
+    : (result.positions?.positions || []);
+  result.hsPositionsByCoin = deriveHsPositionsByCoin(positionsList, midPrices, friendlyToHl);
 
   setCachedResponse(cacheKey, result);
   return result;
@@ -199,7 +339,9 @@ function normalizePerpSymbol(raw) {
 
 function extractExposureFromAssetPositions(perpsData) {
   const perAsset = {};
+  const perAssetSigned = {};
   let total = 0;
+  let totalUnrealizedPnl = 0;
   let openCount = 0;
   const assetPositions = Array.isArray(perpsData?.assetPositions) ? perpsData.assetPositions : [];
 
@@ -209,6 +351,11 @@ function extractExposureFromAssetPositions(perpsData) {
 
     if (Math.abs(size) <= 1e-12) continue;
 
+    // True position value = size × current price. HL pre-computes this as
+    // `positionValue`; we fall back to `size × markPx` when it's missing.
+    // Never derive notional from `net_leverage × account_size` — that mixes
+    // an HS-side ratio with a frozen funded amount and only approximates
+    // truth when current equity == account_size and HL/validator are in sync.
     const directNotional =
       parseFloat(pos?.positionValue ?? pos?.notionalValue ?? pos?.usdValue ?? pos?.value ?? row?.positionValue);
     const markPx = parseFloat(pos?.markPx ?? pos?.mark_price ?? pos?.px ?? 0) || 0;
@@ -216,8 +363,16 @@ function extractExposureFromAssetPositions(perpsData) {
     const notional = Math.abs(Number.isFinite(directNotional) ? directNotional : fallbackNotional);
     if (!(notional > 0)) continue;
 
+    const upnl = parseFloat(pos?.unrealizedPnl ?? pos?.unrealized_pnl ?? row?.unrealizedPnl);
+    if (Number.isFinite(upnl)) totalUnrealizedPnl += upnl;
+
     const symbol = normalizePerpSymbol(pos?.coin ?? pos?.asset ?? pos?.name ?? row?.coin ?? row?.asset);
-    if (symbol) perAsset[symbol] = (perAsset[symbol] || 0) + notional;
+    if (symbol) {
+      perAsset[symbol] = (perAsset[symbol] || 0) + notional;
+      // Preserve direction so reduce-intent gating can distinguish long vs short.
+      const signed = size > 0 ? notional : -notional;
+      perAssetSigned[symbol] = (perAssetSigned[symbol] || 0) + signed;
+    }
 
     total += notional;
     openCount += 1;
@@ -228,8 +383,33 @@ function extractExposureFromAssetPositions(perpsData) {
     openTotalUsed: total,
     openSingleUsed: maxSingle,
     notionalByPair: perAsset,
+    signedNotionalByPair: perAssetSigned,
+    totalUnrealizedPnl,
     openPositionCount: openCount,
   };
+}
+
+// Compute pending notional from open (unfilled) limit orders.
+// Only buy-side non-TP/SL non-trigger orders are counted — these represent
+// positions that will be opened when price reaches the limit, so they count
+// against the per-pair cap the same way filled positions do.
+// Sell-side orders are excluded: they reduce (or short) exposure and the cap
+// math handles those directions correctly through signedNotionalByPair.
+function extractPendingBuyNotional(openOrders) {
+  const pending = {};
+  for (const order of (Array.isArray(openOrders) ? openOrders : [])) {
+    if (order.isPositionTpsl) continue;
+    if (order.isTrigger) continue;
+    if (order.side !== 'B') continue;
+    const sz = parseFloat(order.sz || 0) || 0;
+    const px = parseFloat(order.limitPx || 0) || 0;
+    if (sz <= 0 || px <= 0) continue;
+    const symbol = normalizePerpSymbol(order.coin);
+    if (symbol) {
+      pending[symbol] = (pending[symbol] || 0) + sz * px;
+    }
+  }
+  return pending;
 }
 
 function toNum(v) {
@@ -249,15 +429,9 @@ function readSpotUsdValue(balance, mids) {
     return { usd: freeAmount, coin: 'USDC', freeAmount };
   }
 
-  const explicitUsd =
-    toNum(balance?.usdValue) ||
-    toNum(balance?.notionalUsd) ||
-    toNum(balance?.valueUsd) ||
-    toNum(balance?.value_usd);
-  if (explicitUsd > 0) {
-    return { usd: explicitUsd, coin, freeAmount };
-  }
-
+  // Match Vanta tracker: non-USDC value = freeAmount × mid price. We do not
+  // read balance.usdValue / .notionalUsd / .valueUsd — those aren't part
+  // of HL's spotClearinghouseState schema.
   const midPx = toNum(mids?.[coin]);
   if (midPx > 0) {
     return { usd: freeAmount * midPx, coin, freeAmount };
@@ -271,30 +445,67 @@ function readSpotUsdValue(balance, mids) {
 export async function fetchHLBalance(address) {
   console.log('[Hyperscaled BG] fetchHLBalance called for', address);
 
-  const [perpsRes, spotRes, midsRes] = await Promise.all([
-    fetchWithTimeout(HL_API_URL + '/info', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'clearinghouseState', user: address })
-    }),
-    fetchWithTimeout(HL_API_URL + '/info', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'spotClearinghouseState', user: address })
-    }),
-    fetchWithTimeout(HL_API_URL + '/info', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'allMids' })
-    })
+  const nonDefaultDexes = await getNonDefaultDexes();
+  const headers = { 'Content-Type': 'application/json' };
+  const post = (body) => fetchWithTimeout(HL_API_URL + '/info', { method: 'POST', headers, body: JSON.stringify(body) });
+
+  // Fetch native + each non-default dex perp/openOrders in parallel, plus
+  // spot + mids. Order: [native_perp, ...dex_perps, spot, mids,
+  // native_openOrders, ...dex_openOrders].
+  const [perpsRes, ...rest] = await Promise.all([
+    post({ type: 'clearinghouseState', user: address }),
+    ...nonDefaultDexes.map(dex => post({ type: 'clearinghouseState', user: address, dex })),
+    post({ type: 'spotClearinghouseState', user: address }),
+    post({ type: 'allMids' }),
+    post({ type: 'openOrders', user: address }),
+    ...nonDefaultDexes.map(dex => post({ type: 'openOrders', user: address, dex })),
   ]);
+  const dexPerpResponses = rest.slice(0, nonDefaultDexes.length);
+  const spotRes = rest[nonDefaultDexes.length];
+  const midsRes = rest[nonDefaultDexes.length + 1];
+  const nativeOpenOrdersRes = rest[nonDefaultDexes.length + 2];
+  const dexOpenOrdersResponses = rest.slice(nonDefaultDexes.length + 3);
 
   if (!perpsRes.ok) throw new Error(`Perps API error ${perpsRes.status}`);
   const perpsData = await perpsRes.json();
-  const perpAccountValue = parseFloat(perpsData?.crossMarginSummary?.accountValue ?? 0);
-  const perpMarginUsed = parseFloat(perpsData?.crossMarginSummary?.totalMarginUsed ?? 0);
+
+  // Match Vanta tracker / SDK: prefer marginSummary (cross + isolated), fall
+  // back to crossMarginSummary. Using only crossMarginSummary understates
+  // accountValue when the trader has any isolated-margin positions.
+  const readMargin = (d) => d?.marginSummary || d?.crossMarginSummary || {};
+  const num = (v) => parseFloat(v ?? 0) || 0;
+
+  // Each non-default HIP-3 dex (e.g. xyz) is a separate HL sub-account: USDC
+  // moves into the dex when a position is opened. Their equity and positions
+  // must be fetched and summed separately or HL totals are understated.
+  let dexAccountValue = 0;
+  let dexMarginUsed = 0;
+  let dexNtlPos = 0;
+  for (let i = 0; i < dexPerpResponses.length; i++) {
+    const dex = nonDefaultDexes[i];
+    const res = dexPerpResponses[i];
+    try {
+      if (res.ok) {
+        const data = await res.json();
+        perpsData.assetPositions = [
+          ...(perpsData.assetPositions || []),
+          ...(data.assetPositions || []),
+        ];
+        const m = readMargin(data);
+        dexAccountValue += num(m.accountValue);
+        dexMarginUsed += num(m.totalMarginUsed);
+        dexNtlPos += num(m.totalNtlPos);
+      }
+    } catch (e) {
+      console.warn(`[Hyperscaled BG] Dex "${dex}" fetch failed, excluded from totals:`, e.message);
+    }
+  }
+  const nativeMargin = readMargin(perpsData);
+  const perpAccountValue = num(nativeMargin.accountValue) + dexAccountValue;
+  const perpMarginUsed = num(nativeMargin.totalMarginUsed) + dexMarginUsed;
+  const perpNtlPos = num(nativeMargin.totalNtlPos) + dexNtlPos;
   const perpsWithdrawable = Math.max(0, perpAccountValue - perpMarginUsed);
-  console.log('[Hyperscaled BG] perpAccountValue:', perpAccountValue, 'perpMarginUsed:', perpMarginUsed, 'perpAvailable:', perpsWithdrawable);
+  console.log('[Hyperscaled BG] perpAccountValue:', perpAccountValue, '(dex contrib:', dexAccountValue, ') perpMarginUsed:', perpMarginUsed, 'perpAvailable:', perpsWithdrawable);
 
   let spotUSDC = 0;
   let spotAssetsUsd = 0;
@@ -327,8 +538,12 @@ export async function fetchHLBalance(address) {
     })
   );
 
-  let accountValue = perpsWithdrawable + spotUSDC + spotAssetsUsd;
-  let perpsValue = perpsWithdrawable;
+  // Total HL equity = perp account value (margin used + free + unrealized PnL)
+  // + spot. Withdrawable would exclude margin in open positions, which would
+  // halve the basis when the trader has a leveraged position open and break
+  // mirrorRatio / per-asset cap math downstream.
+  let accountValue = perpAccountValue + spotUSDC + spotAssetsUsd;
+  let perpsValue = perpAccountValue;
 
   if (FAKE_MONEY) {
     accountValue = 1000;
@@ -338,13 +553,73 @@ export async function fetchHLBalance(address) {
 
   console.log('[Hyperscaled BG] total accountValue:', accountValue);
   const exposure = extractExposureFromAssetPositions(perpsData);
+
+  // Pending buy limit orders are tracked separately from filled positions.
+  // They contribute to "what would be exposed if all resting orders fill" —
+  // displayed visually in the popup as a striped overlay so the trader
+  // sees them without the alarm color of real exposure. Filled positions
+  // still drive cap-breach toasts.
+  let pendingNotionalByPair = {};
+  try {
+    const allOpenOrders = [];
+    if (nativeOpenOrdersRes.ok) allOpenOrders.push(...await nativeOpenOrdersRes.json());
+    for (const res of dexOpenOrdersResponses) {
+      if (res.ok) {
+        try { allOpenOrders.push(...await res.json()); } catch {}
+      }
+    }
+    pendingNotionalByPair = extractPendingBuyNotional(allOpenOrders);
+  } catch (e) {
+    console.warn('[Hyperscaled BG] Open orders fetch failed, pending orders excluded:', e.message);
+  }
+
+  // Remap HL coin keys (e.g. "XYZ:CL") to validator-friendly names (e.g.
+  // "WTIOIL") so popup and content script consumers see consistent labels
+  // matching the validator's `trade_pair` form. Native pairs pass through
+  // (BTC → BTC). Without this, the popup unions hsPositionsByCoin
+  // (friendly-keyed) with pendingNotionalByPair (HL-keyed), and the same
+  // pair shows up under two labels (e.g. "WTIOIL" and "XYZCL").
+  const friendlyToHlMap = await getFriendlyToHlCoin();
+  const hlToFriendly = {};
+  for (const [friendly, hlCoin] of Object.entries(friendlyToHlMap)) {
+    if (hlCoin) hlToFriendly[String(hlCoin).toUpperCase()] = friendly;
+  }
+  const remapHlKeys = (obj) => {
+    const out = {};
+    for (const [k, v] of Object.entries(obj || {})) {
+      const friendly = hlToFriendly[String(k).toUpperCase()] || k;
+      out[friendly] = (out[friendly] || 0) + (Number(v) || 0);
+    }
+    return out;
+  };
+  pendingNotionalByPair = remapHlKeys(pendingNotionalByPair);
+  exposure.notionalByPair = remapHlKeys(exposure.notionalByPair);
+  exposure.signedNotionalByPair = remapHlKeys(exposure.signedNotionalByPair);
+
+  const filledNotionalByPair = { ...exposure.notionalByPair };
+  const filledTotal = exposure.openTotalUsed;
+
+  // Combined map kept for callers that want filled+pending in one place
+  // (mirror-preview's "after this order" check needs to see resting orders
+  // so chaining new orders into over-cap still warns).
+  const notionalByPair = { ...filledNotionalByPair };
+  let pendingTotal = 0;
+  for (const [sym, val] of Object.entries(pendingNotionalByPair)) {
+    notionalByPair[sym] = (notionalByPair[sym] || 0) + val;
+    pendingTotal += val;
+  }
+  const openTotalUsed = filledTotal + pendingTotal;
+  const openSingleUsed = Object.values(notionalByPair).reduce((m, v) => Math.max(m, Number(v) || 0), 0);
+
   console.log(
-    '[Hyperscaled BG] HL exposure from assetPositions:',
+    '[Hyperscaled BG] HL exposure (filled vs pending):',
     JSON.stringify({
       openPositionCount: exposure.openPositionCount,
-      openTotalUsed: exposure.openTotalUsed,
-      openSingleUsed: exposure.openSingleUsed,
-      notionalByPair: exposure.notionalByPair,
+      filledTotal,
+      pendingTotal,
+      openTotalUsed,
+      filledNotionalByPair,
+      pendingNotionalByPair,
     })
   );
 
@@ -355,11 +630,17 @@ export async function fetchHLBalance(address) {
     spotUSDC,
     spotAssetsUsd,
     spotValueByCoin,
-    totalMarginUsed: parseFloat(perpsData?.marginSummary?.totalMarginUsed) || 0,
-    totalNtlPos: parseFloat(perpsData?.marginSummary?.totalNtlPos) || 0,
-    openTotalUsed: exposure.openTotalUsed,
-    openSingleUsed: exposure.openSingleUsed,
-    notionalByPair: exposure.notionalByPair,
+    totalMarginUsed: perpMarginUsed,
+    totalNtlPos: perpNtlPos,
+    openTotalUsed,
+    openSingleUsed,
+    notionalByPair,
+    filledNotionalByPair,
+    pendingNotionalByPair,
+    filledTotal,
+    pendingTotal,
+    signedNotionalByPair: exposure.signedNotionalByPair,
+    totalUnrealizedPnl: exposure.totalUnrealizedPnl,
     openPositionCount: exposure.openPositionCount,
     exposureSource: 'hyperliquid-assetPositions',
   };

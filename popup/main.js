@@ -1,7 +1,7 @@
 // Popup entry point
 import { fmtUsd, truncateAddress } from './format.js';
 import { safeSendMessage, getCachedData, loadAddress, saveAddress } from './api.js';
-import { applyValidatorData, renderPositions } from './dashboard.js';
+import { applyValidatorData } from './dashboard.js';
 import { refreshEvents, renderEvents, initEventsPagination } from './events.js';
 import { showDashboard, hideDashboard, showUnregistered, hideUnregistered, showEliminated, hideEliminated, setPlaceholders } from './screens.js';
 import { showPositionNotification, setupNotificationClickHandler } from './notifications.js';
@@ -11,10 +11,26 @@ import { initExplainers } from './explain.js';
 const state = {
     storedAddress: null,
     traderLimits: null,
+    lastValidatorResult: null,
+    pairCategory: {},       // display symbol → asset class, from /trade-pairs
+    pairTierLeverage: {},   // display symbol → { tier: leverage multiplier }
     hlBalance: 0,
     openTotalUsed: 0,
     openSingleUsed: 0,
     notionalByPair: {},
+    filledNotionalByPair: {},
+    pendingNotionalByPair: {},
+    filledTotal: 0,
+    pendingTotal: 0,
+    // Sum of HL per-position unrealizedPnl. null until HL clearinghouse
+    // returns — display "--" rather than fabricate from validator's
+    // `net_leverage × account_size`.
+    totalUnrealizedPnl: null,
+    // HS per-coin position values, pre-computed by background as strict
+    // size × price (sum of signed `q` × current HL mid price). Map:
+    // { COIN_UPPER: { quantity, value, side } }. Empty until validator +
+    // mid prices return.
+    hsPositionsByCoin: {},
     refreshIntervalId: null,
     dashboardShown: false,
 };
@@ -39,8 +55,21 @@ async function restoreFromCache() {
         state.notionalByPair = balanceCache.data.notionalByPair && typeof balanceCache.data.notionalByPair === 'object'
             ? balanceCache.data.notionalByPair
             : {};
+        state.filledNotionalByPair = balanceCache.data.filledNotionalByPair && typeof balanceCache.data.filledNotionalByPair === 'object'
+            ? balanceCache.data.filledNotionalByPair : {};
+        state.pendingNotionalByPair = balanceCache.data.pendingNotionalByPair && typeof balanceCache.data.pendingNotionalByPair === 'object'
+            ? balanceCache.data.pendingNotionalByPair : {};
+        state.filledTotal = Number(balanceCache.data.filledTotal) || 0;
+        state.pendingTotal = Number(balanceCache.data.pendingTotal) || 0;
+        const cachedUpnl = parseFloat(balanceCache.data.totalUnrealizedPnl);
+        state.totalUnrealizedPnl = Number.isFinite(cachedUpnl) ? cachedUpnl : null;
         const hlBalanceEl = document.getElementById('hlBalance');
         if (hlBalanceEl) hlBalanceEl.textContent = fmtUsd(state.hlBalance);
+    }
+
+    // Limits must be in state before the cached validator render reads them
+    if (limitsCache?.data) {
+        state.traderLimits = limitsCache.data;
     }
 
     if (validatorCache?.data && validatorCache.data.status === 'success') {
@@ -49,12 +78,9 @@ async function restoreFromCache() {
             hideUnregistered();
             showEliminated();
         } else {
+            state.lastValidatorResult = validatorCache.data;
             applyValidatorData(validatorCache.data, state);
         }
-    }
-
-    if (limitsCache?.data) {
-        state.traderLimits = limitsCache.data;
     }
 
     if (eventsCache?.data) {
@@ -74,6 +100,14 @@ async function refreshBalance() {
         state.notionalByPair = response.notionalByPair && typeof response.notionalByPair === 'object'
             ? response.notionalByPair
             : {};
+        state.filledNotionalByPair = response.filledNotionalByPair && typeof response.filledNotionalByPair === 'object'
+            ? response.filledNotionalByPair : {};
+        state.pendingNotionalByPair = response.pendingNotionalByPair && typeof response.pendingNotionalByPair === 'object'
+            ? response.pendingNotionalByPair : {};
+        state.filledTotal = Number(response.filledTotal) || 0;
+        state.pendingTotal = Number(response.pendingTotal) || 0;
+        const upnl = parseFloat(response.totalUnrealizedPnl);
+        state.totalUnrealizedPnl = Number.isFinite(upnl) ? upnl : null;
         const hlBalanceEl = document.getElementById('hlBalance');
         if (hlBalanceEl) hlBalanceEl.textContent = fmtUsd(state.hlBalance);
     } catch (e) {
@@ -103,6 +137,7 @@ async function refreshValidatorData() {
             return;
         }
 
+        state.lastValidatorResult = result;
         applyValidatorData(result, state);
     } catch (e) {
         console.error('[Hyperscaled Popup] Validator data fetch failed:', e.message, e);
@@ -124,11 +159,39 @@ async function refreshTraderLimits() {
     }
 }
 
+async function refreshTradePairs() {
+    if (!state.storedAddress) return;
+    try {
+        const result = await safeSendMessage({ action: 'fetchTradePairs' });
+        const pairs = (result.allowed || result.allowed_trade_pairs || []).filter(
+            p => p.trade_pair_source === 'hyperliquid' && !p.trade_pair_id.toLowerCase().startsWith('xyz:')
+        );
+        if (pairs.length === 0) return;
+        const hadPairs = Object.keys(state.pairTierLeverage).length > 0;
+        const category = {}, tierLeverage = {};
+        pairs.forEach(p => {
+            const symbol = p.trade_pair_id.replace(/USDC?$/, '').toUpperCase();
+            category[symbol] = p.trade_pair_category || null;
+            tierLeverage[symbol] = p.subaccount_positional_leverage_by_tier || null;
+        });
+        state.pairCategory = category;
+        state.pairTierLeverage = tierLeverage;
+        // First pair data after render: re-render so caps don't sit on the
+        // deprecated class-level fallback until the next refresh tick
+        if (!hadPairs && state.lastValidatorResult) {
+            applyValidatorData(state.lastValidatorResult, state);
+        }
+    } catch (e) {
+        console.error('Trade pairs fetch failed:', e);
+    }
+}
+
 function updateData() {
     refreshBalance();
     refreshValidatorData();
     refreshTraderLimits();
-    refreshEvents(state.storedAddress);
+    refreshTradePairs();
+    // refreshEvents(state.storedAddress);  // Order Events section commented out — re-enable with HTML in popup.html / sidepanel.html
 }
 
 // ── Wallet UI helpers ────────────────────────────────────────────────────────
@@ -166,9 +229,12 @@ function disconnectWallet() {
     chrome.storage.local.remove(['hlAddress', 'lastEventTimestampMs', 'recentEvents']);
     state.storedAddress = null;
     state.traderLimits = null;
+    state.lastValidatorResult = null;
     state.openTotalUsed = 0;
     state.openSingleUsed = 0;
     state.notionalByPair = {};
+    state.totalUnrealizedPnl = null;
+    state.hsPositionsByCoin = {};
     if (state.refreshIntervalId) {
         clearInterval(state.refreshIntervalId);
         state.refreshIntervalId = null;
@@ -194,7 +260,7 @@ function disconnectWallet() {
 document.addEventListener('DOMContentLoaded', async function() {
     console.log('Hyperscaled extension loaded');
     initExplainers();
-    initEventsPagination();
+    // initEventsPagination();  // Order Events section commented out
 
     const addressInput = document.getElementById('walletAddress');
     const saveBtn = document.getElementById('walletSave');
@@ -227,6 +293,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             refreshBalance();
             refreshValidatorData();
             refreshTraderLimits();
+            refreshTradePairs();
         });
     }
 
@@ -272,6 +339,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             refreshBalance();
             refreshValidatorData();
             refreshTraderLimits();
+            refreshTradePairs();
             settingsHlSaveBtn.textContent = 'Saved';
             setTimeout(() => { settingsHlSaveBtn.textContent = 'Save'; }, 1500);
         });
@@ -295,27 +363,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         analyticsLink.addEventListener('click', function(e) {
             e.preventDefault();
             chrome.tabs.create({ url: 'https://hyperscaled.trade/dashboard' });
-        });
-    }
-
-    // Capacity HL/HS toggle
-    const capacityToggle = document.getElementById('capacityToggle');
-    if (capacityToggle) {
-        capacityToggle.addEventListener('click', (e) => {
-            const btn = e.target.closest('.capacity-toggle-btn');
-            if (!btn) return;
-            const view = btn.dataset.view;
-            const hlView = document.getElementById('capacityViewHl');
-            const hsView = document.getElementById('capacityViewHs');
-            capacityToggle.querySelectorAll('.capacity-toggle-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            if (view === 'hs') {
-                hlView.hidden = true;
-                hsView.hidden = false;
-            } else {
-                hlView.hidden = false;
-                hsView.hidden = true;
-            }
         });
     }
 
@@ -344,7 +391,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     refreshBalance();
     refreshValidatorData();
     refreshTraderLimits();
-    refreshEvents(state.storedAddress);
+    refreshTradePairs();
+    // refreshEvents(state.storedAddress);  // Order Events section commented out
     state.refreshIntervalId = setInterval(updateData, 10000);
 });
 
