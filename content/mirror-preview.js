@@ -29,7 +29,7 @@
         '</div>' +
       '</div>' +
       '<div class="hf-mp-warning" id="hf-mp-warning" style="display:none"></div>' +
-      '<div class="hf-mp-capacity hf-mp-capacity--pair" id="hf-mp-pair-section">' +
+      '<div class="hf-mp-capacity" id="hf-mp-pair-section">' +
         '<div class="hf-mp-cap-header">' +
           '<span class="hf-mp-cap-title" id="hf-mp-pair-title">HS PAIR LIMIT</span>' +
           '<span class="hf-mp-cap-pct" id="hf-mp-pair-pct">--</span>' +
@@ -39,6 +39,17 @@
           '<div class="hf-mp-bar-pending" id="hf-mp-pair-bar-pending"></div>' +
         '</div>' +
         '<div class="hf-mp-cap-detail" id="hf-mp-pair-detail">-- / --</div>' +
+      '</div>' +
+      '<div class="hf-mp-capacity" id="hf-mp-class-section" style="display:none">' +
+        '<div class="hf-mp-cap-header">' +
+          '<span class="hf-mp-cap-title" id="hf-mp-class-title">HS CLASS LIMIT</span>' +
+          '<span class="hf-mp-cap-pct" id="hf-mp-class-pct">--</span>' +
+        '</div>' +
+        '<div class="hf-mp-bar">' +
+          '<div class="hf-mp-bar-current" id="hf-mp-class-bar-current"></div>' +
+          '<div class="hf-mp-bar-pending" id="hf-mp-class-bar-pending"></div>' +
+        '</div>' +
+        '<div class="hf-mp-cap-detail" id="hf-mp-class-detail">-- / --</div>' +
       '</div>' +
       '<div class="hf-mp-capacity">' +
         '<div class="hf-mp-cap-header">' +
@@ -454,14 +465,61 @@
         const oldS = (currentSide || '').toUpperCase();
         const newS = (flippedSide || '').toUpperCase();
         text = cur + ' ' + oldS + ' → ' + aft + ' ' + newS + cappedTag + capStr;
-      } else if (branch === 'new') {
-        text = aft + cappedTag + capStr;
       } else if (stillOver) {
         text = cur + capStr;
       } else {
-        text = cur + ' → ' + aft + cappedTag + capStr;
+        text = (Math.abs(afterHsPair - currentHsPair) > 0.01)
+          ? cur + ' → ' + aft + cappedTag + capStr
+          : cur + capStr;
       }
       pairDetail.textContent = text;
+    }
+
+    // ── Class capacity bar — hidden unless a class cap applies ────────────
+    const classSection = el.querySelector('#hf-mp-class-section');
+    if (classSection) {
+      if (classMax == null) {
+        classSection.style.display = 'none';
+      } else {
+        classSection.style.display = '';
+        // Class total after fill = other same-class pairs + this pair's after value
+        const classAfter = Math.max(0, classNow - currentHsPair + afterHsPair);
+        const clsCurrentPct = Math.min(classNow   / classMax * 100, 100);
+        const clsAfterPct   = Math.min(classAfter / classMax * 100, 100);
+
+        const classTitle = el.querySelector('#hf-mp-class-title');
+        if (classTitle) classTitle.textContent = 'HS ' + classLabel.toUpperCase() + ' LIMIT';
+        const classPct = el.querySelector('#hf-mp-class-pct');
+        if (classPct) {
+          classPct.textContent = clsAfterPct.toFixed(1) + '%';
+          classPct.style.color = capColor(clsAfterPct);
+        }
+
+        let clsSolid, clsOverlay, clsOverlayIsReduction;
+        if (clsAfterPct >= clsCurrentPct) {
+          clsSolid = clsCurrentPct; clsOverlay = clsAfterPct - clsCurrentPct; clsOverlayIsReduction = false;
+        } else {
+          clsSolid = clsAfterPct; clsOverlay = clsCurrentPct - clsAfterPct; clsOverlayIsReduction = true;
+        }
+        const clsBarCurrent = el.querySelector('#hf-mp-class-bar-current');
+        const clsBarPending = el.querySelector('#hf-mp-class-bar-pending');
+        if (clsBarCurrent) {
+          clsBarCurrent.style.width = clsSolid.toFixed(2) + '%';
+          clsBarCurrent.style.background = capColor(clsSolid);
+        }
+        if (clsBarPending) {
+          clsBarPending.style.width = clsOverlay.toFixed(2) + '%';
+          clsBarPending.style.background = clsOverlayIsReduction ? REDUCE_STRIPE : barPendingBg(clsAfterPct);
+        }
+        const classDetail = el.querySelector('#hf-mp-class-detail');
+        if (classDetail) {
+          const cappedTag = classCapBinds ? ' (capped)' : '';
+          const transition = Math.abs(classAfter - classNow) > 0.01
+            ? fmt(classNow) + ' → ' + fmt(classAfter)
+            : fmt(classNow);
+          classDetail.textContent = transition + cappedTag + ' / ' + fmt(classMax);
+        }
+      }
     }
 
     // ── Portfolio capacity bar (same logic, against maxTotal) ─────────────
@@ -519,12 +577,12 @@
       const capStr = maxTotal > 0 ? ' / ' + fmt(maxTotal) : '';
       const cappedTag = portCapBinds ? ' (capped)' : '';
       let text;
-      if (branch === 'new') {
-        text = aft + cappedTag + capStr;
-      } else if (stillOver) {
+      if (stillOver) {
         text = cur + capStr;
       } else {
-        text = cur + ' → ' + aft + cappedTag + capStr;
+        text = (Math.abs(hsTotalAfter - hsTotalNow) > 0.01)
+          ? cur + ' → ' + aft + cappedTag + capStr
+          : cur + capStr;
       }
       capDetail.textContent = text;
     }

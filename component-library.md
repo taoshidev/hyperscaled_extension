@@ -56,22 +56,12 @@ A single block showing the validator-enforced leverage limits on the funded HS a
     <div class="capacity-basis-note">
         Scaling ratio: HS balance <span id="hsBasisValue">$1,002.26</span> &divide; HL equity <span id="hsBasisHlEquity">$47.99</span> = <span id="hsBasisRatio">20.9x</span>
     </div>
-    <div class="capacity-row">
-        <div class="capacity-row-header">
-            <span class="capacity-row-label">Per Pair Limit</span>
-        </div>
-        <div class="capacity-asset-list" id="hsPerPairSubBars"><!-- one sub-bar per open asset --></div>
-        <div class="capacity-footer">
-            <span class="capacity-used" id="hsPerPairBreakdown">No open positions</span>
-            <span class="capacity-remaining"><span id="hsPerPairRemaining">--</span> left</span>
-        </div>
-    </div>
-    <!-- Hidden until /limits provides max_asset_class_usd; rows only for classes with exposure -->
+    <!-- Hidden until /limits provides max_asset_class_usd; one sub-bar per class, zero-usage included -->
     <div class="capacity-row" id="hsClassRow" style="display: none;">
         <div class="capacity-row-header">
             <span class="capacity-row-label">Asset Class Limits</span>
         </div>
-        <div class="capacity-asset-list" id="hsClassSubBars"><!-- one sub-bar per asset class --></div>
+        <div class="capacity-asset-list" id="hsClassSubBars"></div>
     </div>
     <div class="capacity-row">
         <div class="capacity-row-header">
@@ -116,8 +106,11 @@ A single block showing the validator-enforced leverage limits on the funded HS a
 ### Rules
 
 - Bars use the DD severity scale (teal/amber/red) — same `capColor()` thresholds as the banner DD bars and the injected mirror preview, so proximity-to-cap reads consistently across surfaces. JS sets the fill `background` inline based on severity.
-- Three rows: "Per Pair Limit", "Asset Class Limits", and "Portfolio Limit". The class row stays hidden (`display: none`) until `/limits` returns `max_asset_class_usd`, and renders one sub-bar per class with open exposure (uppercase class name as the label, e.g. `COMMODITIES`).
-- Per-pair caps come from each pair's `subaccount_positional_leverage_by_tier[tier]` (via `/trade-pairs` + the `tier` field on `/limits`), so caps can differ between pairs in the same class; the class-level `max_position_per_pair_usd` is only a fallback for older backends. The "left" footer shows the tightest per-pair headroom among open positions.
+- Two rows: "Asset Class Limits" and "Portfolio Limit". The popup carries no per-pair row — per-pair caps differ pair to pair (`subaccount_positional_leverage_by_tier[tier]` via `/trade-pairs` + the `tier` field on `/limits`), so a single per-pair figure would misreport; the per-pair bar lives in the injected mirror preview where a concrete pair is in context. Per-pair caps still clamp the popup's per-class/portfolio projections internally.
+- The class row stays hidden (`display: none`) until `/limits` returns `max_asset_class_usd`, then renders one sub-bar for every capped class — zero-usage classes included — labeled with the uppercase class name (e.g. `COMMODITIES`), sorted by projected usage.
+- The injected mirror preview card shows three bars (pair / class / portfolio) with a uniform 8px gap between sections and no divider lines; its class bar is hidden when no class cap applies.
+- The class breakdown only lists classes with at least one tradeable pair (forex is omitted while no HL forex pairs exist).
+- Caps and filled exposure render whenever the live HS balance is known; only pending projections additionally require the HS÷HL scaling ratio (HL equity > 0). With a zero HL wallet the section still shows caps and filled values rather than "--".
 - The basis note shows the scaling ratio as a formula (`HS balance ÷ HL equity = ratio`) so the trader can verify the conversion against their own readings.
 - "HL trading is unrestricted" replaces the earlier "no HL-side cap" — same meaning, framed positively (what the trader can do, not what's missing).
 - Filled exposure comes from `hsPositionsByCoin` (validator's authoritative size × price). Pending overlay comes from HL resting-orders × mirror ratio (validator only records pending at fill time, so HL clearinghouse is the source).
